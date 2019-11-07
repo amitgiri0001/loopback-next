@@ -36,6 +36,11 @@ export class CoffeeShopApplication extends BootMixin(
         extensions: ['.controller.js'],
         nested: true,
       },
+      lb3app: {
+        // only REST routes are mounted
+        mode: 'restRouter',
+        restApiRoot: '/',
+      },
     };
   }
 }

@@ -6,13 +6,13 @@
 import {OpenApiSpec} from '@loopback/rest';
 import {Client, expect} from '@loopback/testlab';
 import * as _ from 'lodash';
-import {CoffeeShopApplication} from '../../application';
+import {ExpressServer} from '../../server';
 import {givenCoffeeShop, setupApplication} from './test-helper';
 
 const lb3App = require('../../../lb3app/server/server');
 
 describe('CoffeeShopApplication', () => {
-  let app: CoffeeShopApplication;
+  let app: ExpressServer;
   let client: Client;
 
   before('setupApplication', async () => {
