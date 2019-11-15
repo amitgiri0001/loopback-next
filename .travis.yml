@@ -24,8 +24,8 @@ matrix:
   include:
     - node_js: "12"
       os: osx
-      # using the default script to build & run the tests
 
+      # using the default script to build & run the tests
     - node_js: "8"
       os: linux
       env: TASK=code-lint
@@ -90,6 +90,16 @@ matrix:
         - npm run build -- --scope "@loopback/test-repository-cloudant" --include-dependencies
         - cd acceptance/repository-cloudant && npm run docker:setup
         - source cloudant-config.sh && npm run mocha
+    - node_js: "10"
+      os: linux
+      env:
+        - TASK=test-extension-logging-fluentd
+      services:
+        - docker
+      script:
+        - npm run postinstall -- --scope "@loopback/test-extension-logging-fluentd" --include-dependencies
+        - npm run build -- --scope "@loopback/test-extension-logging-fluentd" --include-dependencies
+        - cd acceptance/extension-logging-fluentd && npm run mocha
 
 branches:
   only:
