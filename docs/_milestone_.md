@@ -5,6 +5,7 @@
 - Complete the epics:
   - `Add Support for Partitioned Database`
   - `Inclusion of related models`
+  - `Production deployment`
 
 ## Goals
 
@@ -43,8 +44,9 @@
 - [ ] Migration guide between LB3 to LB4 [MVP]
       https://github.com/strongloop/loopback-next/issues/453
 
+  - [ ] [3]Spike: Migration guide from LB3 - Authentication & authorization
+        https://github.com/strongloop/loopback-next/issues/3719
   - [ ] [3]How to migrate user-defined model methods #3949
-  - [ ] [5]How to migrate remoting hooks #3950
 
 - [ ] Miscellaneous
   - [ ] [8]Spike: Discover and define models at runtime
@@ -61,8 +63,23 @@
         https://github.com/strongloop/loopback-next/issues/3737
   - [ ] [3]Example app showing CrudRestApiBuilder
         https://github.com/strongloop/loopback-next/issues/3738
+  - [ ] [3]CLI command to expose REST API of a Model with no custom classes
+        https://github.com/strongloop/loopback-next/issues/2739 (not likely to
+        get to it)
+  - [ ] [5]Docs for exposing REST API of a Model with no custom classes
+        https://github.com/strongloop/loopback-next/issues/2740 (not likely to
+        get to it)
 
 - [ ] Authentication & Authorization
       https://github.com/strongloop/loopback-next/issues/3902
+
   - [ ] [5]The First Scenario: Authenticated orders (a minimal authentication)
         https://github.com/strongloop/loopback-next/issues/1998
+
+- [ ] Migration guide between LB3 to LB4 [MVP]
+      https://github.com/strongloop/loopback-next/issues/453 _not likely to get
+      to all. Move out of scope for Q4?_
+  - [ ] [3]How to migrate boot scripts #3957
+  - [ ] [5]How to migrate remoting hooks #3950
+  - [ ] [3]How to migrate CRUD Operation Hooks #3952
+  - [ ] [3]How to migrate datasources from LB3 to LB4 #3946
