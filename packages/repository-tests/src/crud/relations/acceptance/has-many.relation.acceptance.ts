@@ -174,7 +174,7 @@ export function hasManyRelationAcceptance(
       );
     });
 
-    it('does not create an array of the related model', async () => {
+    it('throws when tries to create() an instance with navigational property', async () => {
       await expect(
         customerRepo.create({
           name: 'a customer',
@@ -184,7 +184,26 @@ export function hasManyRelationAcceptance(
             },
           ],
         }),
-      ).to.be.rejectedWith(/`orders` is not defined/);
+      ).to.be.rejectedWith(
+        'Navigational properties are not allowed in model data (model "Customer" property "orders")',
+      );
+    });
+
+    it('throws when tries to createAll() instancese with navigational properties', async () => {
+      await expect(
+        customerRepo.createAll([
+          {
+            name: 'a customer',
+            orders: [{description: 'order 1'}],
+          },
+          {
+            name: 'a customer',
+            address: {street: '1 Amedee Bonnet'},
+          },
+        ]),
+      ).to.be.rejectedWith(
+        'Navigational properties are not allowed in model data (model "Customer" property "orders")',
+      );
     });
 
     context('when targeting the source model', () => {

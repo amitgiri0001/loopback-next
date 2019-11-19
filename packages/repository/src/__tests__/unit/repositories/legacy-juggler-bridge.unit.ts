@@ -318,7 +318,7 @@ describe('DefaultCrudRepository', () => {
     });
   });
 
-  context('find* methods including relations', () => {
+  describe('DefaultCrudRepository with relations', () => {
     @model()
     class Author extends Entity {
       @property({id: true})
@@ -394,112 +394,194 @@ describe('DefaultCrudRepository', () => {
       await fileRepo.deleteAll();
       await authorRepo.deleteAll();
     });
+    context('find* methods with inclusion', () => {
+      it('implements Repository.find() with included models', async () => {
+        const createdFolders = await folderRepo.createAll([
+          {name: 'f1', id: 1},
+          {name: 'f2', id: 2},
+        ]);
+        const files = await fileRepo.createAll([
+          {id: 1, title: 'file1', folderId: 1},
+          {id: 2, title: 'file2', folderId: 3},
+        ]);
 
-    it('implements Repository.find() with included models', async () => {
-      const createdFolders = await folderRepo.createAll([
-        {name: 'f1', id: 1},
-        {name: 'f2', id: 2},
-      ]);
-      const files = await fileRepo.createAll([
-        {id: 1, title: 'file1', folderId: 1},
-        {id: 2, title: 'file2', folderId: 3},
-      ]);
+        folderRepo.registerInclusionResolver('files', hasManyResolver);
 
-      folderRepo.registerInclusionResolver('files', hasManyResolver);
+        const folders = await folderRepo.find({include: [{relation: 'files'}]});
 
-      const folders = await folderRepo.find({include: [{relation: 'files'}]});
+        expect(toJSON(folders)).to.deepEqual([
+          {...createdFolders[0].toJSON(), files: [toJSON(files[0])]},
+          {...createdFolders[1].toJSON(), files: []},
+        ]);
+      });
 
-      expect(toJSON(folders)).to.deepEqual([
-        {...createdFolders[0].toJSON(), files: [toJSON(files[0])]},
-        {...createdFolders[1].toJSON(), files: []},
-      ]);
+      it('implements Repository.findById() with included models', async () => {
+        const folders = await folderRepo.createAll([
+          {name: 'f1', id: 1},
+          {name: 'f2', id: 2},
+        ]);
+        const createdFile = await fileRepo.create({
+          id: 1,
+          title: 'file1',
+          folderId: 1,
+        });
+
+        fileRepo.registerInclusionResolver('folder', belongsToResolver);
+
+        const file = await fileRepo.findById(1, {
+          include: [{relation: 'folder'}],
+        });
+
+        expect(file.toJSON()).to.deepEqual({
+          ...createdFile.toJSON(),
+          folder: folders[0].toJSON(),
+        });
+      });
+
+      it('implements Repository.findOne() with included models', async () => {
+        const folders = await folderRepo.createAll([
+          {name: 'f1', id: 1},
+          {name: 'f2', id: 2},
+        ]);
+        const createdAuthor = await authorRepo.create({
+          id: 1,
+          name: 'a1',
+          folderId: 1,
+        });
+
+        folderRepo.registerInclusionResolver('author', hasOneResolver);
+
+        const folder = await folderRepo.findOne({
+          include: [{relation: 'author'}],
+        });
+
+        expect(folder!.toJSON()).to.deepEqual({
+          ...folders[0].toJSON(),
+          author: createdAuthor.toJSON(),
+        });
+      });
+
+      // stub resolvers
+      const hasManyResolver: InclusionResolver<
+        Folder,
+        File
+      > = async entities => {
+        const files = [];
+        for (const entity of entities) {
+          const file = await folderFiles(entity.id).find();
+          files.push(file);
+        }
+
+        return files;
+      };
+
+      const belongsToResolver: InclusionResolver<
+        File,
+        Folder
+      > = async entities => {
+        const folders = [];
+
+        for (const file of entities) {
+          const folder = await fileFolder(file.folderId);
+          folders.push(folder);
+        }
+
+        return folders;
+      };
+
+      const hasOneResolver: InclusionResolver<
+        Folder,
+        Author
+      > = async entities => {
+        const authors = [];
+
+        for (const folder of entities) {
+          const author = await folderAuthor(folder.id).get();
+          authors.push(author);
+        }
+
+        return authors;
+      };
     });
+    context(
+      'checks navigational properties for create and update operations (ensurePersistable)',
+      () => {
+        it('throws if create() tries to create an entity with DataObject with nav properties', async () => {
+          await expect(
+            folderRepo.create({
+              name: 'f1',
+              files: [{title: 'nav property'}],
+            }),
+          ).to.be.rejectedWith(
+            'Navigational properties are not allowed in model data (model "Folder" property "files")',
+          );
+        });
 
-    it('implements Repository.findById() with included models', async () => {
-      const folders = await folderRepo.createAll([
-        {name: 'f1', id: 1},
-        {name: 'f2', id: 2},
-      ]);
-      const createdFile = await fileRepo.create({
-        id: 1,
-        title: 'file1',
-        folderId: 1,
-      });
+        it('throws if createAll() tries to create all entities that some if them have navigational properties', async () => {
+          await expect(
+            folderRepo.createAll([
+              {name: 'f1'},
+              {name: 'f2', files: [{title: 'nav property'}]},
+            ]),
+          ).to.be.rejectedWith(
+            'Navigational properties are not allowed in model data (model "Folder" property "files")',
+          );
+        });
+        it('throws if updateAll() tries to update entities with DataObject with nav properties', async () => {
+          await folderRepo.create({name: 'f1', id: 1});
+          await folderRepo.create({name: 'f2', id: 2});
+          await expect(
+            folderRepo.updateAll({
+              name: 'unified name',
+              files: [{title: 'nav property'}],
+            }),
+          ).to.be.rejectedWith(
+            'Navigational properties are not allowed in model data (model "Folder" property "files")',
+          );
+        });
 
-      fileRepo.registerInclusionResolver('folder', belongsToResolver);
+        it('throws if updateById() tries to update entities with an entity with nav properties', async () => {
+          folderRepo.registerInclusionResolver('files', hasManyResolver);
+          await folderRepo.create({name: 'folder', id: 1});
 
-      const file = await fileRepo.findById(1, {
-        include: [{relation: 'folder'}],
-      });
+          await expect(
+            folderRepo.updateById(1, {
+              name: 'update',
+              files: [{title: 't', id: 1, folderId: 1}],
+            }),
+          ).to.be.rejectedWith(
+            'Navigational properties are not allowed in model data (model "Folder" property "files")',
+          );
+        });
 
-      expect(file.toJSON()).to.deepEqual({
-        ...createdFile.toJSON(),
-        folder: folders[0].toJSON(),
-      });
-    });
+        it('throws if update() tries to update entities with Entity.toJSON() with nav properties', async () => {
+          folderRepo.registerInclusionResolver('files', hasManyResolver);
+          await folderRepo.create({name: 'folder', id: 1});
+          await fileRepo.create({title: 'file title', id: 1, folderId: 1});
+          const folder = await folderRepo.findById(1, {
+            include: [{relation: 'files'}],
+          });
+          folder.name = 'new name';
 
-    it('implements Repository.findOne() with included models', async () => {
-      const folders = await folderRepo.createAll([
-        {name: 'f1', id: 1},
-        {name: 'f2', id: 2},
-      ]);
-      const createdAuthor = await authorRepo.create({
-        id: 1,
-        name: 'a1',
-        folderId: 1,
-      });
+          await expect(folderRepo.update(folder)).to.be.rejectedWith(
+            'Navigational properties are not allowed in model data (model "Folder" property "files")',
+          );
+        });
 
-      folderRepo.registerInclusionResolver('author', hasOneResolver);
+        const hasManyResolver: InclusionResolver<
+          Folder,
+          File
+        > = async entities => {
+          const files = [];
+          for (const entity of entities) {
+            const file = await folderFiles(entity.id).find();
+            files.push(file);
+          }
 
-      const folder = await folderRepo.findOne({
-        include: [{relation: 'author'}],
-      });
-
-      expect(folder!.toJSON()).to.deepEqual({
-        ...folders[0].toJSON(),
-        author: createdAuthor.toJSON(),
-      });
-    });
-
-    // stub resolvers
-
-    const hasManyResolver: InclusionResolver<Folder, File> = async entities => {
-      const files = [];
-      for (const entity of entities) {
-        const file = await folderFiles(entity.id).find();
-        files.push(file);
-      }
-
-      return files;
-    };
-
-    const belongsToResolver: InclusionResolver<
-      File,
-      Folder
-    > = async entities => {
-      const folders = [];
-
-      for (const file of entities) {
-        const folder = await fileFolder(file.folderId);
-        folders.push(folder);
-      }
-
-      return folders;
-    };
-
-    const hasOneResolver: InclusionResolver<
-      Folder,
-      Author
-    > = async entities => {
-      const authors = [];
-
-      for (const folder of entities) {
-        const author = await folderAuthor(folder.id).get();
-        authors.push(author);
-      }
-
-      return authors;
-    };
+          return files;
+        };
+      },
+    );
   });
 
   it('implements Repository.delete()', async () => {

@@ -187,7 +187,7 @@ export function hasManyInclusionResolverAcceptance(
       expect(toJSON(result)).to.deepEqual(toJSON(expected));
     });
 
-    it('throws when navigational properties are present when updating model instance', async () => {
+    it('throws when the instance contains navigational property when operates update()', async () => {
       const created = await customerRepo.create({name: 'customer'});
       const customerId = created.id;
 
@@ -202,10 +202,34 @@ export function hasManyInclusionResolverAcceptance(
       expect(found.orders).to.have.lengthOf(1);
 
       found.name = 'updated name';
-      await expect(customerRepo.save(found)).to.be.rejectedWith(
-        'The `Customer` instance is not valid. Details: `orders` is not defined in the model (value: undefined).',
+      await expect(customerRepo.update(found)).to.be.rejectedWith(
+        /Navigational properties are not allowed.*"orders"/,
       );
     });
+
+    it('throws when the instancees contain navigational property when operates updateAll()', async () => {
+      await customerRepo.create({name: 'Mario'});
+      await customerRepo.create({name: 'Luigi'});
+
+      await expect(
+        customerRepo.updateAll({
+          name: 'Nintendo',
+          orders: [{description: 'Switch'}],
+        }),
+      ).to.be.rejectedWith(/Navigational properties are not allowed.*"orders"/);
+    });
+
+    it('throws when the instance contains navigational property when operates updateById()', async () => {
+      const customer = await customerRepo.create({name: 'Mario'});
+
+      await expect(
+        customerRepo.updateById(customer.id, {
+          name: 'Luigi',
+          orders: [{description: 'Nintendo'}],
+        }),
+      ).to.be.rejectedWith(/Navigational properties are not allowed.*"orders"/);
+    });
+
     // scope for inclusion is not supported yet
     it('throws error if the inclusion query contains a non-empty scope', async () => {
       const customer = await customerRepo.create({name: 'customer'});
