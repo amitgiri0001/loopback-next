@@ -13,7 +13,7 @@
       https://github.com/strongloop/loopback-next/issues/1352
 
   - [ ] [5]Reject create/update requests when data contains navigational
-        properties https://github.com/strongloop/loopback-next/issues/3439
+        properties (WIP) https://github.com/strongloop/loopback-next/issues/3439
 
 - [ ] Authentication & Authorization
       https://github.com/strongloop/loopback-next/issues/3902
@@ -29,16 +29,10 @@
   - [ ] [3]Optimize query by reading partition key from payload
         https://github.com/strongloop/loopback-connector-cloudant/issues/217
 
-- [ ] Production deployment/logging/monitoring
-      https://github.com/strongloop/loopback-next/issues/1054
-
-  - [ ] [5][blog post] Show how to deploy a LB application in a cloud native
-        environment https://github.com/strongloop/loopback-next/issues/3715
-
 - [ ] From model definition to REST API with no custom repository/controller
       classes https://github.com/strongloop/loopback-next/issues/2036
 
-  - [ ] [5]Model API booter & builder
+  - [ ] [5]Model API booter & builder(WIP)
         https://github.com/strongloop/loopback-next/issues/3736
 
 - [ ] Migration guide between LB3 to LB4 [MVP]
@@ -46,15 +40,23 @@
 
   - [ ] [3]Spike: Migration guide from LB3 - Authentication & authorization
         https://github.com/strongloop/loopback-next/issues/3719
-  - [ ] [3]How to migrate user-defined model methods #3949
 
 - [ ] Miscellaneous
   - [ ] [8]Spike: Discover and define models at runtime
         https://github.com/strongloop/loopback-next/issues/2484
-  - [ ] [5]Column is always integer when running `npm run migrate`
-        https://github.com/strongloop/loopback-next/issues/2398
+  - [ ] [5] API Explorer ignores filter options where, fields, and order #2208
 
 ## Stretch Goals
+
+- [ ] Bug fixes
+
+  - [ ] Id deleted on update on MongoDB #3267
+  - [ ] TodoList tutorial - GET ​/todos​/{id}​/todo-list gives unexpected
+        response #4147
+
+- [ ] Inclusion of Related Models (Post MVP)
+
+  - [ ] Include related models with a custom scope #3453
 
 - [ ] From model definition to REST API with no custom repository/controller
       classes https://github.com/strongloop/loopback-next/issues/2036
@@ -63,23 +65,14 @@
         https://github.com/strongloop/loopback-next/issues/3737
   - [ ] [3]Example app showing CrudRestApiBuilder
         https://github.com/strongloop/loopback-next/issues/3738
-  - [ ] [3]CLI command to expose REST API of a Model with no custom classes
-        https://github.com/strongloop/loopback-next/issues/2739 (not likely to
-        get to it)
-  - [ ] [5]Docs for exposing REST API of a Model with no custom classes
-        https://github.com/strongloop/loopback-next/issues/2740 (not likely to
-        get to it)
-
-- [ ] Authentication & Authorization
-      https://github.com/strongloop/loopback-next/issues/3902
-
-  - [ ] [5]The First Scenario: Authenticated orders (a minimal authentication)
-        https://github.com/strongloop/loopback-next/issues/1998
 
 - [ ] Migration guide between LB3 to LB4 [MVP]
-      https://github.com/strongloop/loopback-next/issues/453 _not likely to get
-      to all. Move out of scope for Q4?_
-  - [ ] [3]How to migrate boot scripts #3957
-  - [ ] [5]How to migrate remoting hooks #3950
-  - [ ] [3]How to migrate CRUD Operation Hooks #3952
+      https://github.com/strongloop/loopback-next/issues/453
+
   - [ ] [3]How to migrate datasources from LB3 to LB4 #3946
+  - [ ] [3]How to migrate boot scripts #3957
+  - [ ] [3]How to migrate user-defined model methods #3949
+
+- Micellaneous
+  - [ ] [5]Column is always integer when running `npm run migrate`
+        https://github.com/strongloop/loopback-next/issues/2398
