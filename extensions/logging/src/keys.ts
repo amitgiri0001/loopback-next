@@ -3,7 +3,7 @@
 // This file is licensed under the MIT License.
 // License text available at https://opensource.org/licenses/MIT
 
-import {BindingKey} from '@loopback/core';
+import {BindingKey, GenericInterceptor} from '@loopback/core';
 import {FluentSender} from 'fluent-logger';
 import {Logger} from 'winston';
 import * as Transport from 'winston-transport';
@@ -28,5 +28,13 @@ export namespace LoggingBindings {
 
   export const WINSTON_TRANSPORT_FLUENT = BindingKey.create<Transport>(
     'logging.winston.transports.fluent',
+  );
+
+  export const WINSTON_INTERCEPTOR = BindingKey.create<GenericInterceptor>(
+    'logging.winston.interceptor',
+  );
+
+  export const WINSTON_ACCESS_LOGGER = BindingKey.create<GenericInterceptor>(
+    'logging.winston.accessLogger',
   );
 }
