@@ -13,7 +13,7 @@ import {parse} from 'path-to-regexp';
  * allows `[A-Za-z0-9_]`
  */
 const POSSIBLE_VARNAME_PATTERN = /\{([^\}]+)\}/g;
-const INVALID_VARNAME_PATTERN = /\{([^\}]*[^\w\}][^\}]*)\}/;
+const VALID_VARNAME_PATTERN = /^[A-Za-z0-9_]+$/;
 
 /**
  * Validate the path to be compatible with OpenAPI path template. No parameter
@@ -21,17 +21,30 @@ const INVALID_VARNAME_PATTERN = /\{([^\}]*[^\w\}][^\}]*)\}/;
  */
 export function validateApiPath(path = '/') {
   let tokens = parse(path);
-  if (tokens.some(t => typeof t === 'object')) {
-    throw new Error(
-      `Invalid path template: '${path}'. Please use {param} instead of ':param'`,
-    );
-  }
-
-  const invalid = path.match(INVALID_VARNAME_PATTERN);
-  if (invalid) {
-    throw new Error(
-      `Invalid parameter name '${invalid[1]}' found in path '${path}'`,
-    );
+  for (const token of tokens) {
+    if (typeof token === 'string') continue;
+    if (typeof token === 'object') {
+      const name = token.name;
+      if (typeof name === 'string' && name !== '') {
+        throw new Error(
+          `Invalid path template: '${path}'. Please use {${name}} instead of ':${name}'`,
+        );
+      }
+      if (typeof name === 'number') {
+        throw new Error(`Unnamed parameter is not allowed in path '${path}'`);
+      }
+      const valid = token.prefix.match(VALID_VARNAME_PATTERN);
+      if (!valid) {
+        throw new Error(
+          `Invalid parameter name '${token.prefix}' found in path '${path}'`,
+        );
+      }
+      if (['?', '+', '*'].includes(token.modifier)) {
+        throw new Error(
+          `Parameter modifier '{${token.prefix}}${token.modifier}' is not allowed in path '${path}`,
+        );
+      }
+    }
   }
 
   const regexpPath = toExpressPath(path);
@@ -42,9 +55,12 @@ export function validateApiPath(path = '/') {
       // Such as /(.*)
       throw new Error(`Unnamed parameter is not allowed in path '${path}'`);
     }
+
+    const optional = token.modifier === '?' || token.modifier === '*';
+    const repeat = token.modifier === '*' || token.modifier === '+';
     if (
-      (token.optional || token.repeat || token.pattern !== '[^\\/]+?') &&
-      // Required by path-to-regexp@3.x
+      (optional || repeat || token.pattern !== '[^\\/]+?') &&
+      // Required by path-to-regexp@6.x
       token.prefix === '/'
     ) {
       // Such as /:foo*, /:foo+, /:foo?, or /:foo(\\d+)
@@ -68,5 +84,5 @@ export function getPathVariables(path: string) {
 export function toExpressPath(path: string) {
   // Convert `.` to `\\.` so that path-to-regexp will treat it as the plain
   // `.` character
-  return path.replace(POSSIBLE_VARNAME_PATTERN, ':$1').replace('.', '\\.');
+  return path.replace(POSSIBLE_VARNAME_PATTERN, '{:$1}').replace('.', '\\.');
 }
