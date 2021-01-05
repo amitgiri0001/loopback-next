@@ -3,8 +3,8 @@
 // This file is licensed under the MIT License.
 // License text available at https://opensource.org/licenses/MIT
 
-import {bind, BindingScope, config, ContextView} from '@loopback/core';
-import * as debugFactory from 'debug';
+import {BindingScope, config, ContextView, injectable} from '@loopback/core';
+import debugFactory from 'debug';
 import {Message} from './types';
 const debug = debugFactory('greeter-extension');
 
@@ -19,7 +19,7 @@ export interface CachingServiceOptions {
 /**
  * Message caching service
  */
-@bind({scope: BindingScope.SINGLETON})
+@injectable({scope: BindingScope.SINGLETON})
 export class CachingService {
   private timer: NodeJS.Timer;
   private store: Map<string, Message> = new Map();
@@ -94,7 +94,7 @@ export class CachingService {
   async getTTL() {
     const options = await this.optionsView.singleValue();
     debug('Caching options: %j', options);
-    return (options && options.ttl) || 5000;
+    return options?.ttl ?? 5000;
   }
 
   /**

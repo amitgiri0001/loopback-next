@@ -1,4 +1,4 @@
-// Copyright IBM Corp. 2019. All Rights Reserved.
+// Copyright IBM Corp. 2019,2020. All Rights Reserved.
 // Node module: @loopback/example-context
 // This file is licensed under the MIT License.
 // License text available at https://opensource.org/licenses/MIT
@@ -60,16 +60,10 @@ export async function main() {
   const ctx = new Context('app');
 
   // Add EnglishGreeter for now
-  ctx
-    .bind('greeters.EnglishGreeter')
-    .toClass(EnglishGreeter)
-    .tag('greeter');
+  ctx.bind('greeters.EnglishGreeter').toClass(EnglishGreeter).tag('greeter');
 
   // Add ChineseGreeter
-  ctx
-    .bind('greeters.ChineseGreeter')
-    .toClass(ChineseGreeter)
-    .tag('greeter');
+  ctx.bind('greeters.ChineseGreeter').toClass(ChineseGreeter).tag('greeter');
 
   // Find all greeters
   const greetersView = ctx.createView<Greeter>(filterByTag('greeter'));

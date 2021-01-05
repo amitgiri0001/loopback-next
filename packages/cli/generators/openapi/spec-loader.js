@@ -1,4 +1,4 @@
-// Copyright IBM Corp. 2018. All Rights Reserved.
+// Copyright IBM Corp. 2018,2020. All Rights Reserved.
 // Node module: @loopback/cli
 // This file is licensed under the MIT License.
 // License text available at https://opensource.org/licenses/MIT
@@ -7,8 +7,7 @@
 const chalk = require('chalk');
 const SwaggerParser = require('swagger-parser');
 const swagger2openapi = require('swagger2openapi');
-const {debugJson} = require('./utils');
-const _ = require('lodash');
+const {debugJson, cloneSpecObject} = require('./utils');
 const {generateControllerSpecs} = require('./spec-helper');
 const {generateModelSpecs, registerNamedSchemas} = require('./schema-helper');
 
@@ -30,11 +29,7 @@ async function loadSpec(specUrlStr, {log, validate} = {}) {
     debugJson('OpenAPI spec loaded: ', spec);
   }
 
-  spec = _.cloneDeepWith(spec, o => {
-    if (o.$ref) {
-      o['x-$ref'] = o.$ref;
-    }
-  });
+  spec = cloneSpecObject(spec);
 
   // Validate and deference the spec
   if (validate) {

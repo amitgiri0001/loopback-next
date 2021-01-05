@@ -1,4 +1,4 @@
-// Copyright IBM Corp. 2019. All Rights Reserved.
+// Copyright IBM Corp. 2019,2020. All Rights Reserved.
 // Node module: @loopback/example-soap-calculator
 // This file is licensed under the MIT License.
 // License text available at https://opensource.org/licenses/MIT
@@ -6,11 +6,10 @@
 import {Client, createRestAppClient, expect} from '@loopback/testlab';
 import {SoapCalculatorApplication} from '../../application';
 
-describe('Application', function() {
+describe('Application', function (this: Mocha.Suite) {
   let app: SoapCalculatorApplication;
   let client: Client;
 
-  // eslint-disable-next-line no-invalid-this
   this.timeout(30000);
 
   before(givenAnApplication);

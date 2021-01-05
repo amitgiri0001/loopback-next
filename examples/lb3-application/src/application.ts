@@ -9,7 +9,7 @@ import {ApplicationConfig} from '@loopback/core';
 import {RepositoryMixin} from '@loopback/repository';
 import {RestApplication} from '@loopback/rest';
 import {RestExplorerComponent} from '@loopback/rest-explorer';
-import * as path from 'path';
+import path from 'path';
 import {MySequence} from './sequence';
 
 export class CoffeeShopApplication extends BootMixin(
@@ -35,6 +35,9 @@ export class CoffeeShopApplication extends BootMixin(
         dirs: ['controllers'],
         extensions: ['.controller.js'],
         nested: true,
+      },
+      lb3app: {
+        mode: 'fullApp',
       },
     };
   }

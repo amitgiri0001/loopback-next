@@ -1,10 +1,10 @@
-// Copyright IBM Corp. 2018. All Rights Reserved.
+// Copyright IBM Corp. 2018,2020. All Rights Reserved.
 // Node module: @loopback/openapi-v3
 // This file is licensed under the MIT License.
 // License text available at https://opensource.org/licenses/MIT
 
 import {JsonSchema} from '@loopback/repository-json-schema';
-import * as _ from 'lodash';
+import _ from 'lodash';
 import {
   isSchemaObject,
   ReferenceObject,
@@ -56,13 +56,7 @@ export function jsonToSchemaObject(
     [converted]: false,
   };
   visited.set(json, result);
-  const propsToIgnore = [
-    'anyOf',
-    'oneOf',
-    'additionalItems',
-    'defaultProperties',
-    'typeof',
-  ];
+  const propsToIgnore = ['additionalItems', 'defaultProperties', 'typeof'];
   for (const property in json) {
     if (propsToIgnore.includes(property)) {
       continue;
@@ -79,6 +73,18 @@ export function jsonToSchemaObject(
       }
       case 'allOf': {
         result.allOf = _.map(json.allOf, item =>
+          jsonToSchemaObject(item as JsonSchema, visited),
+        );
+        break;
+      }
+      case 'anyOf': {
+        result.anyOf = _.map(json.anyOf, item =>
+          jsonToSchemaObject(item as JsonSchema, visited),
+        );
+        break;
+      }
+      case 'oneOf': {
+        result.oneOf = _.map(json.oneOf, item =>
           jsonToSchemaObject(item as JsonSchema, visited),
         );
         break;
@@ -132,6 +138,11 @@ export function jsonToSchemaObject(
   }
 
   delete result[converted];
+  // Check if the description contains information about TypeScript type
+  const matched = result.description?.match(/^\(tsType: (.+), schemaOptions:/);
+  if (matched) {
+    result['x-typescript-type'] = matched[1];
+  }
   return result;
 }
 

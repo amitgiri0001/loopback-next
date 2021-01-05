@@ -1,4 +1,4 @@
-// Copyright IBM Corp. 2019. All Rights Reserved.
+// Copyright IBM Corp. 2019,2020. All Rights Reserved.
 // Node module: @loopback/context
 // This file is licensed under the MIT License.
 // License text available at https://opensource.org/licenses/MIT
@@ -59,14 +59,8 @@ describe('Context bindings - Finding bindings', () => {
 
     function createTaggedBindings() {
       class Dog {}
-      ctx
-        .bind('spot')
-        .to(new Dog())
-        .tag('dog');
-      ctx
-        .bind('fido')
-        .to(new Dog())
-        .tag('dog');
+      ctx.bind('spot').to(new Dog()).tag('dog');
+      ctx.bind('fido').to(new Dog()).tag('dog');
     }
   });
 

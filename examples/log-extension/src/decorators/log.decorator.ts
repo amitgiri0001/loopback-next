@@ -1,4 +1,4 @@
-// Copyright IBM Corp. 2018. All Rights Reserved.
+// Copyright IBM Corp. 2018,2020. All Rights Reserved.
 // Node module: @loopback/example-log-extension
 // This file is licensed under the MIT License.
 // License text available at https://opensource.org/licenses/MIT
@@ -8,7 +8,7 @@ import {
   Constructor,
   MethodDecoratorFactory,
   MetadataInspector,
-} from '@loopback/context';
+} from '@loopback/core';
 import {LevelMetadata} from '../types';
 
 /**
@@ -43,6 +43,6 @@ export function getLogMetadata(
       EXAMPLE_LOG_METADATA_KEY,
       controllerClass.prototype,
       methodName,
-    ) || {level: LOG_LEVEL.OFF}
+    ) ?? {level: LOG_LEVEL.OFF}
   );
 }

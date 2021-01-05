@@ -1,10 +1,16 @@
-// Copyright IBM Corp. 2018,2019. All Rights Reserved.
+// Copyright IBM Corp. 2019,2020. All Rights Reserved.
 // Node module: @loopback/boot
 // This file is licensed under the MIT License.
 // License text available at https://opensource.org/licenses/MIT
 
-import {bind, Binding, BindingSpec, Constructor} from '@loopback/context';
-import {BootTags} from './keys';
+import {
+  Binding,
+  BindingSpec,
+  Constructor,
+  ContextTags,
+  injectable,
+} from '@loopback/core';
+import {BootBindings, BootTags} from './keys';
 
 /**
  * Type definition for ArtifactOptions. These are the options supported by
@@ -154,8 +160,21 @@ export interface Bootable {
  * @param specs - Extra specs for the binding
  */
 export function booter(artifactNamespace: string, ...specs: BindingSpec[]) {
-  return bind(
-    {tags: {artifactNamespace, [BootTags.BOOTER]: BootTags.BOOTER}},
+  return injectable(
+    {
+      tags: {
+        artifactNamespace,
+        [BootTags.BOOTER]: BootTags.BOOTER,
+        [ContextTags.NAMESPACE]: BootBindings.BOOTERS,
+      },
+    },
     ...specs,
   );
+}
+
+/**
+ * Interface to describe an object that may have an array of `booters`.
+ */
+export interface InstanceWithBooters {
+  booters?: Constructor<Booter>[];
 }

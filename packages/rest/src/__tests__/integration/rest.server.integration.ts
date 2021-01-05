@@ -1,9 +1,16 @@
-// Copyright IBM Corp. 2019. All Rights Reserved.
+// Copyright IBM Corp. 2019,2020. All Rights Reserved.
 // Node module: @loopback/rest
 // This file is licensed under the MIT License.
 // License text available at https://opensource.org/licenses/MIT
 
 import {Application} from '@loopback/core';
+import {invokeMiddleware} from '@loopback/express';
+import {
+  aComponentsSpec,
+  anOpenApiSpec,
+  anOperationSpec,
+} from '@loopback/openapi-spec-builder';
+import {OpenAPIObject} from '@loopback/openapi-v3';
 import {
   createClientForHandler,
   createRestAppClient,
@@ -13,15 +20,16 @@ import {
   skipOnTravis,
   supertest,
 } from '@loopback/testlab';
-import * as fs from 'fs';
-import {IncomingMessage, ServerResponse} from 'http';
-import * as yaml from 'js-yaml';
-import * as path from 'path';
+import fs from 'fs';
+import yaml from 'js-yaml';
+import path from 'path';
 import {is} from 'type-is';
-import * as util from 'util';
+import util from 'util';
 import {
   BodyParser,
+  ControllerRoute,
   get,
+  HttpErrors,
   post,
   Request,
   requestBody,
@@ -32,6 +40,7 @@ import {
   RestServer,
   RestServerConfig,
 } from '../..';
+import {RestTags} from '../../keys';
 const readFileAsync = util.promisify(fs.readFile);
 
 const FIXTURES = path.resolve(__dirname, '../../../fixtures');
@@ -58,9 +67,7 @@ describe('RestServer (integration)', () => {
           .to.have.property('url')
           .which.is.a.String()
           .match(/http|https\:\/\//);
-        await supertest(server.url)
-          .get('/')
-          .expect(200, 'Hello');
+        await supertest(server.url).get('/').expect(200, 'Hello');
       });
 
       it('includes basePath in the url property', async () => {
@@ -73,9 +80,7 @@ describe('RestServer (integration)', () => {
           .which.is.a.String()
           .match(/http|https\:\/\//);
         expect(server.url).to.match(/api$/);
-        await supertest(server.url)
-          .get('/')
-          .expect(200, 'Hello');
+        await supertest(server.url).get('/').expect(200, 'Hello');
       });
     });
 
@@ -89,9 +94,7 @@ describe('RestServer (integration)', () => {
           .to.have.property('rootUrl')
           .which.is.a.String()
           .match(/http|https\:\/\//);
-        await supertest(server.rootUrl)
-          .get('/api')
-          .expect(200, 'Hello');
+        await supertest(server.rootUrl).get('/api').expect(200, 'Hello');
       });
 
       it('does not include basePath in rootUrl', async () => {
@@ -103,9 +106,7 @@ describe('RestServer (integration)', () => {
           .to.have.property('rootUrl')
           .which.is.a.String()
           .match(/http|https\:\/\//);
-        await supertest(server.rootUrl)
-          .get('/api')
-          .expect(200, 'Hello');
+        await supertest(server.rootUrl).get('/api').expect(200, 'Hello');
       });
     });
   });
@@ -159,25 +160,47 @@ describe('RestServer (integration)', () => {
     await expect(server.stop()).to.fulfilled();
   });
 
-  it('responds with 500 when Sequence fails with unhandled error', async () => {
-    const server = await givenAServer();
-    server.handler((context, sequence) => {
-      return Promise.reject(new Error('unhandled test error'));
+  describe('unhandled error', () => {
+    let server: RestServer;
+    const consoleError = console.error;
+    let errorMsg = '';
+
+    // Patch `console.error`
+    before(async () => {
+      console.error = (format: unknown, ...args: unknown[]) => {
+        errorMsg = util.format(format, ...args);
+      };
+      server = await givenAServer();
     });
 
-    // Temporarily disable Mocha's handling of uncaught exceptions
-    const mochaListeners = process.listeners('uncaughtException');
-    process.removeAllListeners('uncaughtException');
-    process.once('uncaughtException', err => {
-      expect(err).to.have.property('message', 'unhandled test error');
-      for (const l of mochaListeners) {
-        process.on('uncaughtException', l);
-      }
+    // Restore `console.error`
+    after(() => {
+      console.error = consoleError;
     });
 
-    return createClientForHandler(server.requestHandler)
-      .get('/')
-      .expect(500);
+    it('responds with 500 when Sequence returns a rejected promise', async () => {
+      server.handler((context, sequence) => {
+        return Promise.reject(new Error('unhandled test error'));
+      });
+      await createClientForHandler(server.requestHandler).get('/').expect(500);
+      expect(errorMsg).to.match(
+        /Request GET \/\ failed with status code 500. Error\: unhandled test error/,
+      );
+    });
+
+    it('hangs up socket when Sequence returns a rejected promise but headers were already sent', async () => {
+      server.handler((context, sequence) => {
+        context.response.writeHead(200);
+        return Promise.reject(new Error('unhandled test error after sent'));
+      });
+
+      await expect(
+        createClientForHandler(server.requestHandler).get('/'),
+      ).to.be.rejectedWith(/socket hang up/);
+      expect(errorMsg).to.match(
+        /Request GET \/\ failed with status code 500. Error\: unhandled test error/,
+      );
+    });
   });
 
   it('allows static assets to be mounted at /', async () => {
@@ -369,6 +392,33 @@ describe('RestServer (integration)', () => {
       .expect('Access-Control-Max-Age', '1');
   });
 
+  it('allows CORS configuration with origin function to reject', async () => {
+    const server = await givenAServer({
+      rest: {
+        port: 0,
+        cors: {
+          origin: (origin, callback) => {
+            process.nextTick(() => {
+              callback(new HttpErrors.Forbidden('Not allowed by CORS'));
+            });
+          },
+        },
+      },
+    });
+
+    server.handler(dummyRequestHandler);
+
+    await createClientForHandler(server.requestHandler)
+      .options('/')
+      .expect(403, {
+        error: {
+          statusCode: 403,
+          name: 'ForbiddenError',
+          message: 'Not allowed by CORS',
+        },
+      });
+  });
+
   it('exposes "GET /openapi.json" endpoint', async () => {
     const server = await givenAServer();
     const greetSpec = {
@@ -493,9 +543,9 @@ paths:
                 type: string
     `);
     // Use json for comparison to tolerate textual diffs
-    const json = yaml.safeLoad(response.text);
+    const json = yaml.safeLoad(response.text) as OpenAPIObject;
     expect(json).to.containDeep(expected);
-    expect(json.servers[0].url).to.match('/');
+    expect(json.servers?.[0].url).to.match('/');
 
     expect(response.get('Access-Control-Allow-Origin')).to.equal('*');
     expect(response.get('Access-Control-Allow-Credentials')).to.equal('true');
@@ -578,7 +628,7 @@ paths:
     await server.get(RestBindings.PORT);
     const expectedUrl = new RegExp(
       [
-        'http://explorer.loopback.io',
+        'http://explorer\\.loopback\\.io',
         '\\?url=http://\\d+.\\d+.\\d+.\\d+:\\d+/openapi.json',
       ].join(''),
     );
@@ -613,8 +663,8 @@ paths:
     await server.get(RestBindings.PORT);
     const expectedUrl = new RegExp(
       [
-        'https://explorer.loopback.io',
-        '\\?url=https://example.com:8080/openapi.json',
+        'https://explorer\\.loopback\\.io',
+        '\\?url=https://example\\.com:8080/openapi\\.json',
       ].join(''),
     );
     expect(response.get('Location')).match(expectedUrl);
@@ -652,8 +702,8 @@ paths:
     await server.get(RestBindings.PORT);
     const expectedUrl = new RegExp(
       [
-        'https://explorer.loopback.io',
-        '\\?url=https://example.com/openapi.json',
+        'https://explorer\\.loopback\\.io',
+        '\\?url=https://example\\.com/openapi\\.json',
       ].join(''),
     );
     expect(response.get('Location')).match(expectedUrl);
@@ -670,7 +720,7 @@ paths:
       .get('/explorer')
       .set('host', '');
     await app.stop();
-    const expectedUrl = new RegExp(`\\?url=http://127.0.0.1:${port}`);
+    const expectedUrl = new RegExp(`\\?url=http://127\\.0\\.0\\.1:${port}`);
     expect(response.get('Location')).match(expectedUrl);
   });
 
@@ -689,7 +739,7 @@ paths:
     await server.get(RestBindings.PORT);
     const expectedUrl = new RegExp(
       [
-        'https://petstore.swagger.io',
+        'https://petstore\\.swagger\\.io',
         '\\?url=http://\\d+.\\d+.\\d+.\\d+:\\d+/openapi.json',
       ].join(''),
     );
@@ -713,7 +763,7 @@ paths:
     await server.get(RestBindings.PORT);
     const expectedUrl = new RegExp(
       [
-        'http://petstore.swagger.io',
+        'http://petstore\\.swagger\\.io',
         '\\?url=http://\\d+.\\d+.\\d+.\\d+:\\d+/openapi.json',
       ].join(''),
     );
@@ -742,7 +792,7 @@ paths:
     const pfxPath = path.join(FIXTURES, 'pfx.pfx');
     const serverOptions = givenHttpServerConfig({
       port: 0,
-      protocol: 'https' as 'https',
+      protocol: 'https' as const,
       pfx: fs.readFileSync(pfxPath),
       passphrase: 'loopback4',
     });
@@ -830,28 +880,478 @@ paths:
     await server.stop();
   });
 
+  it('disables consolidator if openApiSpec.consolidate option is set to false', async () => {
+    const options = {openApiSpec: {consolidate: false}};
+    const server = await givenAServer({rest: options});
+
+    const EXPECTED_SPEC = anOpenApiSpec()
+      .withOperation(
+        'get',
+        '/',
+        anOperationSpec().withResponse(200, {
+          description: 'Example',
+          content: {
+            'application/json': {
+              schema: {
+                title: 'loopback.example',
+                properties: {
+                  test: {
+                    type: 'string',
+                  },
+                },
+              },
+            },
+          },
+        }),
+      )
+      .build();
+
+    server.route('get', '/', EXPECTED_SPEC.paths['/'].get, () => {});
+
+    await server.start();
+    const spec = await server.getApiSpec();
+    expect(spec).to.eql(EXPECTED_SPEC);
+    await server.stop();
+  });
+
+  it('runs consolidator if openApiSpec.consolidate option is set to true', async () => {
+    const options = {openApiSpec: {consolidate: true}};
+    const server = await givenAServer({rest: options});
+
+    const EXPECTED_SPEC = anOpenApiSpec()
+      .withOperation(
+        'get',
+        '/',
+        anOperationSpec().withResponse(200, {
+          description: 'Example',
+          content: {
+            'application/json': {
+              schema: {
+                $ref: '#/components/schemas/loopback.example',
+              },
+            },
+          },
+        }),
+      )
+      .withComponents(
+        aComponentsSpec().withSchema('loopback.example', {
+          title: 'loopback.example',
+          properties: {
+            test: {
+              type: 'string',
+            },
+          },
+        }),
+      )
+      .build();
+
+    server.route(
+      'get',
+      '/',
+      anOperationSpec()
+        .withResponse(200, {
+          description: 'Example',
+          content: {
+            'application/json': {
+              schema: {
+                title: 'loopback.example',
+                properties: {
+                  test: {
+                    type: 'string',
+                  },
+                },
+              },
+            },
+          },
+        })
+        .build(),
+      () => {},
+    );
+
+    await server.start();
+    const spec = await server.getApiSpec();
+    expect(spec).to.eql(EXPECTED_SPEC);
+    await server.stop();
+  });
+
+  it('runs consolidator if openApiSpec.consolidate option is undefined', async () => {
+    const options = {openApiSpec: {consolidate: undefined}};
+    const server = await givenAServer({rest: options});
+
+    const EXPECTED_SPEC = anOpenApiSpec()
+      .withOperation(
+        'get',
+        '/',
+        anOperationSpec().withResponse(200, {
+          description: 'Example',
+          content: {
+            'application/json': {
+              schema: {
+                $ref: '#/components/schemas/loopback.example',
+              },
+            },
+          },
+        }),
+      )
+      .withComponents(
+        aComponentsSpec().withSchema('loopback.example', {
+          title: 'loopback.example',
+          properties: {
+            test: {
+              type: 'string',
+            },
+          },
+        }),
+      )
+      .build();
+
+    server.route(
+      'get',
+      '/',
+      anOperationSpec()
+        .withResponse(200, {
+          description: 'Example',
+          content: {
+            'application/json': {
+              schema: {
+                title: 'loopback.example',
+                properties: {
+                  test: {
+                    type: 'string',
+                  },
+                },
+              },
+            },
+          },
+        })
+        .build(),
+      () => {},
+    );
+
+    await server.start();
+    const spec = await server.getApiSpec();
+    expect(spec).to.eql(EXPECTED_SPEC);
+    await server.stop();
+  });
+
+  it('keeps api spec components object', async () => {
+    const server = await givenAServer();
+
+    const EXPECTED_SPEC = anOpenApiSpec()
+      .withComponents(
+        aComponentsSpec().withParameter('limit', {
+          name: 'limit',
+          in: 'query',
+          description: 'Maximum number of items to return',
+          required: false,
+          schema: {
+            type: 'integer',
+          },
+        }),
+      )
+      .build();
+
+    server.api(EXPECTED_SPEC);
+
+    await server.start();
+    const spec = await server.getApiSpec();
+    expect(spec.components).to.eql(EXPECTED_SPEC.components);
+    await server.stop();
+  });
+
+  it('registers components provided by server.api()', async () => {
+    const server = await givenAServer();
+
+    // Add component schemas
+    const EXPECTED_SPEC = anOpenApiSpec()
+      .withComponents(
+        aComponentsSpec().withSchema('requestData', {
+          type: 'object',
+          properties: {
+            greet: {type: 'string'},
+          },
+        }),
+      )
+      .build();
+
+    server.api(EXPECTED_SPEC);
+
+    // register route
+    type Data = {greet: string};
+
+    const returnDataSpec = {
+      requestBody: {
+        content: {
+          'application/json': {
+            schema: {$ref: '#/components/schemas/requestData'},
+          },
+        },
+      },
+      responses: {
+        200: {
+          content: {'text/plain': {schema: {type: 'string'}}},
+        },
+      },
+    };
+    server.route(
+      'post',
+      '/returnData',
+      returnDataSpec,
+      function returnData(data: Data) {
+        return data.greet;
+      },
+    );
+
+    await server.start();
+    const client = createClientForHandler(server.requestHandler);
+    await client
+      .post('/returnData')
+      .set('Content-Type', 'application/json')
+      .send({greet: 'hello'})
+      .expect(200, 'hello');
+
+    const spec = await server.getApiSpec();
+    expect(spec.components).to.eql(EXPECTED_SPEC.components);
+    await server.stop();
+  });
+
+  it('registers controller routes under routes.*', async () => {
+    const server = await givenAServer();
+    server.controller(DummyController);
+    await server.start();
+    const keys = server.findByTag(RestTags.CONTROLLER_ROUTE).map(b => b.key);
+    expect(keys).to.eql(['routes.get %2Fhtml', 'routes.get %2Fendpoint']);
+    for (const key of keys) {
+      const controllerRoute = await server.get(key);
+      expect(controllerRoute).to.be.instanceOf(ControllerRoute);
+    }
+    await server.stop();
+  });
+
+  it('registers controller routes after start', async () => {
+    const server = await givenAServer();
+    await server.start();
+    const client = createClientForHandler(server.requestHandler);
+    // No DummyController is present
+    await client.get('/html').expect(404);
+
+    // Add DummyController after server.start
+    server.controller(DummyController);
+
+    // Now /html is available
+    await client.get('/html').expect(200);
+
+    // The controller contributes to `routes.*`
+    const keys = server.findByTag(RestTags.CONTROLLER_ROUTE).map(b => b.key);
+    expect(keys).to.eql(['routes.get %2Fhtml', 'routes.get %2Fendpoint']);
+    await server.stop();
+  });
+
+  it('removes controller routes after start', async () => {
+    const server = await givenAServer();
+    const binding = server.controller(DummyController);
+    await server.start();
+    const client = createClientForHandler(server.requestHandler);
+    // Now /html is available
+    await client.get('/html').expect(200);
+
+    // Remove DummyController
+    server.unbind(binding.key);
+
+    // Now /html is not available
+    await client.get('/html').expect(404);
+
+    // `routes.*` for controllers should have been removed
+    const keys = server.findByTag(RestTags.CONTROLLER_ROUTE).map(b => b.key);
+    expect(keys).to.eql([]);
+    await server.stop();
+  });
+
+  it('registers handler routes after start', async () => {
+    const server = await givenAServer();
+    await server.start();
+    const client = createClientForHandler(server.requestHandler);
+    // No `/greet` is present
+    await client.get('/greet').expect(404);
+
+    // Add DummyController after server.start
+    const greetSpec = {
+      responses: {
+        200: {
+          content: {'text/plain': {schema: {type: 'string'}}},
+          description: 'greeting of the day',
+        },
+      },
+    };
+    server.route('get', '/greet', greetSpec, function greet() {
+      return 'Hello';
+    });
+
+    // Now `/greet` is available
+    await client.get('/greet').expect(200, 'Hello');
+
+    // The route contributes to `routes.*`
+    const keys = server.find('routes.*').map(b => b.key);
+    expect(keys).to.eql(['routes.get %2Fgreet']);
+    await server.stop();
+  });
+
+  it('removes handler routes after start', async () => {
+    const server = await givenAServer();
+    // Add DummyController after server.start
+    const greetSpec = {
+      responses: {
+        200: {
+          content: {'text/plain': {schema: {type: 'string'}}},
+          description: 'greeting of the day',
+        },
+      },
+    };
+    const binding = server.route('get', '/greet', greetSpec, function greet() {
+      return 'Hello';
+    });
+
+    await server.start();
+    const client = createClientForHandler(server.requestHandler);
+    // Now `/greet` is available
+    await client.get('/greet').expect(200, 'Hello');
+
+    server.unbind(binding.key);
+    // Now `/greet` is not available
+    await client.get('/greet').expect(404);
+
+    await server.stop();
+  });
+
+  it('registers handler routes after start and getApiSpec', async () => {
+    const server = await givenAServer();
+    await server.start();
+    const client = createClientForHandler(server.requestHandler);
+    // No `/greet` is present
+    await client.get('/greet').expect(404);
+
+    // Add DummyController after server.start
+    const greetSpec = {
+      responses: {
+        200: {
+          content: {'text/plain': {schema: {type: 'string'}}},
+          description: 'greeting of the day',
+        },
+      },
+    };
+
+    // Add `GET /greet` route
+    server.route('get', '/greet', greetSpec, function greet() {
+      return 'Hello';
+    });
+
+    // Now `GET /greet` is available
+    await client.get('/greet').expect(200, 'Hello');
+
+    // Update api specs to verify serving API explorer does not mess up
+    await server.getApiSpec();
+
+    // Add `GET /greet1`
+    const binding = server.route('get', '/greet1', greetSpec, function greet() {
+      return 'Hello1';
+    });
+
+    // `GET /greet` is still available
+    await client.get('/greet').expect(200, 'Hello');
+
+    // The newly added `GET /greet1` is available
+    await client.get('/greet1').expect(200, 'Hello1');
+
+    // Now update api specs again
+    await server.getApiSpec();
+
+    // Remove `GET /greet1`
+    server.unbind(binding.key);
+
+    // `GET /greet` is still available
+    await client.get('/greet').expect(200, 'Hello');
+
+    // Now `GET /greet1` is gone
+    await client.get('/greet1').expect(404);
+
+    await server.stop();
+  });
+
+  it('updates api spec after start', async () => {
+    class MyController {
+      greet(name: string) {
+        return `hello ${name}`;
+      }
+    }
+
+    const spec = anOpenApiSpec()
+      .withOperation(
+        'get',
+        '/greet',
+        anOperationSpec()
+          .withParameter({name: 'name', in: 'query', type: 'string'})
+          .withExtension('x-operation-name', 'greet')
+          .withExtension('x-controller-name', 'MyController'),
+      )
+      .build();
+
+    const server = await givenAServer();
+    await server.start();
+    const client = createClientForHandler(server.requestHandler);
+
+    // `/greet` is not available
+    await client.get('/greet?name=world').expect(404);
+
+    // Set api spec that adds routes
+    server.api(spec);
+    server.controller(MyController);
+
+    // `/greet` is now available
+    await client.get('/greet?name=world').expect(200, 'hello world');
+    await server.stop();
+  });
+
   it('creates a redirect route with the default status code', async () => {
     const server = await givenAServer();
     server.controller(DummyController);
     server.redirect('/page/html', '/html');
-    const response = await createClientForHandler(server.requestHandler)
-      .get('/page/html')
-      .expect(303);
-    await createClientForHandler(server.requestHandler)
-      .get(response.header.location)
-      .expect(200, 'Hi');
+    const client = createClientForHandler(server.requestHandler);
+    const response = await client.get('/page/html').expect(303);
+    await client.get(response.header.location).expect(200, 'Hi');
   });
 
   it('creates a redirect route with a custom status code', async () => {
     const server = await givenAServer();
     server.controller(DummyController);
     server.redirect('/page/html', '/html', 307);
-    const response = await createClientForHandler(server.requestHandler)
-      .get('/page/html')
-      .expect(307);
-    await createClientForHandler(server.requestHandler)
-      .get(response.header.location)
-      .expect(200, 'Hi');
+    const client = createClientForHandler(server.requestHandler);
+    const response = await client.get('/page/html').expect(307);
+    await client.get(response.header.location).expect(200, 'Hi');
+  });
+
+  it('isolates processing for concurrent requests', async () => {
+    class MyController {
+      @get('/hello')
+      hello() {
+        return 'hello';
+      }
+
+      @get('/greet')
+      greet() {
+        return 'greet';
+      }
+    }
+    const server = await givenAServer();
+    server.controller(MyController);
+    const client = createClientForHandler(server.requestHandler);
+    const requests: Promise<unknown>[] = [];
+    for (let i = 0; i < 10; i++) {
+      requests.push(
+        client.get('/hello').expect(200, 'hello'),
+        client.get('/greet').expect(200, 'greet'),
+      );
+    }
+    await Promise.all(requests);
   });
 
   describe('basePath', () => {
@@ -898,7 +1398,7 @@ paths:
 
     it('controls server urls', async () => {
       const response = await createClientForHandler(server.requestHandler).get(
-        '/openapi.json',
+        '/api/openapi.json',
       );
       expect(response.body.servers).to.containEql({url: '/api'});
     });
@@ -906,7 +1406,7 @@ paths:
     it('controls server urls even when set via server.basePath() API', async () => {
       server.basePath('/v2');
       const response = await createClientForHandler(server.requestHandler).get(
-        '/openapi.json',
+        '/v2/openapi.json',
       );
       expect(response.body.servers).to.containEql({url: '/v2'});
     });
@@ -932,11 +1432,12 @@ paths:
     return app.getServer(RestServer);
   }
 
-  function dummyRequestHandler(handler: {
-    request: IncomingMessage;
-    response: ServerResponse;
-  }) {
-    const {response} = handler;
+  async function dummyRequestHandler(requestContext: RequestContext) {
+    const {response} = requestContext;
+    const result = await invokeMiddleware(requestContext, {
+      chain: RestTags.ACTION_MIDDLEWARE_CHAIN,
+    });
+    if (result === response) return;
     response.write('Hello');
     response.end();
   }

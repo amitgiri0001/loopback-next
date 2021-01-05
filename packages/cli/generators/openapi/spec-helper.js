@@ -1,4 +1,4 @@
-// Copyright IBM Corp. 2018,2019. All Rights Reserved.
+// Copyright IBM Corp. 2018,2020. All Rights Reserved.
 // Node module: @loopback/cli
 // This file is licensed under the MIT License.
 // License text available at https://opensource.org/licenses/MIT
@@ -12,9 +12,12 @@ const {
   titleCase,
   debugJson,
   toFileName,
+  printSpecObject,
   camelCase,
   escapeIdentifier,
 } = require('./utils');
+
+const {validRegex} = require('../../lib/utils');
 
 const HTTP_VERBS = [
   'get',
@@ -117,6 +120,11 @@ function groupOperationsByController(apiSpec) {
             controllerSpec.description =
               getTagDescription(apiSpec, controllerSpec.tag) || '';
           }
+          const apiSpecJson = printSpecObject({
+            components: apiSpec.components,
+            paths: {},
+          });
+          controllerSpec.decoration = `@api(${apiSpecJson})`;
           operationsMapByController[c] = controllerSpec;
         } else {
           controllerSpec.operations.push(operation);
@@ -134,7 +142,9 @@ function groupOperationsByController(apiSpec) {
  * @param {object} opSpec OpenAPI operation spec
  */
 function getMethodName(opSpec) {
-  return opSpec['x-operation-name'] || escapeIdentifier(opSpec.operationId);
+  return camelCase(
+    opSpec['x-operation-name'] || escapeIdentifier(opSpec.operationId),
+  );
 }
 
 function registerAnonymousSchema(names, schema, typeRegistry) {
@@ -186,30 +196,29 @@ function registerAnonymousSchema(names, schema, typeRegistry) {
  */
 function buildMethodSpec(controllerSpec, op, options) {
   const methodName = getMethodName(op.spec);
+  const opName = op.spec['x-operation-name'] || op.spec['operationId'];
+  controllerSpec.methodMapping[methodName] = opName;
   const comments = [];
   let args = [];
+  let interfaceArgs = [];
+  const namedParameters = [];
   const parameters = op.spec.parameters;
   // Keep track of param names to avoid duplicates
   const paramNames = {};
+  const interfaceParamNames = {};
   if (parameters) {
     args = parameters.map(p => {
-      let name = escapeIdentifier(p.name);
-      if (name in paramNames) {
-        name = `${name}${paramNames[name]++}`;
-      } else {
-        paramNames[name] = 1;
-      }
-      registerAnonymousSchema([methodName, name], p.schema, options);
-      const pType = mapSchemaType(p.schema, options);
-      addImportsForType(pType);
-      comments.push(`@param ${name} ${p.description || ''}`);
-
-      // Normalize parameter name to match `\w`
-      let paramName = p.name;
-      if (p.in === 'path') {
-        paramName = paramName.replace(/[^\w]+/g, '_');
-      }
-      return `@param({name: '${paramName}', in: '${p.in}'}) ${name}: ${pType.signature}`;
+      const {paramType, argName} = buildParameter(p, paramNames, comments);
+      const paramJson = printSpecObject(p);
+      const optionalType = !p.required ? ' | undefined' : '';
+      return `@param(${paramJson}) ${argName}: ${paramType.signature}${optionalType}`;
+    });
+    interfaceArgs = parameters.map(p => {
+      const param = buildParameter(p, interfaceParamNames);
+      namedParameters.push(param);
+      const {paramType, argName} = param;
+      const optionalType = !p.required ? ' | undefined' : '';
+      return `${argName}: ${paramType.signature}${optionalType}`;
     });
   }
   if (op.spec.requestBody) {
@@ -222,7 +231,7 @@ function buildMethodSpec(controllerSpec, op, options) {
      *      schema:
      *        $ref: '#/components/schemas/NewPet'
      */
-    let bodyType = {signature: 'any'};
+    let bodyType = {signature: 'unknown'};
     const content = op.spec.requestBody.content;
     const contentType =
       content &&
@@ -243,16 +252,22 @@ function buildMethodSpec(controllerSpec, op, options) {
       addImportsForType(bodyType);
     }
     const bodyParam = bodyName; // + (op.spec.requestBody.required ? '' : '?');
-    // Add body as the 1st param
-    const bodySpec = ''; // toJsonStr(op.spec.requestBody);
-    args.unshift(
-      `@requestBody(${bodySpec}) ${bodyParam}: ${bodyType.signature}`,
+    // Add body as the last param
+    const bodySpecJson = printSpecObject(op.spec.requestBody);
+    args.push(
+      `@requestBody(${bodySpecJson}) ${bodyParam}: ${bodyType.signature}`,
     );
-    comments.unshift(
-      `@param ${bodyName} ${op.spec.requestBody.description || ''}`,
-    );
+    interfaceArgs.push(`${bodyParam}: ${bodyType.signature}`);
+    namedParameters.push({
+      paramName: 'requestBody',
+      paramType: bodyType,
+      argName: bodyParam,
+    });
+    let bodyDescription = op.spec.requestBody.description || '';
+    bodyDescription = bodyDescription ? ` ${bodyDescription}` : '';
+    comments.push(`@param ${bodyName}${bodyDescription}`);
   }
-  let returnType = {signature: 'any'};
+  let returnType = {signature: 'unknown'};
   const responses = op.spec.responses;
   if (responses) {
     /**
@@ -289,7 +304,21 @@ function buildMethodSpec(controllerSpec, op, options) {
   const signature = `async ${methodName}(${args.join(', ')}): Promise<${
     returnType.signature
   }>`;
-  comments.unshift(op.spec.description || '', '\n');
+  const signatureForInterface = `${methodName}(${interfaceArgs.join(
+    ', ',
+  )}): Promise<${returnType.signature}>`;
+
+  const argTypes = namedParameters
+    .map(p => {
+      if (p.paramName.match(validRegex)) {
+        return `${p.paramName}: ${p.paramType.signature}`;
+      }
+      return `'${p.paramName}': ${p.paramType.signature}`;
+    })
+    .join('; ');
+  const signatureForNamedParams = `${methodName}(params: { ${argTypes} }): Promise<${returnType.signature}>`;
+
+  comments.unshift(op.spec.description || '', '');
 
   // Normalize path variable names to alphanumeric characters including the
   // underscore (Equivalent to [A-Za-z0-9_]). Please note `@loopback/rest`
@@ -297,16 +326,66 @@ function buildMethodSpec(controllerSpec, op, options) {
   const opPath = op.path.replace(/\{[^\}]+\}/g, varName =>
     varName.replace(/[^\w\{\}]+/g, '_'),
   );
+  const opSpecJson = printSpecObject(op.spec);
   const methodSpec = {
     description: op.spec.description,
     comments,
-    decoration: `@operation('${op.verb}', '${opPath}')`,
+    decoration: `@operation('${op.verb}', '${opPath}', ${opSpecJson})`,
     signature,
+    signatureForInterface,
+    signatureForNamedParams,
   };
   if (op.spec['x-implementation']) {
     methodSpec.implementation = op.spec['x-implementation'];
   }
   return methodSpec;
+
+  /**
+   * Build the parameter
+   * @param {object} paramSpec
+   * @param {string[]} names
+   * @param {string[]} _comments
+   */
+  function buildParameter(paramSpec, names, _comments) {
+    let argName = escapeIdentifier(paramSpec.name);
+    if (argName in names) {
+      argName = `${argName}${names[argName]++}`;
+    } else {
+      names[argName] = 1;
+    }
+    registerAnonymousSchema([methodName, argName], paramSpec.schema, options);
+    let propSchema = paramSpec.schema;
+    if (propSchema == null) {
+      /*
+        {
+          name: 'where',
+          in: 'query',
+          content: { 'application/json': { schema: [Object] } }
+        }
+        */
+      const content = paramSpec.content;
+      const json = content && content['application/json'];
+      propSchema = json && json.schema;
+      if (propSchema == null && content) {
+        for (const m of content) {
+          propSchema = content[m].schema;
+          if (propSchema) break;
+        }
+      }
+    }
+    propSchema = propSchema || {type: 'string'};
+    const paramType = mapSchemaType(propSchema, options);
+    addImportsForType(paramType);
+    if (Array.isArray(_comments)) {
+      _comments.push(`@param ${argName} ${paramSpec.description || ''}`);
+    }
+    // Normalize parameter name to match `\w`
+    let paramName = paramSpec.name;
+    if (paramSpec.in === 'path') {
+      paramName = paramName.replace(/[^\w]+/g, '_');
+    }
+    return {paramName, paramType, argName};
+  }
 
   function addImportsForType(typeSpec) {
     if (typeSpec.className && typeSpec.import) {
@@ -336,12 +415,19 @@ function buildControllerSpecs(operationsMapByController, options) {
     const entry = operationsMapByController[controller];
     const controllerSpec = {
       tag: entry.tag || '',
+      decoration: entry.decoration,
       description: entry.description || '',
       className: controller,
+      // Class name for service proxy
+      serviceClassName: getBaseName(controller, 'Controller') + 'Service',
       imports: [],
+      methodMapping: {},
     };
     controllerSpec.methods = entry.operations.map(op =>
       buildMethodSpec(controllerSpec, op, options),
+    );
+    controllerSpec.methodMappingObject = printSpecObject(
+      controllerSpec.methodMapping,
     );
     controllerSpecs.push(controllerSpec);
   }
@@ -358,17 +444,29 @@ function generateControllerSpecs(apiSpec, options) {
 }
 
 function getControllerFileName(controllerName) {
-  let name = controllerName;
-  if (controllerName.endsWith('Controller')) {
-    name = controllerName.substring(
-      0,
-      controllerName.length - 'Controller'.length,
-    );
-  }
+  const name = getBaseName(controllerName, 'Controller');
   return toFileName(name) + '.controller.ts';
+}
+
+/**
+ * Get the base name by trimming the suffix
+ * @param {string} fullName
+ * @param {string} suffix
+ */
+function getBaseName(fullName, suffix) {
+  if (fullName.endsWith(suffix)) {
+    return fullName.substring(0, fullName.length - suffix.length);
+  }
+  return fullName;
+}
+
+function getServiceFileName(serviceName) {
+  const name = getBaseName(serviceName, 'Service');
+  return toFileName(name) + '.service.ts';
 }
 
 module.exports = {
   getControllerFileName,
+  getServiceFileName,
   generateControllerSpecs,
 };

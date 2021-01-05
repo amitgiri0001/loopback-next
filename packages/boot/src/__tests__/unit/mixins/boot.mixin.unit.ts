@@ -3,14 +3,18 @@
 // This file is licensed under the MIT License.
 // License text available at https://opensource.org/licenses/MIT
 
-import {expect} from '@loopback/testlab';
-import {BootMixin, Booter, BootBindings} from '../../..';
-import {Application, bind} from '@loopback/core';
+import {Application, BindingKey, ContextTags, injectable} from '@loopback/core';
+import {expect, sinon} from '@loopback/testlab';
+import {BootBindings, Booter, BootMixin} from '../../..';
 
-describe('BootMxiin unit tests', () => {
+describe('BootMixin unit tests', () => {
   let app: AppWithBootMixin;
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  let stub: sinon.SinonStub<[any?, ...any[]], void>;
 
   beforeEach(getApp);
+  beforeEach(createStub);
+  afterEach(restoreStub);
 
   it('mixes into the target class', () => {
     expect(app.boot).to.be.a.Function();
@@ -24,32 +28,48 @@ describe('BootMxiin unit tests', () => {
 
   it('binds booter from app.booters()', async () => {
     app.booters(TestBooter);
-    const booter = await app.get(`${BootBindings.BOOTER_PREFIX}.TestBooter`);
+    const booter = await app.get(`${BootBindings.BOOTERS}.TestBooter`);
     expect(booter).to.be.an.instanceOf(TestBooter);
   });
 
-  it('binds booter with `@bind` from app.booters()', async () => {
+  it('binds booter with `@injectable` from app.booters()', async () => {
     app.booters(TestBooterWithBind);
     const booterBinding = app.getBinding(
-      `${BootBindings.BOOTER_PREFIX}.TestBooterWithBind`,
+      `${BootBindings.BOOTERS}.TestBooterWithBind`,
     );
     expect(booterBinding.tagMap).to.containEql({artifactType: 'xsd'});
   });
 
+  it('binds booter with `@injectable` using a custom binding key', async () => {
+    const testApp = new AppWithBootMixin();
+    testApp.bind(BootBindings.PROJECT_ROOT).to(__dirname);
+    testApp.booters(TestBooterWithCustomBindingKey);
+
+    await testApp.boot();
+    const booterBinding = testApp.getBinding(
+      `io.loopback.custom.binding.TestBooterWithCustomBindingKey`,
+    );
+    const component = await testApp.get<TestBooterWithCustomBindingKey>(
+      `io.loopback.custom.binding.TestBooterWithCustomBindingKey`,
+    );
+    expect(booterBinding.tagMap).to.containEql({artifactType: 'bmp'});
+    expect(component.configured).true();
+  });
+
   it('binds booter from app.booters() as singletons by default', async () => {
     app.booters(TestBooter);
-    const booter1 = await app.get(`${BootBindings.BOOTER_PREFIX}.TestBooter`);
-    const booter2 = await app.get(`${BootBindings.BOOTER_PREFIX}.TestBooter`);
+    const booter1 = await app.get(`${BootBindings.BOOTERS}.TestBooter`);
+    const booter2 = await app.get(`${BootBindings.BOOTERS}.TestBooter`);
     expect(booter1).to.be.exactly(booter2);
   });
 
   it('binds multiple booter classes from app.booters()', async () => {
     app.booters(TestBooter, AnotherTestBooter);
-    const booter = await app.get(`${BootBindings.BOOTER_PREFIX}.TestBooter`);
+    const booter = await app.get(`${BootBindings.BOOTERS}.TestBooter`);
     expect(booter).to.be.an.instanceOf(TestBooter);
 
     const anotherBooter = await app.get(
-      `${BootBindings.BOOTER_PREFIX}.AnotherTestBooter`,
+      `${BootBindings.BOOTERS}.AnotherTestBooter`,
     );
     expect(anotherBooter).to.be.an.instanceOf(AnotherTestBooter);
   });
@@ -70,10 +90,16 @@ describe('BootMxiin unit tests', () => {
     app.component(TestComponent);
     const compInstance = await app.get('components.TestComponent');
     expect(compInstance).to.be.an.instanceOf(TestComponent);
-    const booterInst = await app.get(
-      `${BootBindings.BOOTER_PREFIX}.TestBooter`,
-    );
+    const booterInst = await app.get(`${BootBindings.BOOTERS}.TestBooter`);
     expect(booterInst).to.be.an.instanceOf(TestBooter);
+  });
+
+  it('warns if app is started without booting', async () => {
+    await app.start();
+    sinon.assert.calledWith(
+      stub,
+      'App started without booting. Did you forget to call `await app.boot()`?',
+    );
   });
 
   class TestBooter implements Booter {
@@ -84,8 +110,25 @@ describe('BootMxiin unit tests', () => {
     }
   }
 
-  @bind({tags: {artifactType: 'xsd'}})
+  @injectable({tags: {artifactType: 'xsd'}})
   class TestBooterWithBind implements Booter {
+    configured = false;
+
+    async configure() {
+      this.configured = true;
+    }
+  }
+
+  const CustomBinding = BindingKey.create<TestBooterWithCustomBindingKey>(
+    'io.loopback.custom.binding.TestBooterWithCustomBindingKey',
+  );
+  @injectable({
+    tags: {
+      [ContextTags.KEY]: CustomBinding,
+      artifactType: 'bmp',
+    },
+  })
+  class TestBooterWithCustomBindingKey implements Booter {
     configured = false;
 
     async configure() {
@@ -105,5 +148,13 @@ describe('BootMxiin unit tests', () => {
 
   function getApp() {
     app = new AppWithBootMixin();
+  }
+
+  function restoreStub() {
+    stub.restore();
+  }
+
+  function createStub() {
+    stub = sinon.stub(process, 'emitWarning');
   }
 });

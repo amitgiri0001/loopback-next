@@ -1,4 +1,4 @@
-// Copyright IBM Corp. 2019. All Rights Reserved.
+// Copyright IBM Corp. 2019,2020. All Rights Reserved.
 // Node module: @loopback/cli
 // This file is licensed under the MIT License.
 // License text available at https://opensource.org/licenses/MIT
@@ -12,8 +12,7 @@ const generator = path.join(__dirname, '../../../generators/import-lb3-models');
 const {expectFileToMatchSnapshot} = require('../../snapshots');
 const testUtils = require('../../test-utils');
 
-const SANDBOX_PATH = path.resolve(__dirname, '../.sandbox');
-const sandbox = new TestSandbox(SANDBOX_PATH);
+const sandbox = new TestSandbox(path.resolve(__dirname, '../.sandbox'));
 
 // In this test suite we invoke the full generator with mocked prompts
 // and inspect the generated model file(s).
@@ -29,29 +28,34 @@ const COFFEE_SHOP_EXAMPLE = require.resolve(
   '../../../../../examples/lb3-application/lb3app/server/server',
 );
 
-describe('lb4 import-lb3-models', function() {
+const APP_USING_MODEL_INHERITANCE = require.resolve(
+  '../../fixtures/import-lb3-models/app-using-model-inheritance',
+);
+
+describe('lb4 import-lb3-models', function () {
   require('../lib/base-generator')(generator, {args: ['path-to-lb3-app']})();
 
-  before(function preloadCoffeeShopExampleApp() {
+  before(preloadCoffeeShopExampleApp);
+  /** @this {Mocha.Context} */
+  function preloadCoffeeShopExampleApp() {
     // The CoffeeShop example app takes some time to load :(
-    // eslint-disable-next-line no-invalid-this
     this.timeout(10000);
     return loadLb3App(COFFEE_SHOP_EXAMPLE);
-  });
+  }
 
   beforeEach('reset sandbox', () => sandbox.reset());
 
   it('imports CoffeeShop model from lb3-example app', async () => {
     await testUtils
       .executeGenerator(generator)
-      .inDir(SANDBOX_PATH, () => testUtils.givenLBProject(SANDBOX_PATH))
+      .inDir(sandbox.path, () => testUtils.givenLBProject(sandbox.path))
       .withArguments(COFFEE_SHOP_EXAMPLE)
       .withPrompts({
         modelNames: ['CoffeeShop'],
       });
 
     // The default outDir is "src/models"
-    const outDir = path.join(SANDBOX_PATH, 'src/models');
+    const outDir = path.join(sandbox.path, 'src/models');
 
     // Verify the source code generated for the model
     expectFileToMatchSnapshot(`${outDir}/coffee-shop.model.ts`);
@@ -61,11 +65,11 @@ describe('lb4 import-lb3-models', function() {
   });
 
   it('honours `outDir` option', async () => {
-    const outDir = path.join(SANDBOX_PATH, 'my-models');
+    const outDir = path.join(sandbox.path, 'my-models');
 
     await testUtils
       .executeGenerator(generator)
-      .inDir(SANDBOX_PATH, () => testUtils.givenLBProject(SANDBOX_PATH))
+      .inDir(sandbox.path, () => testUtils.givenLBProject(sandbox.path))
       .withArguments(COFFEE_SHOP_EXAMPLE)
       .withPrompts({
         modelNames: ['CoffeeShop'],
@@ -81,7 +85,7 @@ describe('lb4 import-lb3-models', function() {
     return expect(
       testUtils
         .executeGenerator(generator)
-        .inDir(SANDBOX_PATH, () => testUtils.givenLBProject(SANDBOX_PATH))
+        .inDir(sandbox.path, () => testUtils.givenLBProject(sandbox.path))
         .withArguments(COFFEE_SHOP_EXAMPLE)
         .withPrompts({
           modelNames: ['ModelDoesNotExist'],
@@ -90,5 +94,27 @@ describe('lb4 import-lb3-models', function() {
       'Unknown model name ModelDoesNotExist. Available models: Application, ' +
         'AccessToken, User, RoleMapping, Role, ACL, Scope, CoffeeShop.',
     );
+  });
+
+  it('imports a model inheriting from a custom base class', async () => {
+    const outDir = path.join(sandbox.path, 'models-with-inheritance');
+
+    await testUtils
+      .executeGenerator(generator)
+      .inDir(sandbox.path, () => testUtils.givenLBProject(sandbox.path))
+      .withArguments(APP_USING_MODEL_INHERITANCE)
+      .withPrompts({
+        modelNames: ['Customer'],
+      })
+      .withOptions({outDir});
+
+    // Verify the source code generated for the selected model
+    expectFileToMatchSnapshot(`${outDir}/customer.model.ts`);
+
+    // Verify the source code generated for the custom base model
+    expectFileToMatchSnapshot(`${outDir}/user-base.model.ts`);
+
+    // Verify the source code generated for the imported LB3 user model
+    expectFileToMatchSnapshot(`${outDir}/user.model.ts`);
   });
 });

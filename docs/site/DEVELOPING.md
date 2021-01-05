@@ -1,7 +1,9 @@
 ---
 lang: en
 title: 'Contributing code in LoopBack 4'
-keywords: LoopBack 4.0, contributing, community
+keywords:
+  LoopBack 4.0, LoopBack 4, Node.js, TypeScript, OpenAPI, contributing,
+  community
 sidebar: lb4_sidebar
 permalink: /doc/en/lb4/code-contrib-lb4.html
 toc: false
@@ -14,6 +16,7 @@ See [Monorepo overview](./MONOREPO.md) for a list of all packages.
 
 - [Setting up development environment](#setting-up-development-environment)
 - [Building the project](#building-the-project)
+- [Utilizing the monorepo](#utilizing-the-monorepo)
 - [Running tests](#running-tests)
 - [Coding rules](#coding-rules)
 - [Working with dependencies](#working-with-dependencies)
@@ -36,12 +39,13 @@ dependencies.
 - [git](https://git-scm.com/): Github's
   [Set Up Git](https://help.github.com/articles/set-up-git/) guide is a good
   source of information.
-- [Node.js 8.x (LTS)](https://nodejs.org/en/download/)
+- [Node.js 10.x (LTS)](https://nodejs.org/en/download/)
 
 You may want to configure your IDE or editor to get better support for
 TypeScript too.
 
-- [VisualStudio Code](./VSCODE.md)
+- [Visual Studio Code](./Developing-with-vscode.md)
+- [WebStorm](./Developing-with-webstorm.md)
 - _Missing your favorite IDE/editor here? We would love to have documentation
   for more IDEs/editors! Please send a pull request to add recommended setup for
   your tool._
@@ -62,7 +66,7 @@ Contributor once your first commit is landed.
 ## Building the project
 
 Whenever you pull updates from GitHub or switch between feature branches, make
-sure to updated installed dependencies in all monorepo packages. The following
+sure to update installed dependencies in all monorepo packages. The following
 command will install npm dependencies for all packages and create symbolic links
 for intra-dependencies:
 
@@ -70,15 +74,64 @@ for intra-dependencies:
 npm ci
 ```
 
+As part of `npm ci` or `npm i`, TypeScript project references are automatically
+updated for each package with in the monorepo.
+
 The next step is to compile all packages from TypeScript to JavaScript:
 
 ```sh
 npm run build
 ```
 
+To force a clean build:
+
+```sh
+npm run clean && npm run build
+```
+
+Please note that `npm run clean` removes `dist`, `*.tsbuildinfo`, and other
+generated files from each package to clean the state for builds.
+
+To build an individual package:
+
+```sh
+cd <package-dir> // For example, cd `packages/context`.
+npm run build
+```
+
 Please note that we are automatically running the build from `pretest` script,
 therefore you should not need to run this command as part of your
 [red-green-refactor cycle](http://www.jamesshore.com/Blog/Red-Green-Refactor.html).
+
+## Utilizing the monorepo
+
+Source code from the monorepo can be utilized as LoopBack 4 packages that are
+not published to npm registry yet. This is useful to test or debug your
+applications or extensions with project dependencies on LoopBack 4 against a
+local git repo and branch of `loopback-next`.
+
+### Using monorepo packages as dependencies
+
+The `/sandbox` directory in the monorepo can be used to utilize the source code
+as symbolically-linked dependencies. See the
+[README](https://github.com/strongloop/loopback-next/blob/master/sandbox/README.md)
+for usage instructions.
+
+### Using the CLI via the monorepo
+
+The
+[CLI](https://github.com/strongloop/loopback-next/blob/master/packages/cli/bin/cli-main.js)
+can be invoked from the local `loopback-next` git repository:
+
+```bash
+./loopback-next/packages/cli/bin/cli-main.js
+```
+
+The arguments are the same as `lb4`. For example,
+`./loopback-next/packages/cli/bin/cli-main.js model` is the same as `lb4 model`.
+
+{% include important.html content="The LoopBack 4 packages must be built. See
+[Building the project](#building-the-project)" %}
 
 ## Running tests
 
@@ -90,10 +143,58 @@ npm test
 
 It does all you need:
 
-- Compile TypeScript
+- Compile TypeScript (full rebuild)
 - Run all tests
 - Check code formatting using [Prettier](https://prettier.io/)
 - Lint the code using [ESLint](https://typescript-eslint.io/)
+
+Please note some heavy tests are only run when the `CI` environment variable is
+set. Such tests are always executed with our CI builds. To run such tests
+locally:
+
+```sh
+npx cross-env CI=1 npm test
+```
+
+Or use a simpler form on Mac and Linux.
+
+```sh
+CI=1 npm test
+```
+
+Running the full test suite after each small change is not very effective. You
+can use the following commands to run a subset of checks:
+
+- `npm run build` for a fast incremental build
+- `npm run mocha` to (re)run the test suite
+
+We are running tests in parallel, use the Mocha option `-j` (`--jobs`) to
+control the number of worker processes or disable parallel execution entirely by
+using a single job only:
+
+```
+$ npm run mocha -- -j 1
+```
+
+When working in a single package, it's possible to limit the compilation to this
+package & its dependencies and then run only package tests.
+
+For example, run the following Unix command in `loopback-next` root directory to
+build and test changes made in `@loopback/rest` only:
+
+```
+$ (cd packages/rest && npm t)
+```
+
+On Windows, you have to change the working directory once and then you can
+repeatedly run `npm t` inside the package.
+
+```bat
+rem Run this only once
+cd packages/rest
+rem Run this to build & test your changes
+npm t
+```
 
 ## Coding rules
 
@@ -129,6 +230,9 @@ npm script `lint:fix`.
 npm run lint:fix
 ```
 
+Files staged for commit are linted automatically. If necessary, pre-commit
+linting can be bypassed by setting the environment variable `LINT_STAGED=0`.
+
 ## Working with dependencies
 
 We use npm's
@@ -152,8 +256,16 @@ from package-lock files.**
 If you ever end up with corrupted or out-of-date package locks, run the
 following commands to fix the problem:
 
+To rebuild `package-lock.json` for all packages.
+
 ```sh
-$ npm run update-package-locks
+npm update-package-locks
+```
+
+To update `package-lock.json` for a list of packages:
+
+```sh
+npm update-package-locks -- --scope <package-name-1> --scope <package-name-2>
 ```
 
 ### Adding dependencies
@@ -186,6 +298,35 @@ To update dependencies to their latest compatible versions:
 ```sh
 npm run update-all-deps
 ```
+
+### Limitation of Lerna Monorepo
+
+If an application inside the `loopback-next` monorepo connects to a datasource
+like `loopback-connector-mongodb`, you need to require the module directly in
+the configuration as follow:
+
+```ts
+const config = {
+  name: 'mongo',
+  // Note the connector should be required directly here.
+  connector: require('loopback-connector-mongodb'),
+  url: '',
+  host: '127.0.0.1',
+  port: 27017,
+  user: 'test',
+  password: 'test',
+};
+```
+
+This is caused by the way how lerna installs local package dependencies as
+symbolic links. The code loading connectors is executed from
+`loopback-next/packages/repository/node_modules/loopback-datasource-juggler/lib/datasource.js`.
+While the connector is installed in examples like
+`loopback-next/examples/todo/node_modules/loopback-connector-mongodb`.
+Specifying a string name like "mongodb" will result in the code looking for
+connectors installed under the package `repository` instead of the example.
+Therefore you must explicitly specify the datasource's path in the
+configuration.
 
 ## File naming convention
 
@@ -225,6 +366,69 @@ LoopBack 4 documentation is hosted inside this monorepo in the
 [/docs](https://github.com/strongloop/loopback-next/tree/master/docs) directory.
 This allows us to change both implementation and the documentation in a single
 pull request.
+
+### Organization of content
+
+LoopBack 4 has a highly modular design, the codebase is organized into dozens of
+packages. This arrangement provides great flexibility for package consumers,
+supporting many different ways how to compose individual packages into larger
+blocks. However, the growing number of packages also increases the complexity
+for LoopBack users, as they need to know which packages to choose and how to use
+them. As a result, the learning curve becomes very steep for new developers
+coming to LoopBack. Newcomers get quickly overwhelmed by the amount of concepts
+they need to understand and the different packages they need to know about.
+
+To prevent cognitive overload, we have categorized all monorepo packages into
+two groups:
+
+1. Foundation-level packages are lower-level packages that are typically not
+   consumed by LoopBack applications directly. Instead, there are higher-level
+   packages exposing the functionality and/or the public API of these building
+   blocks.
+
+   Examples:
+
+   - `@loopback/core` is re-exporting all public API provided by
+     `@loopback/context`.
+
+   - `@loopback/rest` is internally using `@loopback/http-server` to manage the
+     life cycle of an HTTP server.
+
+2. Framework-level packages are used directly by LoopBack applications and
+   provide API that LoopBack consumers use.
+
+The rule of thumb: a lower-level package is considered as foundation-level if
+
+- a higher-level package is re-exporting all public APIs of the lower-level
+  package (e.g. `@loopback/core` re-exports `@loopback/context`); or
+
+- another package is using the lower-level package as a implementation building
+  block (e.g. `@loopback/rest` uses `@loopback/express`).
+
+In our documentation, CLI templates and example applications, you should always
+refer to framework-level packages.
+
+Foundation-level packages should have their own documentation describing how to
+use the package independently of LoopBack, for example in their `README.md` file
+or in a dedicated section of [loopback.io](https://loopback.io).
+
+#### Foundation-level packages
+
+List of packages that are considered as building blocks:
+
+- [packages/context](https://github.com/strongloop/loopback-next/tree/master/packages/context)
+- [packages/express](https://github.com/strongloop/loopback-next/tree/master/packages/express)
+- [packages/http-server](https://github.com/strongloop/loopback-next/tree/master/packages/http-server)
+- [packages/metadata](https://github.com/strongloop/loopback-next/tree/master/packages/metadata)
+- [packages/openapi-v3](https://github.com/strongloop/loopback-next/tree/master/packages/openapi-v3)
+- [packages/repository-json-schema](https://github.com/strongloop/loopback-next/tree/master/packages/repository-json-schema)
+
+#### Framework-level packages
+
+All packages not listed above are considered as framework-level.
+
+We consider utilities like `@loopback/testlab` and example projects like
+`@loopback/todo` as framework-level too.
 
 ### Publishing changes
 
@@ -301,8 +505,47 @@ to generate API documentation for all our packages. This documentation is
 generated when publishing new releases to npmjs.org and it's picked up by
 https://loopback.io/doc/en/lb4/apidocs.index.html.
 
-You can preview API docs locally by running `npm run tsdocs` and open
-[apidocs/index.md](apidocs/index.md).
+### Preview the API Documentation Changes
+
+To modify the API documentation and preview the changes, you should rebuild the
+package and run `npm run tsdocs`. For example, if some API documentation changes
+have occurred in `/loopback-next/packages/core`, and you wish to preview them,
+perform the following steps:
+
+#### Step 1 - Rebuild package
+
+Run the following commands within `/loopback-next/packages/core`:
+
+```shell
+# Remove the old compiled files.
+npm run clean
+# Rebuild the package, so that the compiled dist files contain
+# the new API documentation.
+npm run build
+```
+
+#### Step 2 - npm run tsdocs
+
+Run the following commands within the root directory `/loopback-next`:
+
+```shell
+# Generate new tsdocs from the updated package dist files.
+npm run tsdocs
+```
+
+#### Step 3 - Preview the API documentation in a browser
+
+Stay in the root directory and run the following commands:
+
+```shell
+# Fetch the new API documentation into `/docs/_preview`
+npm run docs:prepare
+# Start the documentation preview server
+npm run docs:start
+```
+
+Go to http://127.0.0.1:4001 in a browser and you will see the new API
+documentation.
 
 ## Commit message guidelines
 
@@ -437,7 +680,8 @@ However, we do recognize that often a breaking change is the most sensible thing
 to do. When that time comes:
 
 - Describe incompatibilites for release notes
-- Look for more breaking changes to include in the release
+- Look for more breaking changes to include in the release: search for comments
+  containing `TODO(semver-major)` and `@deprecated`.
 - Update list of supported versions
 
 ### Describe incompatibilites for release notes
@@ -451,7 +695,7 @@ questions:
 
 - How can I find if my project is affected by this change?
 
-- What does this change means for my project? What is going to change?
+- What does this change mean for my project? What is going to change?
 
 - How can I migrate my project to the new major version? What steps do I need to
   make?
@@ -518,7 +762,50 @@ repository.
 
 ### Create a new package
 
-To add a new package, create a folder in
+Please run the following command:
+
+```sh
+cd loopback-next
+node bin/create-package.js
+```
+
+The script does the following steps:
+
+1. Determine the parentDir and package name.
+
+   The first argument can be one of the following:
+
+   - package-name
+   - @loopback/package-name
+   - extensions/package-name
+   - packages/package-name
+
+If the parentDir is not specified, it tries to guess by the current directory
+and falls back to `extensions`.
+
+2. Run `lb4 extension` to scaffold the project without `npm install`. If
+   `--interactive` or `-i` is NOT provided by the command, interactive prompts
+   are skipped.
+
+3. Fix up the project
+
+   - Remove unused files
+   - Improve `package.json`
+
+4. Run `lb4 copyright` to update `LICENSE` and copyright headers for `*.ts` and
+   `*.js`.
+
+5. Run `lerna bootstrap --scope <full-package-name>` to link its local
+   dependencies.
+
+6. Run `update-ts-project-refs` to update TypeScript project references
+
+7. Run `update-monorepo-file` to update `docs/site/MONOREPO.md`
+
+8. Remind to update `CODEOWNERS`. If you would like to do it manually, follow
+   steps below:
+
+To add a new package by hand, create a folder in
 [`packages`](https://github.com/strongloop/loopback-next/tree/master/packages)
 as the root directory of your module. For example,
 
@@ -571,8 +858,8 @@ Please register the new package in the following files:
 
 - Update [MONOREPO.md](./MONOREPO.md) - insert a new table row to describe the
   new package, please keep the rows sorted by package name.
-- Update [Reserved-binding-keys.md](./Reserved-binding-keys.md) - add a link to
-  the apidocs on Binding Keys if the new package has any.
+- Update [Reserved-binding-keys.md](./reference/reserved-binding-keys.md) - add
+  a link to the apidocs on Binding Keys if the new package has any.
 - Update
   [CODEOWNERS](https://github.com/strongloop/loopback-next/blob/master/CODEOWNERS) -
   add a new entry listing the primary maintainers (owners) of the new package.
@@ -619,15 +906,16 @@ configuration, it's important to verify that all usage scenarios keep working.
     relative to monorepo root, e.g. `packages/src/index.ts`.
 
 5.  Test integration with supported IDEs:
-    - [VS Code](./VSCODE.md#how-to-verify-typescript-setup)
+    - [Visual Studio Code](./Developing-with-vscode.md#how-to-verify-typescript-setup)
+    - [WebStorm](./Developing-with-webstorm.md#how-to-verify-typescript-setup)
 
 ### Verify ESLint setup
 
 1.  Open any existing TypeScript file, e.g. `packages/src/index.ts`
 
-2.  Introduce two kinds linting problems - one that does and another that does
-    not require type information to be detected. For example, you can add the
-    following line at the end of the opened `index.ts`:
+2.  Introduce two kinds of linting problems - one that does and another that
+    does not require type information to be detected. For example, you can add
+    the following line at the end of the opened `index.ts`:
 
     ```ts
     const foo: any = 'bar';
@@ -644,7 +932,8 @@ configuration, it's important to verify that all usage scenarios keep working.
 
 5.  Test integration with supported IDEs:
 
-    - [VS Code](./VSCODE.md#how-to-verify-eslint-setup)
+    - [Visual Studio Code](./Developing-with-vscode.md#how-to-verify-eslint-setup)
+    - [WebStorm](./Developing-with-webstorm.md#how-to-verify-eslint-setup)
 
 ### tsconfig files
 
@@ -664,9 +953,9 @@ In the [`loopback-next`](https://github.com/strongloop/loopback-next) monorepo,
 
 This is why we have two sets of `tsconfig` files:
 
-- At monorepo root, there is `tsconfig.json` used by VS Code.
-- Inside each package, there is `tsconfig.build.json` used by `npm run build`
-  command.
+- At monorepo root, there is `tsconfig.json` used by VS Code and
+  `tsconfig.build.json` used by `eslint`.
+- Inside each package, there is `tsconfig.json` used by `npm run build` command.
 
 ## Renovate bot
 

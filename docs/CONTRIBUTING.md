@@ -17,6 +17,9 @@ defer to the owners of each individual module; the powers of the individual
 owner are kept in check by the ability of the community to fork and replace
 dependencies on the individual module and maintainer.
 
+The LoopBack project adopts the
+[Contributor Covenant version 2](CODE_OF_CONDUCT.md).
+
 ## [Reporting issues](http://loopback.io/doc/en/contrib/Reporting-issues.html)
 
 Issues in
@@ -43,7 +46,7 @@ and tools contained in LoopBack repositories.
 - [Git commit messages](./site/DEVELOPING.md#commit-message-guidelines)
 - [Making breaking changes](./site/DEVELOPING.md#making-breaking-changes)
 - [Reviewing pull requests](http://loopback.io/doc/en/contrib/triaging-pull-requests.html)
-- [Contributor License Agreement (CLA)](http://loopback.io/doc/en/contrib/code-contrib.html#agreeing-to-the-cla)
+- [Developer Certificate of Origin (DCO)](https://loopback.io/doc/en/contrib/code-contrib.html#developer-certificate-of-origin-dco)
 
 ## [Documentation](http://loopback.io/doc/en/contrib/doc-contrib.html)
 

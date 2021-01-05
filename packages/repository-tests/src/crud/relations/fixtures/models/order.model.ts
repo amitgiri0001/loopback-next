@@ -1,4 +1,4 @@
-// Copyright IBM Corp. 2019. All Rights Reserved.
+// Copyright IBM Corp. 2019,2020. All Rights Reserved.
 // Node module: @loopback/repository-tests
 // This file is licensed under the MIT License.
 // License text available at https://opensource.org/licenses/MIT
@@ -20,6 +20,7 @@ export class Order extends Entity {
   @property({
     id: true,
     generated: true,
+    useDefaultIdType: true,
   })
   id: MixedIdType;
 
@@ -38,8 +39,8 @@ export class Order extends Entity {
   @belongsTo(() => Customer)
   customerId: MixedIdType;
 
-  @belongsTo(() => Shipment, {name: 'shipment'})
-  shipment_id: MixedIdType;
+  @belongsTo(() => Shipment, {keyTo: 'shipment_id', name: 'shipment'})
+  shipmentInfo: number;
 }
 
 export interface OrderRelations {

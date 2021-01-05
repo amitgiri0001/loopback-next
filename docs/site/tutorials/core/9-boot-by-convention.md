@@ -1,7 +1,7 @@
 ---
 lang: en
 title: 'Discover and load artifacts by convention'
-keywords: LoopBack 4.0, LoopBack 4
+keywords: LoopBack 4.0, LoopBack 4, Node.js, TypeScript, OpenAPI
 sidebar: lb4_sidebar
 permalink: /doc/en/lb4/core-tutorial-part9.html
 ---
@@ -13,7 +13,7 @@ be achieved by calling `Context` APIs or helper methods on the application
 object:
 
 ```ts
-import {createBindingFromClass, BindingScope} from '@loopback/context';
+import {createBindingFromClass, BindingScope} from '@loopback/core';
 import {CACHING_SERVICE} from './keys';
 import {CachingService} from './caching-service';
 import {GreetingController} from './controllers';
@@ -22,10 +22,7 @@ import {CachingInterceptor} from './interceptors';
 // Use a helper method
 app.controller(GreetingController);
 // Use bind directly
-app
-  .bind(CACHING_SERVICE)
-  .toClass(CachingService)
-  .scope(BindingScope.SINGLETON);
+app.bind(CACHING_SERVICE).toClass(CachingService).scope(BindingScope.SINGLETON);
 // Use a helper method
 app.lifeCycleObserver(CachingObserver);
 // Use a helper method to create bindings and add them to the application
@@ -35,7 +32,7 @@ app.add(createBindingFromClass(CachingInterceptor));
 
 As the number of artifacts increases over time, it becomes cumbersome and
 error-prone. A better and simpler way is to use
-[`boot`](https://loopback.io/doc/en/lb4/Booting-an-Application.html).
+[`boot`](../../Booting-an-Application.md).
 
 ## Use `@loopback/boot`
 

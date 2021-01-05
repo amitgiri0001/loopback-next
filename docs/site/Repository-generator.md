@@ -1,7 +1,8 @@
 ---
 lang: en
 title: 'Repository generator'
-keywords: LoopBack 4.0, LoopBack 4
+keywords:
+  LoopBack 4.0, LoopBack 4, Node.js, TypeScript, OpenAPI, Repository, CLI
 sidebar: lb4_sidebar
 permalink: /doc/en/lb4/Repository-generator.html
 ---
@@ -11,8 +12,8 @@ permalink: /doc/en/lb4/Repository-generator.html
 ### Synopsis
 
 Adds a new
-[Repository class (or multiple backed by the same datasource)](Repositories.md)
-to a LoopBack application with one single command.
+[Repository class (or multiple backed by the same datasource)](Repository.md) to
+a LoopBack application with one single command.
 
 ```sh
 lb4 repository [options] [<name>]

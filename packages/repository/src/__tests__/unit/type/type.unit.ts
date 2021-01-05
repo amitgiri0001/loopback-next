@@ -1,4 +1,4 @@
-// Copyright IBM Corp. 2019. All Rights Reserved.
+// Copyright IBM Corp. 2019,2020. All Rights Reserved.
 // Node module: @loopback/repository
 // This file is licensed under the MIT License.
 // License text available at https://opensource.org/licenses/MIT
@@ -346,6 +346,45 @@ describe('types', () => {
         },
       };
       expect(anyType.serialize(json)).to.eql({a: 3});
+    });
+  });
+
+  describe('null', () => {
+    const nullType = new types.NullType();
+    it('checks isInstance', () => {
+      expect(nullType.isInstance('str')).to.be.false();
+      expect(nullType.isInstance(null)).to.be.true();
+      expect(nullType.isInstance(undefined)).to.be.false();
+      expect(nullType.isInstance(true)).to.be.false();
+      expect(nullType.isInstance(false)).to.be.false();
+      expect(nullType.isInstance({x: 1})).to.be.false();
+      expect(nullType.isInstance([1, 2])).to.be.false();
+      expect(nullType.isInstance(1)).to.be.false();
+      expect(nullType.isInstance(new Date())).to.be.false();
+    });
+
+    it('checks isCoercible', () => {
+      expect(nullType.isCoercible('str')).to.be.false();
+      expect(nullType.isCoercible(null)).to.be.true();
+      expect(nullType.isCoercible(undefined)).to.be.true();
+      expect(nullType.isCoercible(true)).to.be.false();
+      expect(nullType.isCoercible({x: 1})).to.be.false();
+      expect(nullType.isCoercible(1)).to.be.false();
+      expect(nullType.isCoercible(new Date())).to.be.false();
+    });
+
+    it('creates defaultValue', () => {
+      expect(nullType.defaultValue()).to.be.null();
+    });
+
+    it('coerces values', () => {
+      expect(nullType.coerce(null)).to.null();
+      expect(nullType.coerce(undefined)).to.null();
+    });
+
+    it('serializes values', () => {
+      expect(nullType.serialize(null)).null();
+      expect(nullType.serialize(undefined)).null();
     });
   });
 

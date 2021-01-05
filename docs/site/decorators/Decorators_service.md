@@ -1,7 +1,7 @@
 ---
 lang: en
 title: 'Service Decorator'
-keywords: LoopBack 4.0, LoopBack-Next
+keywords: LoopBack 4.0, LoopBack, Node.js, TypeScript, OpenAPI, Decorator
 sidebar: lb4_sidebar
 permalink: /doc/en/lb4/Decorators_service.html
 ---
@@ -69,10 +69,7 @@ ctx
   .to(myService)
   .tag({[CoreTags.SERVICE_INTERFACE]: MyService});
 
-ctx
-  .bind('my-sub-service')
-  .toClass(MySubService)
-  .apply(asService(MyService));
+ctx.bind('my-sub-service').toClass(MySubService).apply(asService(MyService));
 ```
 
 The services can also be registered with `Application`:

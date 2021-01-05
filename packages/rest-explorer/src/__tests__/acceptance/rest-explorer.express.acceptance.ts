@@ -1,4 +1,4 @@
-// Copyright IBM Corp. 2019. All Rights Reserved.
+// Copyright IBM Corp. 2019,2020. All Rights Reserved.
 // Node module: @loopback/rest-explorer
 // This file is licensed under the MIT License.
 // License text available at https://opensource.org/licenses/MIT
@@ -9,7 +9,7 @@ import {
   createClientForHandler,
   givenHttpServerConfig,
 } from '@loopback/testlab';
-import * as express from 'express';
+import express from 'express';
 import {
   RestExplorerBindings,
   RestExplorerComponent,
@@ -92,7 +92,7 @@ describe('REST Explorer mounted as an express router', () => {
     options.rest = givenHttpServerConfig(options.rest);
     const app = new RestApplication(options);
     if (explorerConfig) {
-      app.bind(RestExplorerBindings.CONFIG).to(explorerConfig);
+      app.configure(RestExplorerBindings.COMPONENT).to(explorerConfig);
     }
     app.component(RestExplorerComponent);
     server = await app.getServer(RestServer);

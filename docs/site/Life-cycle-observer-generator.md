@@ -1,7 +1,7 @@
 ---
 lang: en
 title: 'Life cycle observer generator'
-keywords: LoopBack 4.0, LoopBack 4
+keywords: LoopBack 4.0, LoopBack 4, Node.js, TypeScript, OpenAPI
 sidebar: lb4_sidebar
 permalink: /doc/en/lb4/Life-cycle-observer-generator.html
 ---
@@ -67,14 +67,22 @@ export class HelloObserver implements LifeCycleObserver {
   */
 
   /**
-   * This method will be invoked when the application starts
+   * This method will be invoked when the application initializes. It will be
+   * called at most once for a given application instance.
+   */
+  async init(): Promise<void> {
+    // Add your logic for init
+  }
+
+  /**
+   * This method will be invoked when the application starts.
    */
   async start(): Promise<void> {
     // Add your logic for start
   }
 
   /**
-   * This method will be invoked when the application stops
+   * This method will be invoked when the application stops.
    */
   async stop(): Promise<void> {
     // Add your logic for start

@@ -1,4 +1,4 @@
-// Copyright IBM Corp. 2017,2018. All Rights Reserved.
+// Copyright IBM Corp. 2019,2020. All Rights Reserved.
 // Node module: @loopback/context
 // This file is licensed under the MIT License.
 // License text available at https://opensource.org/licenses/MIT
@@ -46,7 +46,7 @@ export class DefaultConfigurationResolver implements ConfigurationResolver {
     propertyPath?: string,
     resolutionOptions?: ResolutionOptions,
   ): ValueOrPromise<ConfigValueType | undefined> {
-    propertyPath = propertyPath || '';
+    propertyPath = propertyPath ?? '';
     const configKey = configBindingKeyFor(key, propertyPath);
 
     const options: ResolutionOptions = Object.assign(

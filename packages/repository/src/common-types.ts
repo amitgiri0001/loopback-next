@@ -1,4 +1,4 @@
-// Copyright IBM Corp. 2017,2019. All Rights Reserved.
+// Copyright IBM Corp. 2017,2020. All Rights Reserved.
 // Node module: @loopback/repository
 // This file is licensed under the MIT License.
 // License text available at https://opensource.org/licenses/MIT
@@ -49,7 +49,9 @@ export interface AnyObject {
  * An extension of the built-in Partial<T> type which allows partial values
  * in deeply nested properties too.
  */
-export type DeepPartial<T> = {[P in keyof T]?: DeepPartial<T[P]>};
+export type DeepPartial<T> =
+  | Partial<T> // handle free-form properties, e.g. DeepPartial<AnyObject>
+  | {[P in keyof T]?: DeepPartial<T[P]>};
 
 /**
  * Type alias for strongly or weakly typed objects of T
@@ -94,9 +96,28 @@ export interface Count {
 
 /**
  * JSON Schema describing the Count interface. It's the response type for
- * REST calls to APIs which return Count
+ * REST calls to APIs which return `count`. The type is compatible with
+ * `SchemaObject` from `@loopback/openapi-v3`, which is not an explicit
+ * dependency for `@loopback/repository`.
  */
-export const CountSchema = {
-  type: 'object',
-  properties: {count: {type: 'number'}},
+export const CountSchema /* :SchemaObject */ = {
+  type: 'object' as const, // Force to be `object` type instead of `string`
+  title: 'loopback.Count',
+  'x-typescript-type': '@loopback/repository#Count',
+  properties: {
+    count: {
+      type: 'number' as const, // Force to be `number` type instead of `string`
+    },
+  },
 };
+
+/**
+ * Type helper to infer prototype from a constructor function.
+ *
+ * Example: `PrototypeOf<typeof Entity>` is resolved to `Entity`.
+ */
+export type PrototypeOf<Ctor extends Function> = Ctor extends {
+  prototype: infer Proto;
+}
+  ? Proto
+  : never;

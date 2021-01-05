@@ -1,13 +1,14 @@
-// Copyright IBM Corp. 2017,2018. All Rights Reserved.
+// Copyright IBM Corp. 2018,2020. All Rights Reserved.
 // Node module: @loopback/core
 // This file is licensed under the MIT License.
 // License text available at https://opensource.org/licenses/MIT
 
 import {
-  bind,
   BindingScope,
   Context,
   createBindingFromClass,
+  inject,
+  injectable,
 } from '@loopback/context';
 import {expect} from '@loopback/testlab';
 import {promisify} from 'util';
@@ -35,6 +36,25 @@ describe('LifeCycleRegistry', () => {
     givenObserver('2');
     await registry.start();
     expect(events).to.eql(['1-start', '2-start']);
+  });
+
+  it('starts/stops all registered observers with param injections', async () => {
+    givenObserverWithParamInjection('1');
+    givenObserverWithParamInjection('2');
+    context.bind('prefix').to('***');
+    await registry.start();
+    expect(events).to.eql(['***:1-start', '***:2-start']);
+    context.bind('prefix').to('###');
+    events.splice(0, events.length);
+    await registry.stop();
+    expect(events).to.eql(['###:2-stop', '###:1-stop']);
+  });
+
+  it('reports error for observers with param injections if key is not bound', async () => {
+    givenObserverWithParamInjection('1');
+    await expect(registry.start()).to.be.rejectedWith(
+      /The key 'prefix' is not bound to any value in context app/,
+    );
   });
 
   it('starts all registered async observers', async () => {
@@ -104,12 +124,14 @@ describe('LifeCycleRegistry', () => {
     registry.setParallel(true);
     await registry.start();
     expect(events.length).to.equal(4);
-    expect(events).to.eql([
-      'g1-2-start',
-      'g1-1-start',
-      'g2-2-start',
-      'g2-1-start',
-    ]);
+
+    // 1st group: g1-1, g1-2
+    const group1 = events.slice(0, 2);
+    expect(group1.sort()).to.eql(['g1-1-start', 'g1-2-start']);
+
+    // 2nd group: g2-1, g2-2
+    const group2 = events.slice(2, 4);
+    expect(group2.sort()).to.eql(['g2-1-start', 'g2-2-start']);
   });
 
   it('runs all registered observers within the same group in serial', async () => {
@@ -165,7 +187,7 @@ describe('LifeCycleRegistry', () => {
   }
 
   function givenObserver(name: string, group = '') {
-    @bind({tags: {[CoreTags.LIFE_CYCLE_OBSERVER_GROUP]: group}})
+    @injectable({tags: {[CoreTags.LIFE_CYCLE_OBSERVER_GROUP]: group}})
     class MyObserver implements LifeCycleObserver {
       start() {
         events.push(`${name}-start`);
@@ -182,8 +204,26 @@ describe('LifeCycleRegistry', () => {
     return MyObserver;
   }
 
+  function givenObserverWithParamInjection(name: string, group = '') {
+    @injectable({tags: {[CoreTags.LIFE_CYCLE_OBSERVER_GROUP]: group}})
+    class MyObserver implements LifeCycleObserver {
+      start(@inject('prefix') prefix: string) {
+        events.push(`${prefix}:${name}-start`);
+      }
+      stop(@inject('prefix') prefix: string) {
+        events.push(`${prefix}:${name}-stop`);
+      }
+    }
+    const binding = createBindingFromClass(MyObserver, {
+      key: `observers.observer-${name}`,
+    }).apply(asLifeCycleObserver);
+    context.add(binding);
+
+    return MyObserver;
+  }
+
   function givenAsyncObserver(name: string, group = '', delayInMs = 0) {
-    @bind({tags: {[CoreTags.LIFE_CYCLE_OBSERVER_GROUP]: group}})
+    @injectable({tags: {[CoreTags.LIFE_CYCLE_OBSERVER_GROUP]: group}})
     class MyAsyncObserver implements LifeCycleObserver {
       async start() {
         await sleep(delayInMs);

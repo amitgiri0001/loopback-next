@@ -1,8 +1,9 @@
-// Copyright IBM Corp. 2018,2019. All Rights Reserved.
+// Copyright IBM Corp. 2018,2020. All Rights Reserved.
 // Node module: @loopback/cli
 // This file is licensed under the MIT License.
 // License text available at https://opensource.org/licenses/MIT
 
+// no translation: Model
 'use strict';
 
 const modelDiscoverer = require('../../lib/model-discoverer');
@@ -13,11 +14,15 @@ const inspect = require('util').inspect;
 const utils = require('../../lib/utils');
 const chalk = require('chalk');
 const path = require('path');
+const g = require('../../lib/globalize');
 
-const {createPropertyTemplateData} = require('./property-definition');
+const {
+  createPropertyTemplateData,
+  findBuiltinType,
+} = require('./property-definition');
 
-const PROMPT_BASE_MODEL_CLASS = 'Please select the model base class';
-const ERROR_NO_MODELS_FOUND = 'Model was not found in';
+const PROMPT_BASE_MODEL_CLASS = g.f('Please select the model base class');
+const ERROR_NO_MODELS_FOUND = g.f('Model was not found in');
 
 const BASE_MODELS = ['Entity', 'Model'];
 const CLI_BASE_MODELS = [
@@ -41,6 +46,7 @@ const MODEL_TEMPLATE_PATH = 'model.ts.ejs';
  * entered. Will also ask if a property is required, the default value for the
  * property, if it's the ID (unless one has been selected), etc.
  */
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
 module.exports = class ModelGenerator extends ArtifactGenerator {
   constructor(args, opts) {
     super(args, opts);
@@ -81,7 +87,7 @@ module.exports = class ModelGenerator extends ArtifactGenerator {
     this.option('base', {
       type: String,
       required: false,
-      description: 'A valid based model',
+      description: g.f('A valid based model'),
     });
 
     // The base class can be specified:
@@ -94,22 +100,25 @@ module.exports = class ModelGenerator extends ArtifactGenerator {
     this.option('dataSource', {
       type: String,
       required: false,
-      description:
+      description: g.f(
         'The name of the dataSource which contains this model and suppots model discovery',
+      ),
     });
 
     this.option('table', {
       type: String,
       required: false,
-      description:
+      description: g.f(
         'If discovering a model from a dataSource, specify the name of its table/view',
+      ),
     });
 
     this.option('schema', {
       type: String,
       required: false,
-      description:
+      description: g.f(
         'If discovering a model from a dataSource, specify the schema which contains it',
+      ),
     });
 
     return super._setupGenerator();
@@ -161,6 +170,7 @@ module.exports = class ModelGenerator extends ArtifactGenerator {
         views: true,
       },
     );
+    await this.artifactInfo.dataSource.disconnect();
 
     if (!schemaDef) {
       this.exit(
@@ -285,7 +295,7 @@ module.exports = class ModelGenerator extends ArtifactGenerator {
     return this.prompt([
       {
         name: 'allowAdditionalProperties',
-        message: 'Allow additional (free-form) properties?',
+        message: g.f('Allow additional (free-form) properties?'),
         type: 'confirm',
         default: false,
         when: !this.artifactInfo.allowAdditionalProperties,
@@ -305,9 +315,10 @@ module.exports = class ModelGenerator extends ArtifactGenerator {
         );
 
         this.log(
-          `Let's add a property to ${chalk.yellow(
-            this.artifactInfo.className,
-          )}`,
+          g.f(
+            "Let's add a property to %s",
+            `${chalk.yellow(this.artifactInfo.className)}`,
+          ),
         );
       })
       .catch(err => {
@@ -340,7 +351,7 @@ module.exports = class ModelGenerator extends ArtifactGenerator {
   async promptPropertyName() {
     if (this.shouldExit()) return false;
 
-    this.log(`Enter an empty property name when done`);
+    this.log(g.f('Enter an empty property name when done'));
     this.log();
 
     // This function can be called repeatedly so this deletes the previous
@@ -350,8 +361,8 @@ module.exports = class ModelGenerator extends ArtifactGenerator {
     const prompts = [
       {
         name: 'propName',
-        message: 'Enter the property name:',
-        validate: function(val) {
+        message: g.f('Enter the property name:'),
+        validate: function (val) {
           if (val) {
             return utils.checkPropertyName(val);
           } else {
@@ -379,13 +390,13 @@ module.exports = class ModelGenerator extends ArtifactGenerator {
       const prompts = [
         {
           name: 'type',
-          message: 'Property type:',
+          message: g.f('Property type:'),
           type: 'list',
           choices: this.typeChoices,
         },
         {
           name: 'itemType',
-          message: 'Type of array items:',
+          message: g.f('Type of array items:'),
           type: 'list',
           choices: this.typeChoices.filter(choice => {
             return choice !== 'array';
@@ -396,7 +407,10 @@ module.exports = class ModelGenerator extends ArtifactGenerator {
         },
         {
           name: 'id',
-          message: `Is ${chalk.yellow(this.propName)} the ID property?`,
+          message: g.f(
+            'Is %s the ID property?',
+            `${chalk.yellow(this.propName)}`,
+          ),
           type: 'confirm',
           default: false,
           when: answers => {
@@ -408,25 +422,32 @@ module.exports = class ModelGenerator extends ArtifactGenerator {
         },
         {
           name: 'generated',
-          message: `Is ${chalk.yellow(this.propName)} generated automatically?`,
+          message: g.f(
+            'Is %s generated automatically?',
+            `${chalk.yellow(this.propName)}`,
+          ),
           type: 'confirm',
           default: true,
           when: answers => answers.id,
         },
         {
           name: 'required',
-          message: 'Is it required?:',
+          message: g.f('Is it required?:'),
           type: 'confirm',
           default: false,
           when: answers => !answers.generated,
         },
         {
           name: 'default',
-          message: `Default value ${chalk.yellow('[leave blank for none]')}:`,
+          message: g.f(
+            'Default value %s:',
+            `${chalk.yellow(g.f('[leave blank for none]'))}`,
+          ),
           when: answers => {
             return (
               ![null, 'buffer', 'any'].includes(answers.type) &&
-              !answers.generated
+              !answers.generated &&
+              answers.required !== true
             );
           },
         },
@@ -452,9 +473,10 @@ module.exports = class ModelGenerator extends ArtifactGenerator {
 
       this.log();
       this.log(
-        `Let's add another property to ${chalk.yellow(
-          this.artifactInfo.className,
-        )}`,
+        g.f(
+          "Let's add another property to %s",
+          `${chalk.yellow(this.artifactInfo.className)}`,
+        ),
       );
       return this.promptPropertyName();
     }
@@ -465,9 +487,11 @@ module.exports = class ModelGenerator extends ArtifactGenerator {
 
     debug('scaffolding');
 
-    Object.entries(this.artifactInfo.properties).forEach(([k, v]) =>
-      modelDiscoverer.sanitizeProperty(v),
-    );
+    Object.entries(this.artifactInfo.properties).forEach(([k, v]) => {
+      const builtinType = findBuiltinType(v.type);
+      if (builtinType) v.type = builtinType;
+      modelDiscoverer.sanitizeProperty(v);
+    });
 
     // Data for templates
     this.artifactInfo.outFile = utils.getModelFileName(this.artifactInfo.name);

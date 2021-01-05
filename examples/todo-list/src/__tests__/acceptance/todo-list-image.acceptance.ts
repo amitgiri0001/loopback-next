@@ -1,4 +1,4 @@
-// Copyright IBM Corp. 2019. All Rights Reserved.
+// Copyright IBM Corp. 2019,2020. All Rights Reserved.
 // Node module: @loopback/example-todo-list
 // This file is licensed under the MIT License.
 // License text available at https://opensource.org/licenses/MIT
@@ -44,17 +44,21 @@ describe('TodoListApplication', () => {
   });
 
   it('creates image for a todoList', async () => {
-    const todoListImage = givenTodoListImage();
+    const todoListImage: Partial<TodoListImage> = givenTodoListImage();
     delete todoListImage.todoListId;
     const response = await client
-      .post(`/todo-lists/${persistedTodoList.id}/image`)
+      .post(`/todo-lists/${persistedTodoList.id}/todo-list-image`)
       .send(todoListImage)
       .expect(200);
 
-    const expected = {...todoListImage, todoListId: persistedTodoList.id};
+    const expected = {
+      ...todoListImage,
+      todoListId: persistedTodoList.id,
+    };
     expect(response.body).to.containEql(expected);
 
     const created = await todoListImageRepo.findById(response.body.id);
+
     expect(toJSON(created)).to.deepEqual({id: response.body.id, ...expected});
   });
 
@@ -67,7 +71,7 @@ describe('TodoListApplication', () => {
     );
 
     const response = await client
-      .get(`/todo-lists/${persistedTodoList.id}/image`)
+      .get(`/todo-lists/${persistedTodoList.id}/todo-list-image`)
       .send()
       .expect(200);
 
@@ -90,7 +94,7 @@ describe('TodoListApplication', () => {
     id: typeof TodoList.prototype.id,
     todoListImage?: Partial<TodoListImage>,
   ) {
-    const data = givenTodoListImage(todoListImage);
+    const data: Partial<TodoListImage> = givenTodoListImage(todoListImage);
     delete data.todoListId;
     return todoListRepo.image(id).create(data);
   }

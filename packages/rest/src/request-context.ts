@@ -1,19 +1,25 @@
-// Copyright IBM Corp. 2018,2019. All Rights Reserved.
+// Copyright IBM Corp. 2018,2020. All Rights Reserved.
 // Node module: @loopback/rest
 // This file is licensed under the MIT License.
 // License text available at https://opensource.org/licenses/MIT
 
-import {Context} from '@loopback/context';
-import * as onFinished from 'on-finished';
+import {Context} from '@loopback/core';
+import {
+  HandlerContext,
+  MiddlewareContext,
+  Request,
+  Response,
+} from '@loopback/express';
 import {RestBindings} from './keys';
 import {RestServerResolvedConfig} from './rest.server';
-import {HandlerContext, Request, Response} from './types';
 
 /**
  * A per-request Context combining an IoC container with handler context
  * (request, response, etc.).
  */
-export class RequestContext extends Context implements HandlerContext {
+export class RequestContext
+  extends MiddlewareContext
+  implements HandlerContext {
   /**
    * Get the protocol used by the client to make the request.
    * Please note this protocol may be different from what we are observing
@@ -22,9 +28,9 @@ export class RequestContext extends Context implements HandlerContext {
    */
   get requestedProtocol(): string {
     return (
-      (this.request.get('x-forwarded-proto') || '').split(',')[0] ||
-      this.request.protocol ||
-      this.serverConfig.protocol ||
+      ((this.request.get('x-forwarded-proto') ?? '').split(',')[0] ||
+        this.request.protocol ||
+        this.serverConfig.protocol) ??
       'http'
     );
   }
@@ -36,7 +42,7 @@ export class RequestContext extends Context implements HandlerContext {
    */
   get basePath(): string {
     const request = this.request;
-    let basePath = this.serverConfig.basePath || '';
+    let basePath = this.serverConfig.basePath ?? '';
     if (request.baseUrl && request.baseUrl !== '/') {
       if (!basePath || request.baseUrl.endsWith(basePath)) {
         // Express has already applied basePath to baseUrl
@@ -67,16 +73,16 @@ export class RequestContext extends Context implements HandlerContext {
     // 127.0.0.1:3000
     // 127.0.0.1
     let {host, port} = parseHostAndPort(
-      request.get('x-forwarded-host') || request.headers.host,
+      request.get('x-forwarded-host') ?? request.headers.host,
     );
 
-    const forwardedPort = (request.get('x-forwarded-port') || '').split(',')[0];
+    const forwardedPort = (request.get('x-forwarded-port') ?? '').split(',')[0];
     port = forwardedPort || port;
 
     if (!host) {
       // No host detected from http headers
       // Use the configured values or the local network address
-      host = config.host || request.socket.localAddress;
+      host = config.host ?? request.socket.localAddress;
       port = (config.port || request.socket.localPort).toString();
     }
 
@@ -97,35 +103,22 @@ export class RequestContext extends Context implements HandlerContext {
     public readonly serverConfig: RestServerResolvedConfig,
     name?: string,
   ) {
-    super(parent, name);
-    this._setupBindings(request, response);
-    onFinished(this.response, () => {
-      // Close the request context when the http response is finished so that
-      // it can be recycled by GC
-      this.close();
-    });
+    super(request, response, parent, name);
   }
 
-  private _setupBindings(request: Request, response: Response) {
-    this.bind(RestBindings.Http.REQUEST)
-      .to(request)
-      .lock();
-
-    this.bind(RestBindings.Http.RESPONSE)
-      .to(response)
-      .lock();
-
-    this.bind(RestBindings.Http.CONTEXT)
-      .to(this)
-      .lock();
+  protected setupBindings() {
+    super.setupBindings();
+    this.bind(RestBindings.Http.REQUEST).to(this.request).lock();
+    this.bind(RestBindings.Http.RESPONSE).to(this.response).lock();
+    this.bind(RestBindings.Http.CONTEXT).to(this).lock();
   }
 }
 
 function parseHostAndPort(host: string | undefined) {
-  host = host || '';
+  host = host ?? '';
   host = host.split(',')[0];
   const portPattern = /:([0-9]+)$/;
-  const port = (host.match(portPattern) || [])[1] || '';
+  const port = (host.match(portPattern) ?? [])[1] || '';
   host = host.replace(portPattern, '');
   return {host, port};
 }

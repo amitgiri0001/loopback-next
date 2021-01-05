@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-// Copyright IBM Corp. 2018. All Rights Reserved.
+// Copyright IBM Corp. 2018,2020. All Rights Reserved.
 // Node module: @loopback/build
 // This file is licensed under the MIT License.
 // License text available at https://opensource.org/licenses/MIT
@@ -24,7 +24,6 @@ function run(argv, options) {
     !utils.isOptionSet(
       mochaOpts,
       '--config', // mocha 6.x
-      '--opts', // legacy
       '--package', // mocha 6.x
       '--no-config', // mocha 6.x
     ) && !utils.mochaConfiguredForProject();
@@ -50,6 +49,13 @@ function run(argv, options) {
   } else {
     // Allow tests to print to console, remove --allow-console-logs argument
     mochaOpts.splice(allowConsoleLogsIx, 1);
+  }
+
+  // Allow `--lang en_US.UTF-8`
+  const lang = mochaOpts.indexOf('--lang');
+  if (lang !== -1) {
+    process.env.LANG = mochaOpts[lang + 1];
+    mochaOpts.splice(lang, 2);
   }
 
   const args = [...mochaOpts];

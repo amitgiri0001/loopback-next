@@ -1,16 +1,17 @@
-// Copyright IBM Corp. 2017,2019. All Rights Reserved.
+// Copyright IBM Corp. 2017,2020. All Rights Reserved.
 // Node module: @loopback/authentication
 // This file is licensed under the MIT License.
 // License text available at https://opensource.org/licenses/MIT
 
-import {BindingKey} from '@loopback/context';
-import {MetadataAccessor} from '@loopback/metadata';
-import {SecurityBindings} from '@loopback/security';
+import {BindingKey, MetadataAccessor} from '@loopback/core';
+import {SecurityBindings, UserProfile} from '@loopback/security';
+import {Middleware} from '@loopback/rest';
 import {AuthenticationComponent} from './authentication.component';
 import {
   AuthenticateFn,
   AuthenticationMetadata,
   AuthenticationStrategy,
+  UserProfileFactory,
 } from './types';
 
 /**
@@ -22,8 +23,25 @@ export namespace AuthenticationBindings {
   );
 
   /**
-   * Key used to bind an authentication strategy to the context for the
-   * authentication function to use.
+   * Key used to bind a user profile factory to the context for any
+   * consumer to use when they need to convert a user object
+   * into a slimmer user profile object
+   *
+   * @example
+   * ```ts
+   * server
+   *   .bind(AuthenticationBindings.USER_PROFILE_FACTORY)
+   *   .to(myUserProfileFactory);
+   * ```
+   */
+  /* eslint-disable @typescript-eslint/no-explicit-any */
+  export const USER_PROFILE_FACTORY = BindingKey.create<
+    UserProfileFactory<any>
+  >('authentication.userProfileFactory');
+
+  /**
+   * Key used to bind an authentication strategy or multiple strategies
+   * to the context for the authentication function to use.
    *
    * @example
    * ```ts
@@ -32,9 +50,9 @@ export namespace AuthenticationBindings {
    *   .toProvider(MyAuthenticationStrategy);
    * ```
    */
-  export const STRATEGY = BindingKey.create<AuthenticationStrategy | undefined>(
-    'authentication.strategy',
-  );
+  export const STRATEGY = BindingKey.create<
+    AuthenticationStrategy | AuthenticationStrategy[] | undefined
+  >('authentication.strategy');
 
   /**
    * Key used to inject the authentication function into the sequence.
@@ -72,6 +90,13 @@ export namespace AuthenticationBindings {
   );
 
   /**
+   * Binding key for AUTHENTICATION_MIDDLEWARE
+   */
+  export const AUTHENTICATION_MIDDLEWARE = BindingKey.create<Middleware>(
+    'middleware.authentication',
+  );
+
+  /**
    * Key used to inject authentication metadata, which is used to determine
    * whether a request requires authentication or not.
    *
@@ -80,26 +105,35 @@ export namespace AuthenticationBindings {
    * class MyPassportStrategyProvider implements Provider<Strategy | undefined> {
    *   constructor(
    *     @inject(AuthenticationBindings.METADATA)
-   *     private metadata: AuthenticationMetadata,
+   *     private metadata?: AuthenticationMetadata[],
    *   ) {}
    *   value(): ValueOrPromise<Strategy | undefined> {
-   *     if (this.metadata) {
-   *       const name = this.metadata.strategy;
+   *     if (this.metadata?.length) {
    *       // logic to determine which authentication strategy to return
    *     }
    *   }
    * }
    * ```
    */
-  export const METADATA = BindingKey.create<AuthenticationMetadata | undefined>(
-    'authentication.operationMetadata',
-  );
+  export const METADATA = BindingKey.create<
+    AuthenticationMetadata[] | undefined
+  >('authentication.operationMetadata');
 
   export const AUTHENTICATION_STRATEGY_EXTENSION_POINT_NAME =
     'authentication.strategies';
 
   // Make `CURRENT_USER` the alias of SecurityBindings.USER for backward compatibility
-  export const CURRENT_USER = SecurityBindings.USER;
+  export const CURRENT_USER: BindingKey<UserProfile> = SecurityBindings.USER;
+
+  // Redirect url for authenticating current user
+  export const AUTHENTICATION_REDIRECT_URL = BindingKey.create<string>(
+    'authentication.redirect.url',
+  );
+
+  // Authentication redirect status, usually 302 or 303, indicates a web client will redirect
+  export const AUTHENTICATION_REDIRECT_STATUS = BindingKey.create<number>(
+    'authentication.redirect.status',
+  );
 }
 
 /**

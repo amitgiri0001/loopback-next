@@ -1,37 +1,50 @@
-// Copyright IBM Corp. 2018,2019. All Rights Reserved.
+// Copyright IBM Corp. 2018,2020. All Rights Reserved.
 // Node module: @loopback/rest
 // This file is licensed under the MIT License.
 // License text available at https://opensource.org/licenses/MIT
 
 import {
+  Application,
   Binding,
   BindingAddress,
   BindingScope,
   Constructor,
-  Context,
+  ContextObserver,
+  CoreBindings,
+  createBindingFromClass,
+  extensionFor,
+  filterByKey,
+  filterByTag,
   inject,
-} from '@loopback/context';
-import {Application, CoreBindings, Server} from '@loopback/core';
+  Server,
+  Subscription,
+} from '@loopback/core';
+import {BaseMiddlewareRegistry, ExpressRequestHandler} from '@loopback/express';
 import {HttpServer, HttpServerOptions} from '@loopback/http-server';
 import {
   getControllerSpec,
+  OASEnhancerBindings,
+  OASEnhancerService,
   OpenAPIObject,
   OpenApiSpec,
   OperationObject,
   ServerObject,
 } from '@loopback/openapi-v3';
-import {AssertionError} from 'assert';
-import * as cors from 'cors';
-import * as debugFactory from 'debug';
-import * as express from 'express';
+import assert, {AssertionError} from 'assert';
+import cors from 'cors';
+import debugFactory from 'debug';
+import express, {ErrorRequestHandler} from 'express';
 import {PathParams} from 'express-serve-static-core';
+import fs from 'fs';
 import {IncomingMessage, ServerResponse} from 'http';
 import {ServerOptions} from 'https';
 import {safeDump} from 'js-yaml';
+import {cloneDeep} from 'lodash';
 import {ServeStaticOptions} from 'serve-static';
+import {writeErrorToResponse} from 'strong-error-handler';
 import {BodyParser, REQUEST_BODY_PARSER_TAG} from './body-parsers';
 import {HttpHandler} from './http-handler';
-import {RestBindings} from './keys';
+import {RestBindings, RestTags} from './keys';
 import {RequestContext} from './request-context';
 import {
   ControllerClass,
@@ -39,7 +52,7 @@ import {
   ControllerInstance,
   ControllerRoute,
   createControllerFactoryForBinding,
-  ExpressRequestHandler,
+  createRoutesForController,
   ExternalExpressRoutes,
   RedirectRoute,
   RestRouterOptions,
@@ -49,17 +62,14 @@ import {
   RoutingTable,
 } from './router';
 import {assignRouterSpec} from './router/router-spec';
-import {DefaultSequence, SequenceFunction, SequenceHandler} from './sequence';
 import {
-  FindRoute,
-  InvokeMethod,
-  ParseParams,
-  Reject,
-  Request,
-  RequestBodyParserOptions,
-  Response,
-  Send,
-} from './types';
+  DefaultSequence,
+  MiddlewareSequence,
+  RestMiddlewareGroups,
+  SequenceFunction,
+  SequenceHandler,
+} from './sequence';
+import {Request, RequestBodyParserOptions, Response} from './types';
 
 const debug = debugFactory('loopback:rest:server');
 
@@ -73,12 +83,6 @@ export interface HttpServerLike {
 }
 
 const SequenceActions = RestBindings.SequenceActions;
-
-// NOTE(bajtos) we cannot use `import * as cloneDeep from 'lodash/cloneDeep'
-// because it produces the following TypeScript error:
-//  Module '"(...)/node_modules/@types/lodash/cloneDeep/index"' resolves to
-//  a non-module entity and cannot be imported using this construct.
-const cloneDeep: <T>(value: T) => T = require('lodash/cloneDeep');
 
 /**
  * A REST API server for use with Loopback.
@@ -107,7 +111,9 @@ const cloneDeep: <T>(value: T) => T = require('lodash/cloneDeep');
  * const server = await app.get('servers.foo');
  * ```
  */
-export class RestServer extends Context implements Server, HttpServerLike {
+export class RestServer
+  extends BaseMiddlewareRegistry
+  implements Server, HttpServerLike {
   /**
    * Handle incoming HTTP(S) request by invoking the corresponding
    * Controller method via the configured Sequence.
@@ -128,6 +134,13 @@ export class RestServer extends Context implements Server, HttpServerLike {
    * @param res - The response.
    */
 
+  protected oasEnhancerService: OASEnhancerService;
+  // eslint-disable-next-line @typescript-eslint/naming-convention
+  public get OASEnhancer(): OASEnhancerService {
+    this._setupOASEnhancerIfNeeded();
+    return this.oasEnhancerService;
+  }
+
   protected _requestHandler: HttpRequestListener;
   public get requestHandler(): HttpRequestListener {
     if (this._requestHandler == null) {
@@ -144,12 +157,22 @@ export class RestServer extends Context implements Server, HttpServerLike {
     this._setupHandlerIfNeeded();
     return this._httpHandler;
   }
+
+  /**
+   * Context event subscriptions for route related changes
+   */
+  private _routesEventSubscription: Subscription;
+
   protected _httpServer: HttpServer | undefined;
 
-  protected _expressApp: express.Application;
+  protected _expressApp?: express.Application;
 
   get listening(): boolean {
     return this._httpServer ? this._httpServer.listening : false;
+  }
+
+  get httpServer(): HttpServer | undefined {
+    return this._httpServer;
   }
 
   /**
@@ -169,7 +192,7 @@ export class RestServer extends Context implements Server, HttpServerLike {
    * will be 'http://localhost:3000' regardless of the `basePath`.
    */
   get rootUrl(): string | undefined {
-    return this._httpServer && this._httpServer.url;
+    return this._httpServer?.url;
   }
 
   /**
@@ -188,13 +211,14 @@ export class RestServer extends Context implements Server, HttpServerLike {
     config: RestServerConfig = {},
   ) {
     super(app);
+    this.scope = BindingScope.SERVER;
 
     this.config = resolveRestServerConfig(config);
 
     this.bind(RestBindings.PORT).to(this.config.port);
     this.bind(RestBindings.HOST).to(config.host);
     this.bind(RestBindings.PATH).to(config.path);
-    this.bind(RestBindings.PROTOCOL).to(config.protocol || 'http');
+    this.bind(RestBindings.PROTOCOL).to(config.protocol ?? 'http');
     this.bind(RestBindings.HTTPS_OPTIONS).to(config as ServerOptions);
 
     if (config.requestBodyParser) {
@@ -205,6 +229,8 @@ export class RestServer extends Context implements Server, HttpServerLike {
 
     if (config.sequence) {
       this.sequence(config.sequence);
+    } else {
+      this.sequence(MiddlewareSequence);
     }
 
     if (config.router) {
@@ -217,6 +243,18 @@ export class RestServer extends Context implements Server, HttpServerLike {
     this.bind(RestBindings.HANDLER).toDynamicValue(() => this.httpHandler);
   }
 
+  protected _setupOASEnhancerIfNeeded() {
+    if (this.oasEnhancerService != null) return;
+    this.add(
+      createBindingFromClass(OASEnhancerService, {
+        key: OASEnhancerBindings.OAS_ENHANCER_SERVICE,
+      }),
+    );
+    this.oasEnhancerService = this.getSync(
+      OASEnhancerBindings.OAS_ENHANCER_SERVICE,
+    );
+  }
+
   protected _setupRequestHandlerIfNeeded() {
     if (this._expressApp != null) return;
     this._expressApp = express();
@@ -225,7 +263,16 @@ export class RestServer extends Context implements Server, HttpServerLike {
 
     // Allow CORS support for all endpoints so that users
     // can test with online SwaggerUI instance
-    this._expressApp.use(cors(this.config.cors));
+    this.expressMiddleware(cors, this.config.cors, {
+      injectConfiguration: false,
+      key: 'middleware.cors',
+      group: RestMiddlewareGroups.CORS,
+    }).apply(
+      extensionFor(
+        RestTags.REST_MIDDLEWARE_CHAIN,
+        RestTags.ACTION_MIDDLEWARE_CHAIN,
+      ),
+    );
 
     // Set up endpoints for OpenAPI spec/ui
     this._setupOpenApiSpecEndpoints();
@@ -236,17 +283,41 @@ export class RestServer extends Context implements Server, HttpServerLike {
     });
 
     // Mount our error handler
-    this._expressApp.use(
-      (err: Error, req: Request, res: Response, next: Function) => {
-        this._onUnhandledError(req, res, err);
-      },
-    );
+    this._expressApp.use(this._unexpectedErrorHandler());
+  }
+
+  /**
+   * Get an Express handler for unexpected errors
+   */
+  protected _unexpectedErrorHandler(): ErrorRequestHandler {
+    const handleUnExpectedError: ErrorRequestHandler = (
+      err,
+      req,
+      res,
+      next,
+    ) => {
+      // Handle errors reported by Express middleware such as CORS
+      // First try to use the `REJECT` action
+      this.get(SequenceActions.REJECT, {optional: true})
+        .then(reject => {
+          if (reject) {
+            // TODO(rfeng): There is a possibility that the error is thrown
+            // from the `REJECT` action in the sequence
+            return reject({request: req, response: res}, err);
+          }
+          // Use strong-error handler directly
+          writeErrorToResponse(err, req, res);
+        })
+        .catch(unexpectedErr => next(unexpectedErr));
+    };
+    return handleUnExpectedError;
   }
 
   /**
    * Apply express settings.
    */
   protected _applyExpressSettings() {
+    assertExists(this._expressApp, 'this._expressApp');
     const settings = this.config.expressSettings;
     for (const key in settings) {
       this._expressApp.set(key, settings[key]);
@@ -261,16 +332,26 @@ export class RestServer extends Context implements Server, HttpServerLike {
    * to redirect to externally hosted API explorer
    */
   protected _setupOpenApiSpecEndpoints() {
+    assertExists(this._expressApp, 'this._expressApp');
     if (this.config.openApiSpec.disabled) return;
+    const router = express.Router();
     const mapping = this.config.openApiSpec.endpointMapping!;
     // Serving OpenAPI spec
     for (const p in mapping) {
-      this.addOpenApiSpecEndpoint(p, mapping[p]);
+      this.addOpenApiSpecEndpoint(p, mapping[p], router);
     }
-
     const explorerPaths = ['/swagger-ui', '/explorer'];
-    this._expressApp.get(explorerPaths, (req, res, next) =>
+    router.get(explorerPaths, (req, res, next) =>
       this._redirectToSwaggerUI(req, res, next),
+    );
+    this.expressMiddleware('middleware.apiSpec.defaults', router, {
+      group: RestMiddlewareGroups.API_SPEC,
+      upstreamGroups: RestMiddlewareGroups.CORS,
+    }).apply(
+      extensionFor(
+        RestTags.REST_MIDDLEWARE_CHAIN,
+        RestTags.ACTION_MIDDLEWARE_CHAIN,
+      ),
     );
   }
 
@@ -278,33 +359,33 @@ export class RestServer extends Context implements Server, HttpServerLike {
    * Add a new non-controller endpoint hosting a form of the OpenAPI spec.
    *
    * @param path Path at which to host the copy of the OpenAPI
-   * @param form Form that should be renedered from that path
+   * @param form Form that should be rendered from that path
    */
-  addOpenApiSpecEndpoint(path: string, form: OpenApiSpecForm) {
-    if (this._expressApp) {
-      // if the app is already started, try to hot-add it
-      // this only actually "works" mid-startup, once this._handleHttpRequest
-      // has been added to express, adding any later routes won't work
-
-      // NOTE(bajtos) Regular routes are handled through Sequence.
-      // IMO, this built-in endpoint should not run through a Sequence,
-      // because it's not part of the application API itself.
-      // E.g. if the app implements access/audit logs, I don't want
-      // this endpoint to trigger a log entry. If the server implements
-      // content-negotiation to support XML clients, I don't want the OpenAPI
-      // spec to be converted into an XML response.
-      this._expressApp.get(path, (req, res) =>
-        this._serveOpenApiSpec(req, res, form),
-      );
-    } else {
-      // if the app is not started, add the mapping to the config
-      const mapping = this.config.openApiSpec.endpointMapping!;
-      if (path in mapping) {
+  addOpenApiSpecEndpoint(
+    path: string,
+    form: OpenApiSpecForm,
+    router?: express.Router,
+  ) {
+    if (router == null) {
+      const key = `middleware.apiSpec.${path}.${form}`;
+      if (this.contains(key)) {
         throw new Error(
           `The path ${path} is already configured for OpenApi hosting`,
         );
       }
-      mapping[path] = form;
+      const newRouter = express.Router();
+      newRouter.get(path, (req, res) => this._serveOpenApiSpec(req, res, form));
+      this.expressMiddleware(
+        () => newRouter,
+        {},
+        {
+          injectConfiguration: false,
+          key: `middleware.apiSpec.${path}.${form}`,
+          group: 'apiSpec',
+        },
+      );
+    } else {
+      router.get(path, (req, res) => this._serveOpenApiSpec(req, res, form));
     }
   }
 
@@ -313,12 +394,31 @@ export class RestServer extends Context implements Server, HttpServerLike {
   }
 
   protected _setupHandlerIfNeeded() {
-    // TODO(bajtos) support hot-reloading of controllers
-    // after the app started. The idea is to rebuild the HttpHandler
-    // instance whenever a controller was added/deleted.
-    // See https://github.com/strongloop/loopback-next/issues/433
     if (this._httpHandler) return;
 
+    // Watch for binding events
+    // See https://github.com/strongloop/loopback-next/issues/433
+    const routesObserver: ContextObserver = {
+      filter: binding =>
+        filterByKey(RestBindings.API_SPEC.key)(binding) ||
+        (filterByKey(/^(controllers|routes)\..+/)(binding) &&
+          // Exclude controller routes to avoid circular events
+          !filterByTag(RestTags.CONTROLLER_ROUTE)(binding)),
+      observe: () => {
+        // Rebuild the HttpHandler instance whenever a controller/route was
+        // added/deleted.
+        this._createHttpHandler();
+      },
+    };
+    this._routesEventSubscription = this.subscribe(routesObserver);
+
+    this._createHttpHandler();
+  }
+
+  /**
+   * Create an instance of HttpHandler and populates it with routes
+   */
+  private _createHttpHandler() {
     /**
      * Check if there is custom router in the context
      */
@@ -326,7 +426,13 @@ export class RestServer extends Context implements Server, HttpServerLike {
     const routingTable = new RoutingTable(router, this._externalRoutes);
 
     this._httpHandler = new HttpHandler(this, this.config, routingTable);
-    for (const b of this.find('controllers.*')) {
+
+    // Remove controller routes
+    for (const b of this.findByTag(RestTags.CONTROLLER_ROUTE)) {
+      this.unbind(b.key);
+    }
+
+    for (const b of this.find(`${CoreBindings.CONTROLLERS}.*`)) {
       const controllerName = b.key.replace(/^controllers\./, '');
       const ctor = b.valueConstructor;
       if (!ctor) {
@@ -342,14 +448,24 @@ export class RestServer extends Context implements Server, HttpServerLike {
       }
 
       debug('Registering controller %s', controllerName);
-      if (apiSpec.components && apiSpec.components.schemas) {
-        this._httpHandler.registerApiDefinitions(apiSpec.components.schemas);
+      if (apiSpec.components) {
+        this._httpHandler.registerApiComponents(apiSpec.components);
       }
       const controllerFactory = createControllerFactoryForBinding(b.key);
-      this._httpHandler.registerController(apiSpec, ctor, controllerFactory);
+      const routes = createRoutesForController(
+        apiSpec,
+        ctor,
+        controllerFactory,
+      );
+      for (const route of routes) {
+        const binding = this.bindRoute(route);
+        binding
+          .tag(RestTags.CONTROLLER_ROUTE)
+          .tag({[RestTags.CONTROLLER_BINDING]: b.key});
+      }
     }
 
-    for (const b of this.find('routes.*')) {
+    for (const b of this.findByTag(RestTags.REST_ROUTE)) {
       // TODO(bajtos) should we support routes defined asynchronously?
       const route = this.getSync<RouteEntry>(b.key);
       this._httpHandler.registerRoute(route);
@@ -357,6 +473,9 @@ export class RestServer extends Context implements Server, HttpServerLike {
 
     // TODO(bajtos) should we support API spec defined asynchronously?
     const spec: OpenApiSpec = this.getSync(RestBindings.API_SPEC);
+    if (spec.components) {
+      this._httpHandler.registerApiComponents(spec.components);
+    }
     for (const path in spec.paths) {
       for (const verb in spec.paths[path]) {
         const routeSpec: OperationObject = spec.paths[path][verb];
@@ -381,7 +500,9 @@ export class RestServer extends Context implements Server, HttpServerLike {
 
     const controllerName = spec['x-controller-name'];
     if (typeof controllerName === 'string') {
-      const b = this.find(`controllers.${controllerName}`)[0];
+      const b = this.getBinding(`controllers.${controllerName}`, {
+        optional: true,
+      });
       if (!b) {
         throw new Error(
           `Unknown controller ${controllerName} used by "${verb} ${path}"`,
@@ -424,8 +545,8 @@ export class RestServer extends Context implements Server, HttpServerLike {
       this.config,
     );
 
-    specForm = specForm || {version: '3.0.0', format: 'json'};
-    const specObj = this.getApiSpec(requestContext);
+    specForm = specForm ?? {version: '3.0.0', format: 'json'};
+    const specObj = await this.getApiSpec(requestContext);
 
     if (specForm.format === 'json') {
       const spec = JSON.stringify(specObj, null, 2);
@@ -567,10 +688,7 @@ export class RestServer extends Context implements Server, HttpServerLike {
     if (typeof routeOrVerb === 'object') {
       const r = routeOrVerb;
       // Encode the path to escape special chars
-      const encodedPath = encodeURIComponent(r.path).replace(/\./g, '%2E');
-      return this.bind(`routes.${r.verb} ${encodedPath}`)
-        .to(r)
-        .tag('route');
+      return this.bindRoute(r);
     }
 
     if (!path) {
@@ -618,6 +736,15 @@ export class RestServer extends Context implements Server, HttpServerLike {
         methodName,
       ),
     );
+  }
+
+  private bindRoute(r: RouteEntry) {
+    const namespace = RestBindings.ROUTES;
+    const encodedPath = encodeURIComponent(r.path).replace(/\./g, '%2E');
+    return this.bind(`${namespace}.${r.verb} ${encodedPath}`)
+      .to(r)
+      .tag(RestTags.REST_ROUTE)
+      .tag({[RestTags.ROUTE_VERB]: r.verb, [RestTags.ROUTE_PATH]: r.path});
   }
 
   /**
@@ -699,16 +826,18 @@ export class RestServer extends Context implements Server, HttpServerLike {
    * @param requestContext - Optional context to update the `servers` list
    * in the returned spec
    */
-  getApiSpec(requestContext?: RequestContext): OpenApiSpec {
-    let spec = this.getSync<OpenApiSpec>(RestBindings.API_SPEC);
-    const defs = this.httpHandler.getApiDefinitions();
+  async getApiSpec(requestContext?: RequestContext): Promise<OpenApiSpec> {
+    let spec = await this.get<OpenApiSpec>(RestBindings.API_SPEC);
+    spec = cloneDeep(spec);
+    const components = this.httpHandler.getApiComponents();
 
     // Apply deep clone to prevent getApiSpec() callers from
     // accidentally modifying our internal routing data
-    spec.paths = cloneDeep(this.httpHandler.describeApiPaths());
-    if (defs) {
-      spec.components = spec.components || {};
-      spec.components.schemas = cloneDeep(defs);
+    const paths = cloneDeep(this.httpHandler.describeApiPaths());
+    spec.paths = {...paths, ...spec.paths};
+    if (components) {
+      const defs = cloneDeep(components);
+      spec.components = {...spec.components, ...defs};
     }
 
     assignRouterSpec(spec, this._externalRoutes.routerSpec);
@@ -717,11 +846,17 @@ export class RestServer extends Context implements Server, HttpServerLike {
       spec = this.updateSpecFromRequest(spec, requestContext);
     }
 
+    // Apply OAS enhancers to the OpenAPI specification
+    this.OASEnhancer.spec = spec;
+    spec = await this.OASEnhancer.applyAllEnhancers();
+
     return spec;
   }
 
   /**
-   * Update or rebuild OpenAPI Spec object to be appropriate for the context of a specific request for the spec, leveraging both app config and request path information.
+   * Update or rebuild OpenAPI Spec object to be appropriate for the context of
+   * a specific request for the spec, leveraging both app config and request
+   * path information.
    *
    * @param spec base spec object from which to start
    * @param requestContext request to use to infer path information
@@ -765,10 +900,14 @@ export class RestServer extends Context implements Server, HttpServerLike {
    * }
    * ```
    *
-   * @param value - The sequence to invoke for each incoming request.
+   * @param sequenceClass - The sequence class to invoke for each incoming request.
    */
-  public sequence(value: Constructor<SequenceHandler>) {
-    this.bind(RestBindings.SEQUENCE).toClass(value);
+  public sequence(sequenceClass: Constructor<SequenceHandler>) {
+    const sequenceBinding = createBindingFromClass(sequenceClass, {
+      key: RestBindings.SEQUENCE,
+    });
+    this.add(sequenceBinding);
+    return sequenceBinding;
   }
 
   /**
@@ -785,21 +924,8 @@ export class RestServer extends Context implements Server, HttpServerLike {
    */
   public handler(handlerFn: SequenceFunction) {
     class SequenceFromFunction extends DefaultSequence {
-      // NOTE(bajtos) Unfortunately, we have to duplicate the constructor
-      // in order for our DI/IoC framework to inject constructor arguments
-      constructor(
-        @inject(SequenceActions.FIND_ROUTE) protected findRoute: FindRoute,
-        @inject(SequenceActions.PARSE_PARAMS)
-        protected parseParams: ParseParams,
-        @inject(SequenceActions.INVOKE_METHOD) protected invoke: InvokeMethod,
-        @inject(SequenceActions.SEND) public send: Send,
-        @inject(SequenceActions.REJECT) public reject: Reject,
-      ) {
-        super(findRoute, parseParams, invoke, send, reject);
-      }
-
       async handle(context: RequestContext): Promise<void> {
-        await Promise.resolve(handlerFn(context, this));
+        return handlerFn(context, this);
       }
     }
 
@@ -860,10 +986,7 @@ export class RestServer extends Context implements Server, HttpServerLike {
       return;
     }
 
-    const serverOptions = {};
-    if (protocol === 'https') Object.assign(serverOptions, httpsOptions);
-    Object.assign(serverOptions, {port, host, protocol, path});
-
+    const serverOptions = {...httpsOptions, port, host, protocol, path};
     this._httpServer = new HttpServer(this.requestHandler, serverOptions);
 
     await this._httpServer.start();
@@ -884,20 +1007,6 @@ export class RestServer extends Context implements Server, HttpServerLike {
     this._httpServer = undefined;
   }
 
-  protected _onUnhandledError(req: Request, res: Response, err: Error) {
-    if (!res.headersSent) {
-      res.statusCode = 500;
-      res.end();
-    }
-
-    // It's the responsibility of the Sequence to handle any errors.
-    // If an unhandled error escaped, then something very wrong happened
-    // and it's best to crash the process immediately.
-    process.nextTick(() => {
-      throw err;
-    });
-  }
-
   /**
    * Mount an Express router to expose additional REST endpoints handled
    * via legacy Express-based stack.
@@ -916,6 +1025,44 @@ export class RestServer extends Context implements Server, HttpServerLike {
   ): void {
     this._externalRoutes.mountRouter(basePath, router, spec);
   }
+
+  /**
+   * Export the OpenAPI spec to the given json or yaml file
+   * @param outFile - File name for the spec. The extension of the file
+   * determines the format of the file.
+   * - `yaml` or `yml`: YAML
+   * - `json` or other: JSON
+   * If the outFile is not provided or its value is `''` or `'-'`, the spec is
+   * written to the console using the `log` function.
+   * @param log - Log function, default to `console.log`
+   */
+  async exportOpenApiSpec(outFile = '', log = console.log): Promise<void> {
+    const spec = await this.getApiSpec();
+    if (outFile === '-' || outFile === '') {
+      const json = JSON.stringify(spec, null, 2);
+      log('%s', json);
+      return;
+    }
+    const fileName = outFile.toLowerCase();
+    if (fileName.endsWith('.yaml') || fileName.endsWith('.yml')) {
+      const yaml = safeDump(spec);
+      fs.writeFileSync(outFile, yaml, 'utf-8');
+    } else {
+      const json = JSON.stringify(spec, null, 2);
+      fs.writeFileSync(outFile, json, 'utf-8');
+    }
+    log('The OpenAPI spec has been saved to %s.', outFile);
+  }
+}
+
+/**
+ * An assertion type guard for TypeScript to instruct the compiler that the
+ * given value is not `null` or `undefined.
+ * @param val - A value can be `undefined` or `null`
+ * @param name - Name of the value
+ */
+function assertExists<T>(val: T, name: string): asserts val is NonNullable<T> {
+  assert(val != null, `The value of ${name} cannot be null or undefined`);
 }
 
 /**
@@ -928,7 +1075,7 @@ export function createBodyParserBinding(
   key?: BindingAddress<BodyParser>,
 ): Binding<BodyParser> {
   const address =
-    key || `${RestBindings.REQUEST_BODY_PARSER}.${parserClass.name}`;
+    key ?? `${RestBindings.REQUEST_BODY_PARSER}.${parserClass.name}`;
   return Binding.bind<BodyParser>(address)
     .toClass(parserClass)
     .inScope(BindingScope.TRANSIENT)
@@ -954,12 +1101,15 @@ const OPENAPI_SPEC_MAPPING: {[key: string]: OpenApiSpecForm} = {
 export interface OpenApiSpecOptions {
   /**
    * Mapping of urls to spec forms, by default:
-   * ```
+   * <br>
    * {
+   *   <br>
    *   '/openapi.json': {version: '3.0.0', format: 'json'},
+   *   <br>
    *   '/openapi.yaml': {version: '3.0.0', format: 'yaml'},
+   *   <br>
    * }
-   * ```
+   *
    */
   endpointMapping?: {[key: string]: OpenApiSpecForm};
 
@@ -977,6 +1127,12 @@ export interface OpenApiSpecOptions {
    * Set this flag to disable the endpoint for OpenAPI spec
    */
   disabled?: true;
+
+  /**
+   * Set this flag to `false` to disable OAS schema consolidation. If not set,
+   * the value defaults to `true`.
+   */
+  consolidate?: boolean;
 }
 
 export interface ApiExplorerOptions {
@@ -1093,11 +1249,11 @@ function resolveRestServerConfig(
 function normalizeApiExplorerConfig(
   input: ApiExplorerOptions | undefined,
 ): ApiExplorerOptions {
-  const config = input || {};
-  const url = config.url || 'https://explorer.loopback.io';
+  const config = input ?? {};
+  const url = config.url ?? 'https://explorer.loopback.io';
 
   config.httpUrl =
-    config.httpUrl || config.url || 'http://explorer.loopback.io';
+    config.httpUrl ?? config.url ?? 'http://explorer.loopback.io';
 
   config.url = url;
 

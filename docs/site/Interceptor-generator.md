@@ -1,7 +1,7 @@
 ---
 lang: en
 title: 'Interceptor generator'
-keywords: LoopBack 4.0, LoopBack 4
+keywords: LoopBack 4.0, LoopBack 4, Node.js, TypeScript, OpenAPI, Interceptor
 sidebar: lb4_sidebar
 permalink: /doc/en/lb4/Interceptor-generator.html
 ---
@@ -10,8 +10,8 @@ permalink: /doc/en/lb4/Interceptor-generator.html
 
 ### Synopsis
 
-Adds a new [interceptor](Interceptors.md#global-interceptors) class to a
-LoopBack application.
+Adds a new [interceptor](Interceptor.md#global-interceptors) class to a LoopBack
+application.
 
 ```sh
 lb4 interceptor [--global] [--group <group>] [<name>]
@@ -60,10 +60,10 @@ The generated class looks like:
 import {
   /* inject, */
   globalInterceptor,
-  bind,
+  injectable,
   Interceptor,
   Provider,
-} from '@loopback/context';
+} from '@loopback/core';
 
 /**
  * This class will be bound to the application as a global `Interceptor` during
@@ -112,17 +112,19 @@ export class TestInterceptor implements Provider<Interceptor> {
 ```ts
 import {
   /* inject, */
-  bind,
+  injectable,
   Interceptor,
   Provider,
-} from '@loopback/context';
+} from '@loopback/core';
 
 /**
  * This class will be bound to the application as a global `Interceptor` during
  * `boot`
  */
-@bind({tags: {namespace: 'interceptors', name: 'test'}})
+@injectable({tags: {key: TestInterceptor.BINDING_KEY}})
 export class TestInterceptor implements Provider<Interceptor> {
+  static readonly BINDING_KEY = `interceptors.${TestInterceptor.name}`;
+
   /*
   constructor() {}
   */

@@ -1,4 +1,4 @@
-// Copyright IBM Corp. 2019. All Rights Reserved.
+// Copyright IBM Corp. 2019,2020. All Rights Reserved.
 // Node module: @loopback/example-todo-list
 // This file is licensed under the MIT License.
 // License text available at https://opensource.org/licenses/MIT
@@ -38,24 +38,30 @@ describe('TodoListApplication', () => {
     await todoRepo.deleteAll();
   });
 
-  it('creates a todo', async function() {
+  it('creates a todo', async function () {
     const todo = givenTodo();
-    const response = await client
-      .post('/todos')
-      .send(todo)
-      .expect(200);
+    const response = await client.post('/todos').send(todo).expect(200);
     expect(response.body).to.containDeep(todo);
     const result = await todoRepo.findById(response.body.id);
     expect(result).to.containDeep(todo);
   });
 
+  it('gets a count of todos', async function () {
+    await givenTodoInstance(todoRepo, {
+      title: 'say hello',
+      desc: 'formal greeting',
+    });
+    await givenTodoInstance(todoRepo, {
+      title: 'say goodbye',
+      desc: 'formal farewell',
+    });
+    await client.get('/todos/count').expect(200, {count: 2});
+  });
+
   it('rejects requests to create a todo with no title', async () => {
-    const todo = givenTodo();
+    const todo: Partial<Todo> = givenTodo();
     delete todo.title;
-    await client
-      .post('/todos')
-      .send(todo)
-      .expect(422);
+    await client.post('/todos').send(todo).expect(422);
   });
 
   context('when dealing with a single persisted todo', () => {
@@ -91,10 +97,7 @@ describe('TodoListApplication', () => {
     });
 
     it('returns 404 when replacing a todo that does not exist', () => {
-      return client
-        .put('/todos/99999')
-        .send(givenTodo())
-        .expect(404);
+      return client.put('/todos/99999').send(givenTodo()).expect(404);
     });
 
     it('updates the todo by ID ', async () => {
@@ -111,17 +114,11 @@ describe('TodoListApplication', () => {
     });
 
     it('returns 404 when updating a todo that does not exist', () => {
-      return client
-        .patch('/todos/99999')
-        .send(givenTodo())
-        .expect(404);
+      return client.patch('/todos/99999').send(givenTodo()).expect(404);
     });
 
     it('deletes the todo', async () => {
-      await client
-        .del(`/todos/${persistedTodo.id}`)
-        .send()
-        .expect(204);
+      await client.del(`/todos/${persistedTodo.id}`).send().expect(204);
       await expect(todoRepo.findById(persistedTodo.id)).to.be.rejectedWith(
         EntityNotFoundError,
       );
@@ -153,10 +150,28 @@ describe('TodoListApplication', () => {
       .expect(200, [toJSON(todoInProgress)]);
   });
 
+  it('updates todos using a filter', async () => {
+    await givenTodoInstance(todoRepo, {
+      title: 'hello',
+      desc: 'common greeting',
+      isComplete: false,
+    });
+    await givenTodoInstance(todoRepo, {
+      title: 'goodbye',
+      desc: 'common farewell',
+      isComplete: false,
+    });
+    await client
+      .patch('/todos')
+      .query({where: {title: 'goodbye'}})
+      .send({isComplete: true})
+      .expect(200, {count: 1});
+  });
+
   it('includes TodoList in query result', async () => {
     const list = await givenTodoListInstance(todoListRepo);
     const todo = await givenTodoInstance(todoRepo, {todoListId: list.id});
-    const filter = JSON.stringify({include: [{relation: 'todoList'}]});
+    const filter = JSON.stringify({include: ['todoList']});
 
     const response = await client.get('/todos').query({filter: filter});
 

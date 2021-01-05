@@ -1,5 +1,5 @@
-// Copyright IBM Corp. 2019. All Rights Reserved.
-// Node module: @loopback/extension-health
+// Copyright IBM Corp. 2019,2020. All Rights Reserved.
+// Node module: @loopback/health
 // This file is licensed under the MIT License.
 // License text available at https://opensource.org/licenses/MIT
 
@@ -16,14 +16,14 @@ import {
   inject,
   LifeCycleObserver,
 } from '@loopback/core';
-import {EventEmitter} from 'events';
-import pEvent from 'p-event';
+import {EventEmitter, once as onceGeneric} from 'events';
 import {HealthBindings, HealthTags} from '../keys';
 import {LiveCheck, ReadyCheck} from '../types';
 
 export class HealthObserver implements LifeCycleObserver {
   private eventEmitter = new EventEmitter();
   private startupCheck: Promise<void>;
+  private shutdownCheck: ShutdownCheck;
 
   constructor(
     @inject(HealthBindings.HEALTH_CHECKER) private healthChecker: HealthChecker,
@@ -34,17 +34,18 @@ export class HealthObserver implements LifeCycleObserver {
     @inject.view(filterByTag(HealthTags.READY_CHECK))
     private readyChecks: ContextView<ReadyCheck>,
   ) {
-    const startup = pEvent(this.eventEmitter, 'startup');
+    const startup = (once(
+      this.eventEmitter,
+      'startup',
+    ) as unknown) as Promise<void>;
     const startupCheck = new StartupCheck('startup', () => startup);
-
-    const shutdown = pEvent(this.eventEmitter, 'shutdown');
-    const shutdownCheck = new ShutdownCheck('shutdown', () => shutdown);
-
     this.startupCheck = this.healthChecker.registerStartupCheck(startupCheck);
-    this.healthChecker.registerShutdownCheck(shutdownCheck);
+    const shutdown = once(this.eventEmitter, 'shutdown');
+    this.shutdownCheck = new ShutdownCheck('shutdown', () => shutdown);
   }
 
   async start() {
+    this.healthChecker.registerShutdownCheck(this.shutdownCheck);
     const liveChecks = await this.liveChecks.values();
     const liveCheckBindings = this.liveChecks.bindings;
     let index = 0;
@@ -71,5 +72,17 @@ export class HealthObserver implements LifeCycleObserver {
 
   stop() {
     this.eventEmitter.emit('shutdown');
+    // Fix a potential memory leak caused by
+    // https://github.com/CloudNativeJS/cloud-health/blob/2.1.2/src/healthcheck/HealthChecker.ts#L118
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const onShutdownRequest = (this.healthChecker as any).onShutdownRequest;
+    if (onShutdownRequest != null) {
+      // Remove the listener from the current process
+      process.removeListener('SIGTERM', onShutdownRequest);
+    }
   }
+}
+
+function once(emitter: EventEmitter, event: string | symbol): Promise<void> {
+  return (onceGeneric(emitter, event) as unknown) as Promise<void>;
 }

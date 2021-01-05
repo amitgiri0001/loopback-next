@@ -1,4 +1,4 @@
-// Copyright IBM Corp. 2019. All Rights Reserved.
+// Copyright IBM Corp. 2019,2020. All Rights Reserved.
 // Node module: @loopback/example-todo-list
 // This file is licensed under the MIT License.
 // License text available at https://opensource.org/licenses/MIT
@@ -21,9 +21,9 @@ import {givenTodo, givenTodoList} from '../../helpers';
 
 describe('TodoController', () => {
   let todoListRepo: StubbedInstanceWithSinonAccessor<TodoListRepository>;
-  let constrainedTodoRepo: StubbedInstanceWithSinonAccessor<HasManyRepository<
-    Todo
-  >>;
+  let constrainedTodoRepo: StubbedInstanceWithSinonAccessor<
+    HasManyRepository<Todo>
+  >;
 
   /* eslint-disable @typescript-eslint/no-explicit-any */
   /*

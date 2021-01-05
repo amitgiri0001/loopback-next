@@ -1,10 +1,10 @@
-// Copyright IBM Corp. 2018,2019. All Rights Reserved.
+// Copyright IBM Corp. 2018,2020. All Rights Reserved.
 // Node module: @loopback/repository
 // This file is licensed under the MIT License.
 // License text available at https://opensource.org/licenses/MIT
 
-import {Context, inject, Injection} from '@loopback/context';
-import * as assert from 'assert';
+import {Context, inject, Injection} from '@loopback/core';
+import assert from 'assert';
 import {Class} from '../common-types';
 import {DataSource} from '../datasource';
 import {Entity, Model} from '../model';
@@ -146,7 +146,7 @@ export function repository(
       ? modelOrRepo.name
       : (modelOrRepo as typeof Entity);
   const meta = new RepositoryMetadata(stringOrModel, dataSource);
-  return function(
+  return function (
     target: Object,
     key?: string,
     // eslint-disable-next-line @typescript-eslint/no-explicit-any

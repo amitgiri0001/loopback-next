@@ -1,7 +1,7 @@
 ---
 lang: en
 title: 'Controller generator'
-keywords: LoopBack 4.0, LoopBack 4
+keywords: LoopBack 4.0, LoopBack 4, Node.js, TypeScript, OpenAPI, CLI
 sidebar: lb4_sidebar
 permalink: /doc/en/lb4/Controller-generator.html
 ---
@@ -51,7 +51,7 @@ based on the given name:
 ```ts
 // Uncomment these imports to begin using these cool features!
 
-// import {inject} from '@loopback/context';
+// import {inject} from '@loopback/core';
 
 export class FooController {
   constructor() {}
@@ -100,6 +100,7 @@ import {
   Count,
   CountSchema,
   Filter,
+  FilterExcludingWhere,
   repository,
   Where
 } from '@loopback/repository';
@@ -107,9 +108,7 @@ import {
   post,
   param,
   get,
-  getFilterSchemaFor,
   getModelSchemaRef,
-  getWhereSchemaFor,
   patch,
   del,
   requestBody,
@@ -152,7 +151,7 @@ export class TodoController {
     },
   })
   async count(
-    @param.query.object('where', getWhereSchemaFor(Todo)) where?: Where<Todo>,
+    @param.where(Todo) where?: Where<Todo>,
   ): Promise<Count> {
     return this.todoRepository.count(where);
   }
@@ -170,7 +169,7 @@ export class TodoController {
     },
   })
   async find(
-    @param.query.object('filter', getFilterSchemaFor(Todo))
+    @param.filter(Todo)
     filter?: Filter<Todo>,
   ): Promise<Todo[]> {
     return this.todoRepository.find(filter);
@@ -193,7 +192,7 @@ export class TodoController {
       },
     })
     todo: Partial<Todo>
-    @param.query.object('where', getWhereSchemaFor(Todo)) where?: Where<Todo>,
+    @param.where(Todo) where?: Where<Todo>,
   ): Promise<Count> {
     return this.todoRepository.updateAll(todo, where);
   }
@@ -212,7 +211,7 @@ export class TodoController {
   })
   async findById(
     @param.path.number('id') id: number,
-    @param.query.object('filter', getFilterSchemaFor(Todo)) filter?: Filter<Todo>
+    @param.filter(Todo, {exclude: 'where'}) filter?: FilterExcludingWhere<Todo>
   ): Promise<Todo> {
     return this.todoRepository.findById(id, filter);
   }

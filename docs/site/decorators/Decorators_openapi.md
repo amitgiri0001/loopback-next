@@ -1,7 +1,7 @@
 ---
 lang: en
 title: 'OpenAPI Decorators'
-keywords: LoopBack 4.0, LoopBack-Next
+keywords: LoopBack 4.0, LoopBack, Node.js, TypeScript, OpenAPI, Decorator
 sidebar: lb4_sidebar
 permalink: /doc/en/lb4/Decorators_openapi.html
 ---
@@ -10,8 +10,8 @@ permalink: /doc/en/lb4/Decorators_openapi.html
 
 Route decorators are used to expose controller methods as REST API operations.
 If you are not familiar with the concept of Route or Controller, please see
-[LoopBack Route](Routes.md) and [LoopBack Controller](Controllers.md) to learn
-more about them.
+[LoopBack Route](../Route.md) and [LoopBack Controller](../Controller.md) to
+learn more about them.
 
 By calling a route decorator, you provide OpenAPI specification to describe the
 endpoint which the decorated method maps to. You can choose different decorators
@@ -35,6 +35,9 @@ For example:
   paths: {
     '/greet': {
       get: {
+        // You can specify `operationId` as an universal property that's
+        // understood by other frameworks.
+        operationId: 'MyController.greet',
         'x-operation-name': 'greet',
         'x-controller-name': 'MyController',
         parameters: [{name: 'name', schema: {type: 'string'}, in: 'query'}],
@@ -61,7 +64,7 @@ app.controller(MyController);
 ```
 
 A more detailed explanation can be found in
-[Specifying Controller APIs](Controllers.md#specifying-controller-apis)
+[Specifying Controller APIs](../Controller.md#specifying-controller-apis)
 
 ### Operation Decorator
 
@@ -76,6 +79,9 @@ your endpoint, for example:
 
 ```ts
 const spec = {
+  // You can specify `operationId` as an universal property that's
+  // understood by other frameworks.
+  operationId: 'MyController.checkExist'
   parameters: [{name: 'name', schema: {type: 'string'}, in: 'query'}],
   responses: {
     '200': {
@@ -127,7 +133,7 @@ class MyController {
 ### Parameter Decorator
 
 Syntax: see
-[API documentation](https://github.com/strongloop/loopback-next/tree/master/packages/openapi-v3/src/decorators/parameter.decorator.ts#L17-L29)
+[API documentation](https://loopback.io/doc/en/lb4/apidocs.openapi-v3.param.html)
 
 `@param` is applied to controller method parameters to generate an OpenAPI
 parameter specification for them.
@@ -186,15 +192,57 @@ class MyController {
 ```
 
 You can find specific use cases in
-[Writing Controller methods](Controllers.md#writing-controller-methods)
+[Writing Controller methods](../Controller.md#writing-controller-methods)
 
 _The parameter location cookie is not supported yet, see_
 _(https://github.com/strongloop/loopback-next/issues/997)_
 
+### Parameter Decorator to support json objects
+
+{% include note.html content="
+LoopBack has switched the definition of json query params from the `exploded`,
+`deep-object` style to the `url-encoded` style definition in Open API spec.
+" %}
+
+The parameter decorator `@param.query.object` is applied to generate an Open API
+definition for query parameters with JSON values. The generated definition
+currently follows the `url-encoded` style as shown below.
+
+```json
+{
+  "in": "query",
+  "content": {
+    "application/json": {
+      "schema": {}
+    }
+  }
+}
+```
+
+The above style where the schema is `wrapped` under content['application/json']
+supports receiving `url-encoded` payload for a json query parameter as per Open
+API specification.
+
+To filter results from the GET '/todo-list' endpoint in the todo-list example
+with a specific relation, { "include": [ { "relation": "todo" } ] }, the
+following `url-encoded` query parameter can be used,
+
+```
+   http://localhost:3000/todos?filter=%7B%22include%22%3A%5B%7B%22relation%22%3A%22todoList%22%7D%5D%7D
+```
+
+As an extension to the url-encoded style, LoopBack also supports queries with
+exploded values for json query parameters.
+
+```
+GET /todos?filter[where][completed]=false
+// filter={where: {completed: 'false'}}
+```
+
 ### RequestBody Decorator
 
 Syntax: see
-[API documentation](https://github.com/strongloop/loopback-next/tree/master/packages/openapi-v3/src/decorators/request-body.decorator.ts#L20-L79)
+[API documentation](https://loopback.io/doc/en/lb4/apidocs.openapi-v3.requestbody.html)
 
 `@requestBody()` is applied to a controller method parameter to generate OpenAPI
 requestBody specification for it.
@@ -235,7 +283,7 @@ class User {
 ```
 
 _To learn more about decorating models and the corresponding OpenAPI schema, see
-[model decorators](Model.md#model-decorator)._
+[model decorators](../Model.md#model-decorator)._
 
 The model decorators allow type information of the model to be visible to the
 spec generator so that `@requestBody` can be used on the parameter:
@@ -315,6 +363,39 @@ class MyController {
 }
 ```
 
+#### @requestBody.array
+
+Syntax: see
+[API documentation](https://loopback.io/doc/en/lb4/apidocs.openapi-v3.requestbody.array.html)
+
+`@requestBody.array` marks the request body to accept arrays. It is a
+lightweight wrapper around `@requestBody` and accepts the same parameters.
+
+```ts
+class MyController {
+  @post('/Users')
+  async addUsers(@requestBody.array() users: User[]) {}
+}
+```
+
+#### @requestBody.file
+
+`@requestBody.file` marks a request body for `multipart/form-data` based file
+upload. For example,
+
+```ts
+import {post, Request, requestBody} from '@loopback/rest';
+class MyController {
+  @post('/pictures')
+  upload(
+    @requestBody.file()
+    request: Request,
+  ) {
+    // ...
+  }
+}
+```
+
 _We plan to support more `@requestBody` shortcuts in the future. You can track
 the feature in
 [story 1064](https://github.com/strongloop/loopback-next/issues/1064)._
@@ -328,7 +409,7 @@ example,
 
 ```ts
 import {model, property} from '@loopback/repository';
-import {requestBody, post, get} from '@loopback/openapi-v3';
+import {requestBody, post, get} from '@loopback/rest';
 
 @model()
 class MyModel {
@@ -362,6 +443,9 @@ export class MyController {
 ```
 
 The `x-ts-type` can be used for array and object properties too:
+
+{% include note.html content="Arrays should be defined with
+[`@requestBody.array`](#@requestBody.array) instead." %}
 
 ```ts
 const schemaWithArrayOfMyModel = {
@@ -427,6 +511,449 @@ export class SomeController {
 }
 ```
 
+#### anyOf, allOf, oneOf, not
+
+The `x-ts-type` extention is also valid as a value in `allOf`, `anyOf`, `oneOf`,
+and `not` schema keys.
+
+```ts
+@model
+class FooModel extends Model {
+  @property()
+  foo: string;
+}
+
+@model
+class BarModel extends Model {
+  @property()
+  bar: string;
+}
+
+@model
+class BazModel extends Model {
+  @property()
+  baz: string;
+}
+
+class MyController {
+  @get('/some-value', {
+    responses: {
+      '200': {
+        description: 'returns a union of two values',
+        content: {
+          'application/json': {
+            schema: {
+              not: {'x-ts-type': BazModel},
+              allOf: [{'x-ts-type': FooModel}, {'x-ts-type': BarModel}],
+            },
+          },
+        },
+      },
+    },
+  })
+  getSomeValue() {
+    return {foo: 'foo', bar: 'bar'};
+  }
+}
+```
+
 When the OpenAPI spec is generated, the `xs-ts-type` is mapped to
 `{$ref: '#/components/schemas/MyModel'}` and a corresponding schema is added to
 `components.schemas.MyModel` of the spec.
+
+## Convenience Decorators
+
+While you can supply a fully valid OpenAPI specification for the class-level
+`@api` decorator, and full operation OpenAPI specification for `@operation` and
+the other convenience decorators, there are also a number of utility decorators
+that allow you to supply specific OpenAPI information without requiring you to
+use verbose JSON.
+
+## Shortcuts for the OpenAPI Spec (OAS) Objects
+
+All of the above are direct exports of `@loopback/rest`, but they are also
+available under the `oas` namespace:
+
+```ts
+import {oas} from '@loopback/rest';
+
+@oas.api({})
+class MyController {
+  @oas.get('/greet/{id}')
+  public greet(@oas.param('id') id: string) {}
+}
+```
+
+This namespace contains decorators that are specific to the OpenAPI
+specification, but are also similar to other well-known decorators available,
+such as `@deprecated()`
+
+### @oas.deprecated
+
+[API document](https://loopback.io/doc/en/lb4/apidocs.openapi-v3.deprecated.html),
+[OpenAPI Operation Specification](https://github.com/OAI/OpenAPI-Specification/blob/master/versions/3.0.0.md#operation-object)
+
+This decorator can currently be applied to class and a class method. It will set
+the `deprecated` boolean property of the Operation Object. When applied to a
+class, it will mark all operation methods of that class as deprecated, unless a
+method overloads with `@oas.deprecated(false)`.
+
+This decorator does not currently support marking
+(parameters)[https://github.com/OAI/OpenAPI-Specification/blob/master/versions/3.0.0.md#parameter-object]
+as deprecated.
+
+```ts
+@oas.deprecated()
+class MyController {
+   @oas.get('/greet')
+   public async function greet() {
+    return 'Hello, World!'
+  }
+
+  @oas.get('/greet-v2')
+  @oas.deprecated(false)
+  public async function greetV2() {
+    return 'Hello, World!'
+  }
+}
+
+class MyOtherController {
+  @oas.get('/echo')
+  @oas.deprecated()
+  public async function echo() {
+    return 'Echo!'
+  }
+}
+```
+
+### @oas.visibility
+
+[API document](https://loopback.io/doc/en/lb4/apidocs.openapi-v3.visibility.html)
+
+This decorator can be applied to class and/or a class method. It will set the
+`x-visibility` property, which dictates if a class method appears in the OAS3
+spec. When applied to a class, it will mark all operation methods of that class,
+unless a method overloads with `@oas.visibility(<different visibility type>)`.
+
+When not explicitly defined, `x-visibility` is `undefined`, which is identical
+to `x-visibility: 'documented`.
+
+Currently, the supported values are `documented` or `undocumented`.
+
+This decorator does not currently support marking
+(parameters)[https://github.com/OAI/OpenAPI-Specification/blob/master/versions/3.0.0.md#parameter-object].
+
+```ts
+@oas.visibility('undocumented')
+class MyController {
+   @oas.get('/greet')
+   async function greet() {
+    return 'Hello, World!'
+  }
+
+  @oas.get('/greet-v2')
+  @oas.visibility('documented')
+  async function greetV2() {
+    return 'Hello, World!'
+  }
+}
+
+class MyOtherController {
+  @oas.get('/echo')
+  @oas.visibility('undocumented')
+  async function echo() {
+    return 'Echo!'
+  }
+}
+```
+
+### @oas.response
+
+[API document](https://loopback.io/doc/en/lb4/apidocs.openapi-v3.oas.html#oas-variable),
+[OpenAPI Response Specification](https://github.com/OAI/OpenAPI-Specification/blob/master/versions/3.0.0.md#response-object)
+
+This decorator lets you easily add response specifications using `Models` from
+`@loopback/repository`. The convenience decorator sets the `content-type` to
+`application/json`, and the response description to the string value in the
+`http-status` module. The models become references through the `x-ts-type`
+schema extention.
+
+```ts
+@model()
+class SuccessModel extends Model {
+  constructor(err: Partial<SuccessModel>) {
+    super(err);
+  }
+  @property({default: 'Hi there!'})
+  message: string;
+}
+
+class GenericError extends Model {
+  @property()
+  message: string;
+}
+
+class MyController {
+  @oas.get('/greet')
+  @oas.response(200, SuccessModel)
+  @oas.response(500, GenericError)
+  greet() {
+    return new SuccessModel({message: 'Hello, world!'});
+  }
+}
+```
+
+```json
+{
+  "paths": {
+    "/greet": {
+      "get": {
+        "responses": {
+          "200": {
+            "description": "Ok",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SuccessModel"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal Server Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GenericError"
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+}
+```
+
+#### Using many models
+
+For a given response code, it's possible to have a path that could return one of
+many errors. The `@oas.response` decorator lets you pass multiple Models as
+arguments. They're combined using an `anyOf` keyword.
+
+```ts
+class FooNotFound extends Model {
+  @property()
+  message: string;
+}
+
+class BarNotFound extends Model {
+  @property()
+  message: string;
+}
+
+class BazNotFound extends Model {
+  @property()
+  message: string;
+}
+
+class MyController {
+  @oas.get('/greet/{foo}/{bar}')
+  @oas.response(404, FooNotFound, BarNotFound)
+  @oas.response(404, BazNotFound)
+  greet() {
+    return new SuccessModel({message: 'Hello, world!'});
+  }
+}
+```
+
+```json
+{
+  "paths": {
+    "/greet": {
+      "get": {
+        "responses": {
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "anyOf": [
+                    {"$ref": "#/components/schemas/FooNotFound"},
+                    {"$ref": "#/components/schemas/BarNotFound"},
+                    {"$ref": "#/components/schemas/BazNotFound"}
+                  ]
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+}
+```
+
+#### Using ReferenceObject, ResponseObjects, ContentObjects
+
+You don't have to use loopback `Models` to use this convenience decorator. Valid
+`ReferenceObjects`, `ContentObjects`, and `ResponseObjects` are also valid.
+
+```ts
+class MyController {
+  // this is a valid SchemaObject
+  @oas.get('/schema-object')
+  @oas.response(200, {
+    type: 'object',
+    properties: {
+      message: 'string',
+    },
+    required: 'string',
+  })
+  returnFromSchemaObject() {
+    return {message: 'Hello, world!'};
+  }
+
+  // this is a valid ResponseObject
+  @oas.get('/response-object')
+  @oas.response(200, {
+    content: {
+      'application/pdf': {
+        schema: {
+          type: 'string',
+          format: 'base64',
+        },
+      },
+    },
+  })
+  returnFromResponseObject() {
+    return {message: 'Hello, world!'};
+  }
+
+  // this is a valid ResponseObject
+  @oas.get('/reference-object')
+  @oas.response(200, {$ref: '#/path/to/schema'})
+  returnFromResponseObject() {
+    return {message: 'Hello, world!'};
+  }
+}
+```
+
+#### Using @oas.response.file
+
+`@oas.response.file` is a shortcut decorator to describe response object for
+file download. For example:
+
+```ts
+import {get, oas, param, RestBindings, Response} from '@loopback/rest';
+
+class MyController {
+  @get('/files/{filename}')
+  @oas.response.file('image/jpeg', 'image/png')
+  download(
+    @param.path.string('filename') fileName: string,
+    @inject(RestBindings.Http.RESPONSE) response: Response,
+  ) {
+    // use response.download(...);
+  }
+}
+```
+
+#### Using more options
+
+The `@oas.response` convenience decorator makes some assumptions for you in
+order to provide a level of convenience. The `@operation` decorator and the
+method convenience decorators let you write a full, complete, and completely
+valid `OperationObject`.
+
+### @oas.tags
+
+[API document](https://loopback.io/doc/en/lb4/apidocs.openapi-v3.oas.html#oas-variable),
+[OpenAPI Operation Specification](https://github.com/OAI/OpenAPI-Specification/blob/master/versions/3.0.0.md#operation-object)
+
+This decorator can be applied to a controller class and to controller class
+methods. It will set the `tags` array string property of the Operation Object.
+When applied to a class, it will mark all operation methods of that class with
+those tags. Usage on both the class and method will combine the tags.
+
+```ts
+@oas.tags('Foo', 'Bar')
+class MyController {
+  @oas.get('/greet')
+  public async greet() {
+    // tags will be [Foo, Bar]
+  }
+
+  @oas.tags('Baz')
+  @oas.get('/echo')
+  public async echo() {
+    // tags will be [Foo, Bar, Baz]
+  }
+}
+```
+
+This decorator does not affect the top-level `tags` section defined in the
+[OpenAPI Tag Object specification](https://github.com/OAI/OpenAPI-Specification/blob/master/versions/3.0.0.md#tag-object).
+This decorator only affects the spec partial generated at the class level. You
+may find that your final tags also include a tag for the controller name.
+
+## Shortcuts for Filter and Where params
+
+CRUD APIs often expose REST endpoints that take `filter` and `where` query
+parameters. For example:
+
+```ts
+class TodoController {
+  async find(
+    @param.query.object('filter', getFilterSchemaFor(Todo))
+    filter?: Filter<Todo>,
+  ): Promise<Todo[]> {
+    return this.todoRepository.find(filter);
+  }
+
+  async findById(
+    @param.path.number('id') id: number,
+    @param.query.object('filter', getFilterSchemaFor(Todo))
+    filter?: Filter<Todo>,
+  ): Promise<Todo> {
+    return this.todoRepository.findById(id, filter);
+  }
+
+  async count(
+    @param.query.object('where', getWhereSchemaFor(Todo)) where?: Where<Todo>,
+  ): Promise<Count> {
+    return this.todoRepository.count(where);
+  }
+}
+```
+
+To simplify the parameter decoration for `filter` and `where`, we introduce two
+sugar decorators:
+
+- `@param.filter`: For a `filter` query parameter
+- `@param.where`: For a `where` query parameter
+
+Now the code from above can be refined as follows:
+
+```ts
+class TodoController {
+  async find(
+    @param.filter(Todo)
+    filter?: Filter<Todo>,
+  ): Promise<Todo[]> {
+    return this.todoRepository.find(filter);
+  }
+
+  async findById(
+    @param.path.number('id') id: number,
+    @param.filter(Todo, {exclude: 'where'}) filter?: FilterExcludingWhere<Todo>,
+  ): Promise<Todo> {
+    return this.todoRepository.findById(id, filter);
+  }
+
+  async count(@param.where(Todo) where?: Where<Todo>): Promise<Count> {
+    return this.todoRepository.count(where);
+  }
+}
+```

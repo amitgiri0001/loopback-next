@@ -1,4 +1,4 @@
-// Copyright IBM Corp. 2019. All Rights Reserved.
+// Copyright IBM Corp. 2019,2020. All Rights Reserved.
 // Node module: @loopback/openapi-v3
 // This file is licensed under the MIT License.
 // License text available at https://opensource.org/licenses/MIT
@@ -76,17 +76,20 @@ describe('controller spec', () => {
         schemas: {
           Bar: {
             title: 'Bar',
+            type: 'object',
             properties: {name: {type: 'string'}},
             additionalProperties: false,
           },
           Baz: {
             title: 'Baz',
+            type: 'object',
             properties: {name: {type: 'string'}},
             additionalProperties: false,
           },
           Foo: {
             // guarantee `definition` is deleted
             title: 'Foo',
+            type: 'object',
             properties: {
               bar: {$ref: '#/components/schemas/Bar'},
               baz: {$ref: '#/components/schemas/Baz'},
@@ -253,7 +256,7 @@ describe('controller spec', () => {
         $ref: '#/components/schemas/Todo',
       });
 
-      const globalSchemas = (spec.components || {}).schemas;
+      const globalSchemas = (spec.components ?? {}).schemas;
       expect(globalSchemas).to.deepEqual({
         Todo: {
           title: 'Todo',
@@ -302,7 +305,7 @@ describe('controller spec', () => {
         $ref: '#/definitions/Todo',
       });
 
-      const globalSchemas = (spec.components || {}).schemas;
+      const globalSchemas = (spec.components ?? {}).schemas;
       expect(globalSchemas).to.deepEqual({
         Todo: {
           title: 'Todo',
@@ -402,7 +405,7 @@ describe('controller spec', () => {
       }
 
       const spec = getControllerSpec(MyController);
-      const globalSchemas = (spec.components || {}).schemas;
+      const globalSchemas = (spec.components ?? {}).schemas;
       expect(globalSchemas).to.be.undefined();
     });
 
@@ -410,6 +413,17 @@ describe('controller spec', () => {
       @api({
         paths: {},
         components: {
+          parameters: {
+            limit: {
+              name: 'limit',
+              in: 'query',
+              description: 'Maximum number of items to return',
+              required: false,
+              schema: {
+                type: 'integer',
+              },
+            },
+          },
           schemas: {
             Todo: {
               title: 'Todo',
@@ -449,7 +463,20 @@ describe('controller spec', () => {
         $ref: '#/definitions/Todo',
       });
 
-      const globalSchemas = (spec.components || {}).schemas;
+      // We are not losing other components than schemas
+      expect(spec.components?.parameters).to.eql({
+        limit: {
+          name: 'limit',
+          in: 'query',
+          description: 'Maximum number of items to return',
+          required: false,
+          schema: {
+            type: 'integer',
+          },
+        },
+      });
+
+      const globalSchemas = (spec.components ?? {}).schemas;
       expect(globalSchemas).to.deepEqual({
         Todo: {
           title: 'Todo',
@@ -509,7 +536,7 @@ describe('controller spec', () => {
         $ref: '#/components/schemas/Todo',
       });
 
-      const globalSchemas = (spec.components || {}).schemas;
+      const globalSchemas = (spec.components ?? {}).schemas;
       expect(globalSchemas).to.deepEqual({
         Todo: {
           title: 'Todo',
@@ -538,6 +565,7 @@ describe('controller spec', () => {
       },
       additionalProperties: false,
       title: 'MyModel',
+      type: 'object',
     };
 
     it('generates schema for response content', () => {
@@ -776,10 +804,11 @@ describe('controller spec', () => {
         $ref: '#/components/schemas/MyModel',
       });
 
-      const globalSchemas = (spec.components || {}).schemas;
+      const globalSchemas = (spec.components ?? {}).schemas;
       expect(globalSchemas).to.deepEqual({
         MyModel: {
           title: 'MyModel',
+          type: 'object',
           properties: {
             name: {
               type: 'string',

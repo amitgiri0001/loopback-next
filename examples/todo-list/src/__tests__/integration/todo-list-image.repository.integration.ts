@@ -1,3 +1,8 @@
+// Copyright IBM Corp. 2019,2020. All Rights Reserved.
+// Node module: @loopback/example-todo-list
+// This file is licensed under the MIT License.
+// License text available at https://opensource.org/licenses/MIT
+
 import {expect, toJSON} from '@loopback/testlab';
 import {
   TodoListImageRepository,
@@ -37,7 +42,7 @@ describe('TodoListImageRepository', () => {
     });
 
     const response = await todoListImageRepo.find({
-      include: [{relation: 'todoList'}],
+      include: ['todoList'],
     });
 
     expect(toJSON(response)).to.deepEqual([
@@ -55,7 +60,7 @@ describe('TodoListImageRepository', () => {
     });
 
     const response = await todoListImageRepo.findById(image.id, {
-      include: [{relation: 'todoList'}],
+      include: ['todoList'],
     });
 
     expect(toJSON(response)).to.deepEqual({
@@ -71,7 +76,7 @@ describe('TodoListImageRepository', () => {
     });
 
     const response = await todoListImageRepo.findOne({
-      include: [{relation: 'todoList'}],
+      include: ['todoList'],
     });
 
     expect(toJSON(response)).to.deepEqual({

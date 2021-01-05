@@ -1,10 +1,10 @@
-// Copyright IBM Corp. 2019. All Rights Reserved.
+// Copyright IBM Corp. 2019,2020. All Rights Reserved.
 // Node module: @loopback/context
 // This file is licensed under the MIT License.
 // License text available at https://opensource.org/licenses/MIT
 
 import {expect} from '@loopback/testlab';
-import pEvent from 'p-event';
+import {once} from 'events';
 import {promisify} from 'util';
 import {
   Binding,
@@ -21,14 +21,15 @@ const setImmediateAsync = promisify(setImmediate);
  * for assertions
  */
 class TestContext extends Context {
-  get parentEventListeners() {
-    return this._parentEventListeners;
+  get parentEventListener() {
+    return this.subscriptionManager.parentContextEventListener;
   }
+
   /**
    * Wait until the context event queue is empty or an error is thrown
    */
   waitUntilObserversNotified(): Promise<void> {
-    return this.waitUntilPendingNotificationsDone(100);
+    return this.subscriptionManager.waitUntilPendingNotificationsDone(100);
   }
 }
 
@@ -63,10 +64,9 @@ describe('Context', () => {
 
     it('registers observers on context with parent', () => {
       const childCtx = new TestContext(ctx, 'child');
-      expect(childCtx.parentEventListeners).to.be.undefined();
+      expect(childCtx.parentEventListener).to.be.undefined();
       childCtx.subscribe(nonMatchingObserver);
-      expect(childCtx.parentEventListeners!.has('bind')).to.be.true();
-      expect(childCtx.parentEventListeners!.has('unbind')).to.be.true();
+      expect(childCtx.parentEventListener).to.be.a.Function();
       expect(childCtx.isSubscribed(nonMatchingObserver)).to.true();
       expect(ctx.isSubscribed(nonMatchingObserver)).to.false();
     });
@@ -84,12 +84,8 @@ describe('Context', () => {
     it('un-registers observers on context chain during close', () => {
       const childCtx = new TestContext(ctx, 'child');
       childCtx.subscribe(nonMatchingObserver);
-      const parentEventListeners = new Map(childCtx.parentEventListeners!);
       childCtx.close();
-      for (const [event, listener] of parentEventListeners) {
-        expect(ctx.listeners(event)).to.not.containEql(listener);
-      }
-      expect(childCtx.parentEventListeners).to.be.undefined();
+      expect(childCtx.parentEventListener).to.be.undefined();
       expect(childCtx.isSubscribed(nonMatchingObserver)).to.false();
     });
 
@@ -177,7 +173,7 @@ describe('Context', () => {
     it('reports error if an observer fails', () => {
       ctx.bind('bar').to('bar-value');
       return expect(ctx.waitUntilObserversNotified()).to.be.rejectedWith(
-        'something wrong',
+        'something wrong - async',
       );
     });
 
@@ -243,7 +239,7 @@ describe('Context', () => {
         filter: binding => binding.key === 'bar',
         observe: async () => {
           await setImmediateAsync();
-          throw new Error('something wrong');
+          throw new Error('something wrong - async');
         },
       };
       ctx.subscribe(nonMatchingObserver);
@@ -286,7 +282,7 @@ describe('Context', () => {
     });
 
     it('reports error on current context if an observer fails', async () => {
-      const err = new Error('something wrong');
+      const err = new Error('something wrong - 1');
       server.subscribe((event, binding) => {
         if (binding.key === 'bar') {
           return Promise.reject(err);
@@ -294,12 +290,13 @@ describe('Context', () => {
       });
       server.bind('bar').to('bar-value');
       // Please note the following code registers an `error` listener on `server`
-      const obj = await pEvent(server, 'error');
+      // so that error events are caught before it is reported as unhandled.
+      const [obj] = await once(server, 'error');
       expect(obj).to.equal(err);
     });
 
     it('reports error on the first context with error listeners on the chain', async () => {
-      const err = new Error('something wrong');
+      const err = new Error('something wrong - 2');
       server.subscribe((event, binding) => {
         if (binding.key === 'bar') {
           return Promise.reject(err);
@@ -307,7 +304,7 @@ describe('Context', () => {
       });
       server.bind('bar').to('bar-value');
       // No error listener is registered on `server`
-      const obj = await pEvent(app, 'error');
+      const [obj] = await once(app, 'error');
       expect(obj).to.equal(err);
     });
 

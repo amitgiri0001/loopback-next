@@ -1,3 +1,253 @@
+## 2020 Goals and Focus
+
+### Goal#1 - Enable as many LoopBack 3 users to migrate to LoopBack 4 as possible
+
+With LoopBack 3 going end-of-life at the end of 2020, we are continuing to focus
+on the following areas:
+
+- finish the migration guide to help LB3 users to migrate their applications to
+  LB4
+- offer some level of tooling support to make the migration easier
+- fill in feature parity gaps by either implementing the features in LB4 or
+  recommending a solution using existing libraries
+- Integrate LoopBack 4 into IBM API Connect
+
+### Goal#2 - Keep adopting latest technologies to stay relevant
+
+While enhancing our core code base, we'd like to continue to explore the
+possibility of using and/or integrating latest technologies with LoopBack 4.
+
+Some of the areas we'd like to explore, but not limited to:
+
+- messaging and pub/sub event style, e.g. Kafka, MQTT
+- cloud native integration
+- native support on GraphQL
+- modernize the connector infrastructure and code base
+
+### Goal#3: Nurture our community and encourage more contributions
+
+Community contributions are vital to us. It not only accelerates our
+development, but also helps building deep LoopBack knowledge in the community.
+
+We would like to encourage community contributions by make available to the
+community a list of GH issues that we want to finish in a short term by using
+the `help wanted` and `2020Qx` labels.
+
+---
+
+## Q4 2020 Roadmap
+
+_We published
+[a blog](https://strongloop.com/strongblog/2020-community-contribution/) earlier
+to invite our community to enrich LoopBack and its community together. We
+continue to encourage more participation and contributions from our users by
+sharing our plans on some of the areas._
+
+- Blogs to share our plans on:
+  - [modernizing the data access layer](https://github.com/strongloop/loopback-next/issues/5956)
+  - multi-tenancy
+- Potential joint blogs on:
+  - [Mocha](https://mochajs.org/) on parallel testing work
+  - [TypeGraphQL](https://typegraphql.com/) on GraphQL extension
+- Continuous improvement on documentation and developer experience, for example,
+  - Move recipes to how-to guides (epic):
+    https://github.com/strongloop/loopback-next/issues/5783
+- Enhancement on Express TypeScript definitions
+  - [spike](https://github.com/strongloop/loopback-next/issues/6115)
+- Web socket support
+- Pub/sub messaging support
+- [Test/Enable Node.js 14](https://github.com/strongloop/loopback-next/issues/6019)
+- [Participate in Hacktoberfest](https://hacktoberfest.digitalocean.com/details/#maintainers)
+
+---
+
+## Q3 2020 Roadmap
+
+### Scope
+
+#### Documentation improvement
+
+_Details to be discussed in
+https://github.com/strongloop/loopback-next/issues/5113_
+
+- identify gaps and add documentation
+- reorganize documentation to make it easier to navigate
+- Fix docs issues:
+  https://github.com/strongloop/loopback-next/issues?q=is%3Aissue+is%3Aopen+label%3Adocs
+
+#### Feature parity
+
+- Model relations
+- Model relation ease of use improvements
+- LB4 equivalent of `lb soap` #5282
+- Execute raw NoSQL queries (e.g. MongoDB)
+  https://github.com/strongloop/loopback-next/issues/3342
+- https://github.com/strongloop/loopback-next/issues?q=is%3Aissue+is%3Aopen+label%3A%22feature+parity%22+sort%3Areactions-%2B1-desc
+
+#### Integration with other technologies/libraries
+
+- TypeORM integration, https://github.com/strongloop/loopback-next/issues/4853
+- Kafka integration, https://github.com/strongloop/loopback-next/issues/1925
+
+#### Bugs, developer experience, internal tooling
+
+_Details to be discussed in
+https://github.com/strongloop/loopback-next/issues/5669 and linked issues._
+
+- mocha parallel testing
+- identify and investigate tests taking a longer time
+
+#### Switch from CLA to DCO
+
+- first iteration to consider: `loopback-next`, `loopback.io` and
+  `loopback-datasource-juggler`.
+
+---
+
+## Q2 2020 Roadmap
+
+### Overview
+
+- Finish migration guide for both general runtime and authentication &
+  authorization.
+- Implement the feature parity tasks that are highly requested by users
+- Finish the APIC/LB integration
+- Continue with bugs and developer experience improvements
+
+### Scope
+
+#### Migration guide
+
+- Complete
+  [Migration guide between LB3 and LB4 MVP](https://github.com/strongloop/loopback-next/issues/453)
+- Migrate LB3 SDK client: Spike on migrating Angular client. Will ask for user
+  feedback if there is a need for Android/iOS/other SDK client.
+
+#### Features / Feature Parity with high user votes
+
+- [File upload with multipart/form-data](https://github.com/strongloop/loopback-next/issues/1873)
+- [Custom visual style of REST API Explorer](https://github.com/strongloop/loopback-next/issues/2023)
+- [ENUM type](https://github.com/strongloop/loopback-next/issues/3033): good
+  candidate to ask for community contribution
+- From model definition to REST API with no custom repository/controller classes
+  #2036
+- (stretch goal) From relation definition to REST API with auto-generated
+  repository/controller classes #2483
+
+#### API Connect/LB integration
+
+- Make sure there is documentation how one can import OpenAPIv3 from LoopBack
+  and import into API Connect. Documentation could be in loopback.io or API
+  Connect Knowledge Center
+- Update APIC toolkit to include LoopBack 4
+- Import API story:
+  - OpenAPI enhancer service with APIC OpenAPI enhancer extension
+  - Article to IBM Developer site
+  - Eventually test with shopping app #4498
+
+#### Tech debt / infrastructure
+
+- Replace "request" with something else
+  https://github.com/strongloop/loopback-next/issues/2672
+- Investigate the possibility to reduce build time, e.g.
+  [Use TypeScript project reference with 3.8](https://github.com/strongloop/loopback-next/issues/2609),
+  using yarn/pnpm instead of npm.
+- Investigate the possibility to reduce test time, e.g. run mocha tests in
+  parallel.
+
+#### Documentation Enhancement
+
+Includes migrating Useful LB3 Documentation to LB4.
+
+- Docs: Add "Working with Data" section #2527
+- Tutorial on file upload: with example repo and how to customize for your own
+  use case.
+- Running and debuggin apps
+  - debug string #4845
+  - error handling - how to configure http response to configure error. how to
+    report error from controller (see strong-error-handler) #4846
+- project layout reference
+  https://loopback.io/doc/en/lb3/Project-layout-reference.html #4847
+- (stretch goal) consider the possible rearrangement in sidebar items on
+  security advisories, contributing to LB, LTS to LB4 site
+
+#### LB4 adoption
+
+- Articles/materials that can help more users adopting LoopBack 4
+
+  - write an article about what LB can offer on top of Express #4852
+  - Write an article/docs on "from API to UI: LoopBack + Angular" - using client
+    generator #4849
+  - write an article about LB + TypeORM/Sequelize/Mongoose/Prisma. #4853 for
+    TypeORM
+
+- Building reusable workshop material - possibly for NodeConf.EU, CASCON, etc.
+
+---
+
+## Q1 2020 Roadmap
+
+### Overview
+
+- Migration: it will continue to be our focus, including filling up the details
+  to the migration guide and adding tooling to make migration easier.
+- Tackle issues labelled as `bug` or `developer experience`
+- Issue cleanup: take some time to triage open issues and possibly some smaller
+  enhancements that we never get the time to do.
+
+### Scope
+
+#### Migration
+
+- Migration guide https://github.com/strongloop/loopback-next/issues/453
+  - continue the work in Q4 2019 for migrating:
+    - boot scripts
+    - model mixins
+    - remoting hooks
+- Tooling:
+  - improve existing commands like `import-lb3-models`
+  - add new commands (e.g. import datasources).
+
+#### Authentication
+
+- Auth0 example: Create a more realistic example than
+  https://github.com/raymondfeng/loopback4-example-auth0.
+
+#### API Connect / LoopBack 4 Integration
+
+- Spike on getting APIs created from LB4 imported into APIC,
+  https://github.com/strongloop/loopback-next/issues/4115
+
+#### Create models & REST APIs dynamically at runtime
+
+- Dynamic binding/rebinding of controllers after app start #433
+- How to build models, repositories and controllers dynamically at runtime #4296
+- Docs for exposing REST API of a Model with no custom classes #2740 (stretch
+  goal)
+
+#### Open Issues with `bug` or `developer experience` labels
+
+- Would like to put more time in tackling those. Will plan it as part of the
+  monthly milestone planning.
+
+### Stretch Goals
+
+#### From model definition to REST API with no custom repository/controller classes https://github.com/strongloop/loopback-next/issues/2036
+
+- Add CrudRestApiBuilder to @loopback/rest-crud #3737
+- Example app showing CrudRestApiBuilder #3738
+
+#### Robust handling of ObjectID type for MongoDB https://github.com/strongloop/loopback-next/issues/3720
+
+- Spike: robust handling of ObjectID type for MongoDB,
+  https://github.com/strongloop/loopback-next/issues/3456
+
+#### Shopping example app
+
+- clean up authentication and authorization
+
+---
+
 ## Q4 2019 Roadmap
 
 ### Overview

@@ -1,10 +1,13 @@
-// Copyright IBM Corp. 2018. All Rights Reserved.
+// Copyright IBM Corp. 2018,2020. All Rights Reserved.
 // Node module: @loopback/context
 // This file is licensed under the MIT License.
 // License text available at https://opensource.org/licenses/MIT
 
+import {generateUniqueId} from './unique-id';
+
 export type BindingAddress<T = unknown> = string | BindingKey<T>;
 
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
 export class BindingKey<ValueType> {
   static readonly PROPERTY_SEPARATOR = '#';
 
@@ -23,16 +26,13 @@ export class BindingKey<ValueType> {
    *   is allowed to contain propertyPath as encoded via `BindingKey#toString()`
    * @param propertyPath - Optional path to a deep property of the bound value.
    */
-  public static create<ValueType>(
-    key: string,
-    propertyPath?: string,
-  ): BindingKey<ValueType> {
+  public static create<V>(key: string, propertyPath?: string): BindingKey<V> {
     // TODO(bajtos) allow chaining of propertyPaths, e.g.
     //   BindingKey.create('config#rest', 'port')
     // should create {key: 'config', path: 'rest.port'}
     if (propertyPath) {
       BindingKey.validate(key);
-      return new BindingKey<ValueType>(key, propertyPath);
+      return new BindingKey<V>(key, propertyPath);
     }
 
     return BindingKey.parseKeyWithPath(key);
@@ -118,5 +118,19 @@ export class BindingKey<ValueType> {
     const suffix = BindingKey.CONFIG_NAMESPACE;
     const bindingKey = key ? `${key}:${suffix}` : suffix;
     return bindingKey;
+  }
+
+  /**
+   * Generate a universally unique binding key.
+   *
+   * Please note the format of they generated key is not specified, you must
+   * not rely on any specific formatting (e.g. UUID style).
+   *
+   * @param namespace - Namespace for the binding
+   */
+  static generate<T>(namespace = ''): BindingKey<T> {
+    const prefix = namespace ? `${namespace}.` : '';
+    const name = generateUniqueId();
+    return BindingKey.create(`${prefix}${name}`);
   }
 }

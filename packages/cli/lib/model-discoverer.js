@@ -1,6 +1,12 @@
+// Copyright IBM Corp. 2019,2020. All Rights Reserved.
+// Node module: @loopback/cli
+// This file is licensed under the MIT License.
+// License text available at https://opensource.org/licenses/MIT
+
 const debug = require('./debug')('model-discoverer');
 const fs = require('fs');
 const path = require('path');
+const {stringifyObject} = require('../lib/utils');
 
 /**
  * Given a datasource and discovery options,
@@ -77,7 +83,7 @@ const MODEL_TEMPLATE_PATH = path.resolve(
   '../generators/model/templates/model.ts.ejs',
 );
 
-const sanitizeProperty = function(o) {
+const sanitizeProperty = function (o) {
   Object.entries(o).forEach(([k, v]) => {
     // Delete the null properties so the template doesn't spit out `key: ;`
     if (v === null) {
@@ -85,8 +91,11 @@ const sanitizeProperty = function(o) {
     }
 
     // If you are an object or array, stringify so you don't appear as [object [object]
-    if (v === Object(v)) {
-      o[k] = JSON.stringify(o[k]);
+    if (typeof v === 'object' && v !== null) {
+      o[k] = stringifyObject(o[k], {
+        // don't break lines to avoid formatting problems in the model template
+        inlineCharacterLimit: Infinity,
+      });
     }
   });
 

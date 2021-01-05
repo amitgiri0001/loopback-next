@@ -1,16 +1,35 @@
-// Copyright IBM Corp. 2018,2019. All Rights Reserved.
+// Copyright IBM Corp. 2018,2020. All Rights Reserved.
 // Node module: @loopback/repository
 // This file is licensed under the MIT License.
 // License text available at https://opensource.org/licenses/MIT
 
-import {Binding, BindingScope, createBindingFromClass} from '@loopback/context';
-import {Application} from '@loopback/core';
-import * as debugFactory from 'debug';
+import {
+  Binding,
+  BindingFromClassOptions,
+  BindingScope,
+  createBindingFromClass,
+} from '@loopback/core';
+import {
+  Application,
+  Component,
+  Constructor,
+  CoreBindings,
+  MixinTarget,
+} from '@loopback/core';
+import debugFactory from 'debug';
 import {Class} from '../common-types';
 import {SchemaMigrationOptions} from '../datasource';
+import {RepositoryBindings, RepositoryTags} from '../keys';
+import {Model} from '../model';
 import {juggler, Repository} from '../repositories';
 
 const debug = debugFactory('loopback:repository:mixin');
+
+// FIXME(rfeng): Workaround for https://github.com/microsoft/rushstack/pull/1867
+/* eslint-disable @typescript-eslint/no-unused-vars */
+import * as loopbackContext from '@loopback/core';
+import * as loopbackCore from '@loopback/core';
+/* eslint-enable @typescript-eslint/no-unused-vars */
 
 /**
  * A mixin class for Application that creates a .repository()
@@ -25,14 +44,22 @@ const debug = debugFactory('loopback:repository:mixin');
  * Please note: the members in the mixin function are documented in a dummy class
  * called <a href="#RepositoryMixinDoc">RepositoryMixinDoc</a>
  *
+ * @param superClass - Application class
+ * @returns A new class that extends the super class with repository related
+ * methods
+ *
+ * @typeParam T - Type of the application class as the target for the mixin
+ *
  */
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-export function RepositoryMixin<T extends Class<any>>(superClass: T) {
+export function RepositoryMixin<T extends MixinTarget<Application>>(
+  superClass: T,
+) {
   return class extends superClass {
     /**
      * Add a repository to this application.
      *
      * @param repoClass - The repository to add.
+     * @param nameOrOptions - Name or options for the binding
      *
      * @example
      * ```ts
@@ -60,14 +87,14 @@ export function RepositoryMixin<T extends Class<any>>(superClass: T) {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     repository<R extends Repository<any>>(
       repoClass: Class<R>,
-      name?: string,
+      nameOrOptions?: string | BindingFromClassOptions,
     ): Binding<R> {
       const binding = createBindingFromClass(repoClass, {
-        name,
-        namespace: 'repositories',
-        type: 'repository',
+        namespace: RepositoryBindings.REPOSITORIES,
+        type: RepositoryTags.REPOSITORY,
         defaultScope: BindingScope.TRANSIENT,
-      });
+        ...toOptions(nameOrOptions),
+      }).tag(RepositoryTags.REPOSITORY);
       this.add(binding);
       return binding;
     }
@@ -86,7 +113,8 @@ export function RepositoryMixin<T extends Class<any>>(superClass: T) {
      * Add the dataSource to this application.
      *
      * @param dataSource - The dataSource to add.
-     * @param name - The binding name of the datasource; defaults to dataSource.name
+     * @param nameOrOptions - The binding name or options of the datasource;
+     * defaults to dataSource.name
      *
      * @example
      * ```ts
@@ -106,20 +134,22 @@ export function RepositoryMixin<T extends Class<any>>(superClass: T) {
      */
     dataSource<D extends juggler.DataSource>(
       dataSource: Class<D> | D,
-      name?: string,
+      nameOrOptions?: string | BindingFromClassOptions,
     ): Binding<D> {
+      const options = toOptions(nameOrOptions);
       // We have an instance of
       if (dataSource instanceof juggler.DataSource) {
-        const key = `datasources.${name || dataSource.name}`;
-        return this.bind(key)
-          .to(dataSource)
-          .tag('datasource');
+        const name = options.name || dataSource.name;
+        const namespace = options.namespace ?? RepositoryBindings.DATASOURCES;
+        const key = `${namespace}.${name}`;
+        return this.bind(key).to(dataSource).tag(RepositoryTags.DATASOURCE);
       } else if (typeof dataSource === 'function') {
+        options.name = options.name || dataSource.dataSourceName;
         const binding = createBindingFromClass(dataSource, {
-          name: name || dataSource.dataSourceName,
-          namespace: 'datasources',
-          type: 'datasource',
+          namespace: RepositoryBindings.DATASOURCES,
+          type: RepositoryTags.DATASOURCE,
           defaultScope: BindingScope.SINGLETON,
+          ...options,
         });
         this.add(binding);
         return binding;
@@ -129,10 +159,21 @@ export function RepositoryMixin<T extends Class<any>>(superClass: T) {
     }
 
     /**
+     * Register a model class as a binding in the target context
+     * @param modelClass - Model class
+     */
+    model<M extends Class<unknown>>(modelClass: M) {
+      const binding = createModelClassBinding(modelClass);
+      this.add(binding);
+      return binding;
+    }
+
+    /**
      * Add a component to this application. Also mounts
      * all the components repositories.
      *
      * @param component - The component to add.
+     * @param nameOrOptions - Name or options for the binding.
      *
      * @example
      * ```ts
@@ -149,26 +190,67 @@ export function RepositoryMixin<T extends Class<any>>(superClass: T) {
      * app.component(ProductComponent);
      * ```
      */
-    public component(component: Class<unknown>, name?: string) {
-      super.component(component, name);
-      this.mountComponentRepositories(component);
+    // Unfortunately, TypeScript does not allow overriding methods inherited
+    // from mapped types. https://github.com/microsoft/TypeScript/issues/38496
+    // eslint-disable-next-line @typescript-eslint/ban-ts-comment
+    // @ts-ignore
+    public component<C extends Component = Component>(
+      componentCtor: Constructor<C>,
+      nameOrOptions?: string | BindingFromClassOptions,
+    ) {
+      const binding = super.component(componentCtor, nameOrOptions);
+      const instance = this.getSync<C & RepositoryComponent>(binding.key);
+      this.mountComponentRepositories(instance);
+      this.mountComponentModels(instance);
+      return binding;
     }
 
     /**
      * Get an instance of a component and mount all it's
      * repositories. This function is intended to be used internally
-     * by component()
+     * by `component()`.
      *
-     * @param component - The component to mount repositories of
+     * NOTE: Calling `mountComponentRepositories` with a component class
+     * constructor is deprecated. You should instantiate the component
+     * yourself and provide the component instance instead.
+     *
+     * @param componentInstanceOrClass - The component to mount repositories of
+     * @internal
      */
-    mountComponentRepositories(component: Class<unknown>) {
-      const componentKey = `components.${component.name}`;
-      const compInstance = this.getSync(componentKey);
+    mountComponentRepositories(
+      // accept also component class to preserve backwards compatibility
+      // TODO(semver-major) Remove support for component class constructor
+      componentInstanceOrClass: Class<unknown> | RepositoryComponent,
+    ) {
+      const component = resolveComponentInstance(this);
 
-      if (compInstance.repositories) {
-        for (const repo of compInstance.repositories) {
+      if (component.repositories) {
+        for (const repo of component.repositories) {
           this.repository(repo);
         }
+      }
+
+      // `Readonly<Application>` is a hack to remove protected members
+      // and thus allow `this` to be passed as a value for `ctx`
+      function resolveComponentInstance(ctx: Readonly<Application>) {
+        if (typeof componentInstanceOrClass !== 'function')
+          return componentInstanceOrClass;
+
+        const componentName = componentInstanceOrClass.name;
+        const componentKey = `${CoreBindings.COMPONENTS}.${componentName}`;
+        return ctx.getSync<RepositoryComponent>(componentKey);
+      }
+    }
+
+    /**
+     * Bind all model classes provided by a component.
+     * @param component
+     * @internal
+     */
+    mountComponentModels(component: RepositoryComponent) {
+      if (!component.models) return;
+      for (const m of component.models) {
+        this.model(m);
       }
     }
 
@@ -198,10 +280,10 @@ export function RepositoryMixin<T extends Class<any>>(superClass: T) {
 
       // Look up all datasources and update/migrate schemas one by one
       const dsBindings: Readonly<Binding<object>>[] = this.findByTag(
-        'datasource',
+        RepositoryTags.DATASOURCE,
       );
       for (const b of dsBindings) {
-        const ds = await this.get(b.key);
+        const ds = await this.get<juggler.DataSource>(b.key);
 
         if (operation in ds && typeof ds[operation] === 'function') {
           debug('Migrating dataSource %s', b.key);
@@ -212,6 +294,35 @@ export function RepositoryMixin<T extends Class<any>>(superClass: T) {
       }
     }
   };
+}
+
+/**
+ * This interface describes additional Component properties
+ * allowing components to contribute Repository-related artifacts.
+ */
+export interface RepositoryComponent {
+  /**
+   * An optional list of Repository classes to bind for dependency injection
+   * via `app.repository()` API.
+   */
+  repositories?: Class<Repository<Model>>[];
+
+  /**
+   * An optional list of Model classes to bind for dependency injection
+   * via `app.model()` API.
+   */
+  models?: Class<Model>[];
+}
+
+/**
+ * Normalize name or options to `BindingFromClassOptions`
+ * @param nameOrOptions - Name or options for binding from class
+ */
+function toOptions(nameOrOptions?: string | BindingFromClassOptions) {
+  if (typeof nameOrOptions === 'string') {
+    return {name: nameOrOptions};
+  }
+  return nameOrOptions ?? {};
 }
 
 /**
@@ -229,6 +340,7 @@ export interface ApplicationWithRepositories extends Application {
     dataSource: Class<D> | D,
     name?: string,
   ): Binding<D>;
+  model<M extends Class<unknown>>(modelClass: M): Binding<M>;
   component(component: Class<unknown>, name?: string): Binding;
   mountComponentRepositories(component: Class<unknown>): void;
   migrateSchema(options?: SchemaMigrationOptions): Promise<void>;
@@ -369,4 +481,16 @@ export class RepositoryMixinDoc {
    * preserving data or rebuild everything from scratch.
    */
   async migrateSchema(options?: SchemaMigrationOptions): Promise<void> {}
+}
+
+/**
+ * Create a binding for the given model class
+ * @param modelClass - Model class
+ */
+export function createModelClassBinding<M extends Class<unknown>>(
+  modelClass: M,
+) {
+  return Binding.bind<M>(`${RepositoryBindings.MODELS}.${modelClass.name}`)
+    .to(modelClass)
+    .tag(RepositoryTags.MODEL);
 }

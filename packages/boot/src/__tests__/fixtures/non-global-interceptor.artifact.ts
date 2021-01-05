@@ -4,19 +4,19 @@
 // License text available at https://opensource.org/licenses/MIT
 
 import {
-  bind,
+  injectable,
   Interceptor,
   InvocationContext,
   InvocationResult,
   Provider,
   ValueOrPromise,
-} from '@loopback/context';
+} from '@loopback/core';
 
 /**
  * This class will be bound to the application as a global `Interceptor` during
  * `boot`
  */
-@bind({tags: {namespace: 'interceptors', name: 'myInterceptor'}})
+@injectable({tags: {namespace: 'interceptors', name: 'myInterceptor'}})
 export class MyInterceptor implements Provider<Interceptor> {
   /*
   constructor() {}

@@ -1,6 +1,7 @@
 environment:
   matrix:
-    - nodejs_version: "8"
+    - nodejs_version: "10"
+  NODE_OPTIONS: "--max-old-space-size=2048"
 
 install:
   - ps: Install-Product node $env:nodejs_version
@@ -10,7 +11,10 @@ install:
 
 test_script:
   - npm run build
-  - npm run mocha --scripts-prepend-node-path
+  - npm run mocha
+
+cache:
+  - "%LOCALAPPDATA%\\Yarn"
 
 build: off
 skip_branch_with_pr: true

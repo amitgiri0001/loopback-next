@@ -1,9 +1,9 @@
-// Copyright IBM Corp. 2018. All Rights Reserved.
+// Copyright IBM Corp. 2018,2020. All Rights Reserved.
 // Node module: @loopback/authorization
 // This file is licensed under the MIT License.
 // License text available at https://opensource.org/licenses/MIT
 
-import {BindingAddress, InvocationContext} from '@loopback/context';
+import {BindingAddress, InvocationContext} from '@loopback/core';
 import {Principal, Role} from '@loopback/security';
 
 /**
@@ -187,4 +187,9 @@ export interface AuthorizationOptions {
    * not associated with authorization metadata.
    */
   defaultMetadata?: AuthorizationMetadata;
+  /**
+   * Default HTTP status code when the final decision is `AuthorizationDecision.DENY`.
+   * If not set, default to 403
+   */
+  defaultStatusCodeForDeny?: number;
 }

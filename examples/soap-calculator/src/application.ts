@@ -1,16 +1,18 @@
-// Copyright IBM Corp. 2018,2019. All Rights Reserved.
+// Copyright IBM Corp. 2018,2020. All Rights Reserved.
 // Node module: @loopback/example-soap-calculator
 // This file is licensed under the MIT License.
 // License text available at https://opensource.org/licenses/MIT
 
 import {BootMixin} from '@loopback/boot';
 import {ApplicationConfig} from '@loopback/core';
-import {RestExplorerComponent} from '@loopback/rest-explorer';
 import {RepositoryMixin} from '@loopback/repository';
 import {RestApplication} from '@loopback/rest';
+import {RestExplorerComponent} from '@loopback/rest-explorer';
 import {ServiceMixin} from '@loopback/service-proxy';
-import * as path from 'path';
+import path from 'path';
 import {MySequence} from './sequence';
+
+export {ApplicationConfig};
 
 export class SoapCalculatorApplication extends BootMixin(
   ServiceMixin(RepositoryMixin(RestApplication)),

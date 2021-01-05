@@ -1,10 +1,16 @@
-// Copyright IBM Corp. 2019. All Rights Reserved.
+// Copyright IBM Corp. 2019,2020. All Rights Reserved.
 // Node module: @loopback/rest
 // This file is licensed under the MIT License.
 // License text available at https://opensource.org/licenses/MIT
 
-import {BindingScope, Constructor, Context, inject} from '@loopback/context';
-import {Application, CoreBindings} from '@loopback/core';
+import {
+  Application,
+  BindingScope,
+  Constructor,
+  Context,
+  CoreBindings,
+  inject,
+} from '@loopback/core';
 import {anOpenApiSpec, anOperationSpec} from '@loopback/openapi-spec-builder';
 import {
   api,
@@ -243,9 +249,7 @@ describe('Routing', () => {
       .withOperation(
         'get',
         '/name',
-        anOperationSpec()
-          .withOperationName('getName')
-          .withStringResponse(),
+        anOperationSpec().withOperationName('getName').withStringResponse(),
       )
       .build();
 
@@ -259,9 +263,7 @@ describe('Routing', () => {
     }
     givenControllerInApp(app, InfoController);
 
-    return whenIMakeRequestTo(server)
-      .get('/name')
-      .expect('TestApp');
+    return whenIMakeRequestTo(server).get('/name').expect('TestApp');
   });
 
   it('creates a new child context for each request', async () => {
@@ -299,9 +301,7 @@ describe('Routing', () => {
 
     // Get the value "flag" is bound to.
     // This should return the original value.
-    await whenIMakeRequestTo(server)
-      .get('/flag')
-      .expect('original');
+    await whenIMakeRequestTo(server).get('/flag').expect('original');
   });
 
   it('binds request and response objects', async () => {
@@ -310,6 +310,7 @@ describe('Routing', () => {
 
     const spec = anOpenApiSpec()
       .withOperationReturningString('get', '/status', 'getStatus')
+      .withOperationReturningString('get', '/header', 'getHeader')
       .build();
 
     @api(spec)
@@ -323,12 +324,20 @@ describe('Routing', () => {
         this.response.statusCode = 202; // 202 Accepted
         return this.request.method as string;
       }
+
+      async getHeader(): Promise<string> {
+        this.response.status(202);
+        this.response.set('x-custom-res-header', 'xyz');
+        return this.request.method as string;
+      }
     }
     givenControllerInApp(app, StatusController);
 
-    return whenIMakeRequestTo(server)
-      .get('/status')
-      .expect(202, 'GET');
+    await whenIMakeRequestTo(server).get('/status').expect(202, 'GET');
+    await whenIMakeRequestTo(server)
+      .get('/header')
+      .expect(202)
+      .expect('x-custom-res-header', 'xyz');
   });
 
   it('binds controller constructor object and operation', async () => {
@@ -356,12 +365,10 @@ describe('Routing', () => {
     }
     givenControllerInApp(app, GetCurrentController);
 
-    return whenIMakeRequestTo(server)
-      .get('/name')
-      .expect({
-        ctor: 'GetCurrentController',
-        operation: 'getControllerName',
-      });
+    return whenIMakeRequestTo(server).get('/name').expect({
+      ctor: 'GetCurrentController',
+      operation: 'getControllerName',
+    });
   });
 
   describe('current controller', () => {
@@ -375,43 +382,35 @@ describe('Routing', () => {
     it('binds current controller resolved from a transient binding', async () => {
       givenControllerInApp(app, controllerClass);
 
-      await whenIMakeRequestTo(server)
-        .get('/name')
-        .expect({
-          count: 1,
-          isSingleton: false,
-          result: true,
-        });
+      await whenIMakeRequestTo(server).get('/name').expect({
+        count: 1,
+        isSingleton: false,
+        result: true,
+      });
 
       // Make a second call
-      await whenIMakeRequestTo(server)
-        .get('/name')
-        .expect({
-          count: 1, // The count is still 1 as it's from a new instance
-          isSingleton: false,
-          result: true,
-        });
+      await whenIMakeRequestTo(server).get('/name').expect({
+        count: 1, // The count is still 1 as it's from a new instance
+        isSingleton: false,
+        result: true,
+      });
     });
 
     it('binds current controller resolved from a singleton binding', async () => {
       app.controller(controllerClass).inScope(BindingScope.SINGLETON);
 
-      await whenIMakeRequestTo(server)
-        .get('/name')
-        .expect({
-          count: 1,
-          isSingleton: true,
-          result: true,
-        });
+      await whenIMakeRequestTo(server).get('/name').expect({
+        count: 1,
+        isSingleton: true,
+        result: true,
+      });
 
       // Make a second call
-      await whenIMakeRequestTo(server)
-        .get('/name')
-        .expect({
-          count: 2, // The count increases as the controller is singleton
-          isSingleton: true,
-          result: true,
-        });
+      await whenIMakeRequestTo(server).get('/name').expect({
+        count: 2, // The count increases as the controller is singleton
+        isSingleton: true,
+        result: true,
+      });
     });
 
     async function setupApplicationAndServer() {
@@ -498,7 +497,7 @@ describe('Routing', () => {
     const app = givenAnApplication();
     const server = await givenAServer(app);
     const spec = anOpenApiSpec().build();
-    delete spec.paths;
+    spec.paths = {};
     server.api(spec);
   });
 
@@ -542,7 +541,7 @@ describe('Routing', () => {
     const app = givenAnApplication();
     const server = await givenAServer(app);
 
-    @api({basePath: '/my', paths: {}})
+    @api({basePath: '/my'})
     class MyController {
       @get('/greet')
       greet(@param.query.string('name') name: string) {

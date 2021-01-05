@@ -3,7 +3,7 @@
 // This file is licensed under the MIT License.
 // License text available at https://opensource.org/licenses/MIT
 
-import {MetadataInspector} from '@loopback/context';
+import {MetadataInspector} from '@loopback/core';
 import {expect} from '@loopback/testlab';
 import {RelationMetadata} from '../../..';
 import {
@@ -132,6 +132,43 @@ describe('model decorator', () => {
     recentOrders?: Order[];
   }
 
+  it('hides a property defined as hidden', () => {
+    @model()
+    class Client extends Entity {
+      @property()
+      name: string;
+      @property({hidden: true})
+      password: string;
+
+      constructor(data: Partial<Client>) {
+        super(data);
+      }
+    }
+    const client = new Client({
+      name: 'name',
+      password: 'password',
+    });
+    expect(Client.definition.settings.hiddenProperties).to.containEql(
+      'password',
+    );
+    expect(client.toJSON()).to.eql({
+      name: 'name',
+    });
+  });
+
+  it('throws error if design type is not provided', () => {
+    const createModel = () => {
+      @model()
+      // eslint-disable-next-line @typescript-eslint/no-unused-vars
+      class Client extends Entity {
+        @property()
+        id: undefined;
+      }
+    };
+
+    expect(createModel).to.throw(Error, {code: 'CANNOT_INFER_PROPERTY_TYPE'});
+  });
+
   // Skip the tests before we resolve the issue around global `Reflector`
   // The tests are passing it run alone but fails with `npm test`
   it('adds model metadata', () => {
@@ -175,7 +212,7 @@ describe('model decorator', () => {
     }
 
     const meta: {[props: string]: string} =
-      MetadataInspector.getClassMetadata(MODEL_KEY, Arbitrary) ||
+      MetadataInspector.getClassMetadata(MODEL_KEY, Arbitrary) ??
       /* istanbul ignore next */ {};
     expect(meta.arbitrary).to.eql('property');
   });
@@ -185,14 +222,19 @@ describe('model decorator', () => {
       MetadataInspector.getAllPropertyMetadata(
         MODEL_PROPERTIES_KEY,
         Order.prototype,
-      ) || /* istanbul ignore next */ {};
+      ) ?? /* istanbul ignore next */ {};
     expect(meta.quantity).to.eql({
       type: Number,
       mysql: {
         column: 'QTY',
       },
     });
-    expect(meta.id).to.eql({type: 'string', id: true, generated: true});
+    expect(meta.id).to.eql({
+      type: 'string',
+      id: true,
+      generated: true,
+      useDefaultIdType: false,
+    });
     expect(meta.isShipped).to.eql({type: Boolean});
   });
 
@@ -207,7 +249,7 @@ describe('model decorator', () => {
       MetadataInspector.getAllPropertyMetadata(
         MODEL_PROPERTIES_KEY,
         ArrayModel.prototype,
-      ) || /* istanbul ignore next */ {};
+      ) ?? /* istanbul ignore next */ {};
     expect(meta.strArr).to.eql({type: Array});
   });
 
@@ -216,7 +258,7 @@ describe('model decorator', () => {
       MetadataInspector.getAllPropertyMetadata(
         RELATIONS_KEY,
         Customer.prototype,
-      ) || /* istanbul ignore next */ {};
+      ) ?? /* istanbul ignore next */ {};
     expect(meta.address).to.eql({
       type: RelationType.embedsOne,
     });
@@ -227,7 +269,7 @@ describe('model decorator', () => {
       MetadataInspector.getAllPropertyMetadata(
         RELATIONS_KEY,
         Customer.prototype,
-      ) || /* istanbul ignore next */ {};
+      ) ?? /* istanbul ignore next */ {};
     expect(meta.phones).to.eql({
       type: RelationType.embedsMany,
     });
@@ -238,7 +280,7 @@ describe('model decorator', () => {
       MetadataInspector.getAllPropertyMetadata(
         RELATIONS_KEY,
         Customer.prototype,
-      ) || /* istanbul ignore next */ {};
+      ) ?? /* istanbul ignore next */ {};
     expect(meta.accounts).to.eql({
       type: RelationType.referencesMany,
     });
@@ -249,7 +291,7 @@ describe('model decorator', () => {
       MetadataInspector.getAllPropertyMetadata(
         RELATIONS_KEY,
         Customer.prototype,
-      ) || /* istanbul ignore next */ {};
+      ) ?? /* istanbul ignore next */ {};
     expect(meta.profile).to.eql({
       type: RelationType.referencesOne,
     });
@@ -260,7 +302,7 @@ describe('model decorator', () => {
       MetadataInspector.getAllPropertyMetadata<RelationMetadata>(
         RELATIONS_KEY,
         Customer.prototype,
-      ) || /* istanbul ignore next */ {};
+      ) ?? /* istanbul ignore next */ {};
     expect(meta.orders).to.containEql({
       type: RelationType.hasMany,
       name: 'orders',
@@ -274,7 +316,7 @@ describe('model decorator', () => {
       MetadataInspector.getAllPropertyMetadata<RelationMetadata>(
         RELATIONS_KEY,
         Order.prototype,
-      ) || /* istanbul ignore next */ {};
+      ) ?? /* istanbul ignore next */ {};
     const relationDef = meta.customerId;
     expect(relationDef).to.containEql({
       type: RelationType.belongsTo,
@@ -291,7 +333,7 @@ describe('model decorator', () => {
       MetadataInspector.getAllPropertyMetadata(
         RELATIONS_KEY,
         Customer.prototype,
-      ) || /* istanbul ignore next */ {};
+      ) ?? /* istanbul ignore next */ {};
     expect(meta.lastOrder).to.containEql({
       type: RelationType.hasOne,
       name: 'lastOrder',
@@ -305,7 +347,7 @@ describe('model decorator', () => {
       MetadataInspector.getAllPropertyMetadata(
         RELATIONS_KEY,
         Customer.prototype,
-      ) || /* istanbul ignore next */ {};
+      ) ?? /* istanbul ignore next */ {};
     expect(meta.recentOrders).to.eql({
       type: RelationType.hasMany,
     });
@@ -344,7 +386,7 @@ describe('model decorator', () => {
           MetadataInspector.getAllPropertyMetadata(
             MODEL_PROPERTIES_KEY,
             TestModel.prototype,
-          ) || /* istanbul ignore next */ {};
+          ) ?? /* istanbul ignore next */ {};
         expect(meta.items).to.eql({type: Array, itemType: Product});
       });
 

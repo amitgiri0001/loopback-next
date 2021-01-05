@@ -23,6 +23,9 @@ else
   (cd $SOURCE_DIR && git pull)
 fi
 
+echo "Pulling README files (connectors, etc.)"
+(cd $SOURCE_DIR && ./update-readmes.sh)
+
 echo "Installing setup dependencies"
 npm install --no-save js-yaml
 
@@ -35,6 +38,9 @@ node bin/build-jekyll-preview-config $SOURCE_DIR/_config.yml $JEKYLL_DIR/_config
 echo "Copying LB4 readmes"
 node bin/copy-readmes
 
+echo "Copying LB4 changelogs"
+node bin/copy-changelogs
+
 echo "Copyping Gemfile, index.html and data files"
 rm -rf $JEKYLL_DIR/{_data,_includes,_layouts}
 cp -r $SOURCE_DIR/Gemfile* $JEKYLL_DIR/
@@ -44,18 +50,27 @@ cp -r $SOURCE_DIR/_includes $JEKYLL_DIR/
 cp -r $SOURCE_DIR/_layouts $JEKYLL_DIR/
 
 echo "Copying static assets"
-cp -r $SOURCE_DIR/{css,images,dist,js,fonts} $JEKYLL_DIR/
+cp -r $SOURCE_DIR/{css,images,dist,js,fonts,navbar-template.html} $JEKYLL_DIR/
 rm -rf $JEKYLL_DIR/doc
 mkdir -p $JEKYLL_DIR/doc
 cp -r $SOURCE_DIR/doc/index.md $JEKYLL_DIR/doc
 
 echo "Setting up LB4 doc pages",
 rm -rf $JEKYLL_DIR/pages
-ln -s $PWD/site $JEKYLL_DIR/pages
+# Create hardlinks because Jekyll does not support symbolic links any more.
+# Use `pax` because `ln` does not support directory recursion.
+mkdir $JEKYLL_DIR/pages
+(TARGET="$PWD/$JEKYLL_DIR/pages" && cd "$PWD/site" && pax -rwlpe . $TARGET)
+
+echo "Copying external README pages"
+cp $SOURCE_DIR/pages/en/lb4/readmes/*.md $JEKYLL_DIR/pages/readmes/
 
 echo "Setting up sidebar(s)"
 rm -rf $JEKYLL_DIR/_data/sidebars
-ln -s $PWD/site/sidebars $JEKYLL_DIR/_data/sidebars
+# Create hardlinks because Jekyll does not support symbolic links any more.
+# Use `pax` because `ln` does not support directory recursion.
+mkdir $JEKYLL_DIR/_data/sidebars
+(TARGET="$PWD/$JEKYLL_DIR/_data/sidebars" && cd "$PWD/site/sidebars" && pax -rwlpe . $TARGET)
 
 echo "Installing Ruby dependencies"
 (cd $JEKYLL_DIR && bundle install)

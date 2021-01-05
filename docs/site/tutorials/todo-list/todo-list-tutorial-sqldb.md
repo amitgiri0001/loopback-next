@@ -1,7 +1,7 @@
 ---
 lang: en
 title: 'Running on relational databases'
-keywords: LoopBack 4.0, LoopBack 4
+keywords: LoopBack 4.0, LoopBack 4, Node.js, TypeScript, OpenAPI, Tutorial
 sidebar: lb4_sidebar
 permalink: /doc/en/lb4/todo-list-tutorial-sqldb.html
 summary:
@@ -66,7 +66,7 @@ decorator.
         name: 'fk_todo_todoListId',
         entity: 'TodoList',
         entityKey: 'id',
-        foreignKey: 'todolistid',
+        foreignKey: 'todoListId',
       },
     },
   },
@@ -77,10 +77,10 @@ export class Todo extends Entity {
 ```
 
 Check out the details for
-[auto-migrate and auto-update](https://loopback.io/doc/en/lb3/PostgreSQL-connector.html#auto-migrateauto-update-models-with-foreign-keys)
+[auto-migrate and auto-update](https://loopback.io/doc/en/lb4/PostgreSQL-connector.html#auto-migrateauto-update-models-with-foreign-keys)
 for PostgreSQL connector. For other connectors, go to the corresponding
 connector from the
-[Connectors Reference](https://loopback.io/doc/en/lb3/Connectors-reference.html)
+[Connectors Reference](https://loopback.io/doc/en/lb4/Connectors-reference.html)
 section.
 
 #### Specify the foreign key constraints in TodoListImage model
@@ -95,7 +95,7 @@ Similar to the `Todo` model, we will specify the constraints in the `settings`.
         name: 'fk_todoListImage_todoListId',
         entity: 'TodoList',
         entityKey: 'id',
-        foreignKey: 'todolistid',
+        foreignKey: 'todoListId',
       },
     },
   },
@@ -139,5 +139,5 @@ $ npm run migrate
 
 The `todolist`, `todo` and `todolistimage` tables are created.
 
-For details, see the [Database migrations](Database-migrations.md) documentation
-page.
+For details, see the [Database migrations](../../Database-migrations.md)
+documentation page.

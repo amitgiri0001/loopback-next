@@ -1,4 +1,4 @@
-// Copyright IBM Corp. 2019. All Rights Reserved.
+// Copyright IBM Corp. 2019,2020. All Rights Reserved.
 // Node module: @loopback/testlab
 // This file is licensed under the MIT License.
 // License text available at https://opensource.org/licenses/MIT
@@ -34,6 +34,27 @@ describe('TestSandbox integration tests', () => {
     await sandbox.copyFile(COPY_FILE_PATH);
     expect(await pathExists(resolve(path, COPY_FILE))).to.be.True();
     await expectFilesToBeIdentical(COPY_FILE_PATH, resolve(path, COPY_FILE));
+  });
+
+  it('copies a file to the sandbox with transform', async () => {
+    await sandbox.copyFile(COPY_FILE_PATH, undefined, content =>
+      content.toUpperCase(),
+    );
+    const dest = resolve(path, COPY_FILE);
+    expect(await pathExists(dest)).to.be.True();
+    const content = await readFile(dest, 'utf-8');
+    expect(content).to.equal('HELLO WORLD!');
+  });
+
+  it('copies a file to the sandbox with dest and transform', async () => {
+    const rename = 'copy.me.js';
+    await sandbox.copyFile(COPY_FILE_PATH, rename, content =>
+      content.toUpperCase(),
+    );
+    const dest = resolve(path, rename);
+    expect(await pathExists(dest)).to.be.True();
+    const content = await readFile(dest, 'utf-8');
+    expect(content).to.equal('HELLO WORLD!');
   });
 
   it('copies and renames the file to the sandbox', async () => {
@@ -111,7 +132,7 @@ describe('TestSandbox integration tests', () => {
     beforeEach(callSandboxDelete);
 
     it('throws an error when trying to call getPath()', () => {
-      expect(() => sandbox.getPath()).to.throw(ERR);
+      expect(() => sandbox.path).to.throw(ERR);
     });
 
     it('throws an error when trying to call mkdir()', async () => {
@@ -146,11 +167,11 @@ describe('TestSandbox integration tests', () => {
   }
 
   function givenPath() {
-    path = sandbox.getPath();
+    path = sandbox.path;
   }
 
   async function deleteSandbox() {
     if (!(await pathExists(path))) return;
-    await remove(sandbox.getPath());
+    await remove(sandbox.path);
   }
 });

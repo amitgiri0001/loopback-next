@@ -1,8 +1,9 @@
-// Copyright IBM Corp. 2018,2019. All Rights Reserved.
+// Copyright IBM Corp. 2018,2020. All Rights Reserved.
 // Node module: @loopback/cli
 // This file is licensed under the MIT License.
 // License text available at https://opensource.org/licenses/MIT
 
+// no translate: Repository
 'use strict';
 const _ = require('lodash');
 const ArtifactGenerator = require('../../lib/artifact-generator');
@@ -13,6 +14,7 @@ const path = require('path');
 const chalk = require('chalk');
 const utils = require('../../lib/utils');
 const tsquery = require('../../lib/ast-helper');
+const g = require('../../lib/globalize');
 
 const VALID_CONNECTORS_FOR_REPOSITORY = ['KeyValueModel', 'PersistedModel'];
 const KEY_VALUE_CONNECTOR = ['KeyValueModel'];
@@ -22,7 +24,7 @@ const KEY_VALUE_REPOSITORY = 'DefaultKeyValueRepository';
 const BASE_REPOSITORIES = [DEFAULT_CRUD_REPOSITORY, KEY_VALUE_REPOSITORY];
 const CLI_BASE_CRUD_REPOSITORIES = [
   {
-    name: `${DEFAULT_CRUD_REPOSITORY} ${chalk.gray('(Legacy juggler bridge)')}`,
+    name: `${DEFAULT_CRUD_REPOSITORY} ${chalk.gray('(Juggler bridge)')}`,
     value: DEFAULT_CRUD_REPOSITORY,
   },
 ];
@@ -37,22 +39,26 @@ const CLI_BASE_KEY_VALUE_REPOSITORIES = [
 const CLI_BASE_SEPARATOR = [
   {
     type: 'separator',
-    line: '----- Custom Repositories -----',
+    line: g.f('----- Custom Repositories -----'),
   },
 ];
 
 const REPOSITORY_KV_TEMPLATE = 'repository-kv-template.ts.ejs';
 const REPOSITORY_CRUD_TEMPLATE = 'repository-crud-default-template.ts.ejs';
 
-const PROMPT_MESSAGE_MODEL =
-  'Select the model(s) you want to generate a repository';
-const PROMPT_MESSAGE_DATA_SOURCE = 'Please select the datasource';
-const PROMPT_BASE_REPOSITORY_CLASS = 'Please select the repository base class';
-const ERROR_READING_FILE = 'Error reading file';
-const ERROR_NO_DATA_SOURCES_FOUND = 'No datasources found at';
-const ERROR_NO_MODELS_FOUND = 'No models found at';
-const ERROR_NO_MODEL_SELECTED = 'You did not select a valid model';
+const PROMPT_MESSAGE_MODEL = g.f(
+  'Select the model(s) you want to generate a repository for',
+);
+const PROMPT_MESSAGE_DATA_SOURCE = g.f('Please select the datasource');
+const PROMPT_BASE_REPOSITORY_CLASS = g.f(
+  'Please select the repository base class',
+);
+const ERROR_READING_FILE = g.f('Error reading file');
+const ERROR_NO_DATA_SOURCES_FOUND = g.f('No datasources found at');
+const ERROR_NO_MODELS_FOUND = g.f('No models found at');
+const ERROR_NO_MODEL_SELECTED = g.f('You did not select a valid model');
 
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
 module.exports = class RepositoryGenerator extends ArtifactGenerator {
   // Note: arguments and options should be defined in the constructor.
   constructor(args, opts) {
@@ -166,25 +172,25 @@ module.exports = class RepositoryGenerator extends ArtifactGenerator {
     this.option('model', {
       type: String,
       required: false,
-      description: 'A valid model name',
+      description: g.f('A valid model name'),
     });
 
     this.option('id', {
       type: String,
       required: false,
-      description: 'A valid ID property name for the specified model',
+      description: g.f('A valid ID property name for the specified model'),
     });
 
     this.option('datasource', {
       type: String,
       required: false,
-      description: 'A valid datasource name',
+      description: g.f('A valid datasource name'),
     });
 
     this.option('repositoryBaseClass', {
       type: String,
       required: false,
-      description: 'A valid repository base class',
+      description: g.f('A valid repository base class'),
       default: 'DefaultCrudRepository',
     });
 
@@ -238,7 +244,7 @@ module.exports = class RepositoryGenerator extends ArtifactGenerator {
       ? utils.toClassName(this.options.datasource) + 'Datasource'
       : '';
 
-    debug(`command line datasource is  ${cmdDatasourceName}`);
+    debug('command line datasource is %j', cmdDatasourceName);
 
     try {
       datasourcesList = await utils.getArtifactList(
@@ -247,18 +253,26 @@ module.exports = class RepositoryGenerator extends ArtifactGenerator {
         true,
       );
       debug(
-        `datasourcesList from ${utils.sourceRootDir}/${utils.datasourcesDir} : ${datasourcesList}`,
+        'datasourcesList from %s/%s:',
+        utils.sourceRootDir,
+        utils.datasourcesDir,
+        datasourcesList,
       );
     } catch (err) {
       return this.exit(err);
     }
 
     const availableDatasources = datasourcesList.filter(item => {
-      debug(`data source inspecting item: ${item}`);
       const result = utils.isConnectorOfType(
         VALID_CONNECTORS_FOR_REPOSITORY,
         this.artifactInfo.datasourcesDir,
         item,
+      );
+      debug(
+        'has %s connector of type %o? %s',
+        item,
+        VALID_CONNECTORS_FOR_REPOSITORY,
+        result,
       );
       return result !== false;
     });
@@ -448,7 +462,10 @@ module.exports = class RepositoryGenerator extends ArtifactGenerator {
           {
             type: 'input',
             name: 'propertyName',
-            message: `Please enter the name of the ID property for ${item}:`,
+            message: g.f(
+              'Please enter the name of the ID property for %s:',
+              `${item}`,
+            ),
             default: 'id',
           },
         ];

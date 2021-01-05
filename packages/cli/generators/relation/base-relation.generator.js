@@ -1,4 +1,4 @@
-// Copyright IBM Corp. 2019. All Rights Reserved.
+// Copyright IBM Corp. 2019,2020. All Rights Reserved.
 // Node module: @loopback/cli
 // This file is licensed under the MIT License.
 // License text available at https://opensource.org/licenses/MIT
@@ -11,6 +11,7 @@ const path = require('path');
 const relationUtils = require('./utils.generator');
 const utils = require('../../lib/utils');
 
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
 module.exports = class BaseRelationGenerator extends ArtifactGenerator {
   constructor(args, opts) {
     super(args, opts);
@@ -40,11 +41,11 @@ module.exports = class BaseRelationGenerator extends ArtifactGenerator {
 
   async generateAll(options) {
     this._setupGenerator();
-    await this.generateControllers(options);
-    this._setupGenerator();
     await this.generateModels(options);
     this._setupGenerator();
     await this.generateRepositories(options);
+    this._setupGenerator();
+    await this.generateControllers(options);
   }
 
   async generateControllers(options) {
@@ -98,23 +99,20 @@ module.exports = class BaseRelationGenerator extends ArtifactGenerator {
       type: this._getRepositoryRelationPropertyType(),
     };
 
-    if (relationUtils.doesPropertyExist(classDeclaration, property.name)) {
-      throw new Error(
-        'property ' + property.name + ' already exist in the repository.',
-      );
-    } else {
-      relationUtils.addProperty(classDeclaration, property);
-    }
+    // already checked the existence of property before
+    relationUtils.addProperty(classDeclaration, property);
   }
 
   _addParametersToRepositoryConstructor(classConstructor) {
+    if (this._addThroughRepoToRepositoryConstructor) {
+      this._addThroughRepoToRepositoryConstructor(classConstructor);
+    }
     const parameterName =
       utils.camelCase(this.artifactInfo.dstRepositoryClassName) + 'Getter';
 
     if (relationUtils.doesParameterExist(classConstructor, parameterName)) {
-      throw new Error(
-        'Parameter ' + parameterName + ' already exist in the constructor.',
-      );
+      // no need to check if the getter already exists
+      return;
     }
 
     classConstructor.addParameter({
@@ -158,7 +156,7 @@ module.exports = class BaseRelationGenerator extends ArtifactGenerator {
     this.artifactInfo.srcRepositoryClassName =
       utils.toClassName(options.sourceModel) + 'Repository';
 
-    this.artifactInfo.srcRepositoryFileObj = new relationUtils.AstLoopBackProject().addExistingSourceFile(
+    this.artifactInfo.srcRepositoryFileObj = new relationUtils.AstLoopBackProject().addSourceFileAtPath(
       this.artifactInfo.srcRepositoryFile,
     );
 
@@ -177,6 +175,16 @@ module.exports = class BaseRelationGenerator extends ArtifactGenerator {
 
     this.artifactInfo.dstRepositoryClassName =
       utils.toClassName(options.destinationModel) + 'Repository';
+    this.artifactInfo.dstModelPrimaryKey = options.destinationModelPrimaryKey;
+    if (options.throughModel) {
+      this.artifactInfo.throughModelClass = options.throughModel;
+      this.artifactInfo.throughRepoClassName = utils.toClassName(
+        options.throughModel + 'Repository',
+      );
+      this.artifactInfo.throughModelPrimaryKey = options.throughModelPrimaryKey;
+      this.artifactInfo.throughModelPrimaryKeyType =
+        options.throughModelPrimaryKeyType;
+    }
 
     // relation configuration
     this.artifactInfo.relationName = options.relationName;

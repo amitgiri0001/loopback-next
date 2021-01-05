@@ -1,14 +1,19 @@
-// Copyright IBM Corp. 2019. All Rights Reserved.
+// Copyright IBM Corp. 2019,2020. All Rights Reserved.
 // Node module: @loopback/repository-tests
 // This file is licensed under the MIT License.
 // License text available at https://opensource.org/licenses/MIT
 
-import {Entity, model, property} from '@loopback/repository';
-import {AnyObject, EntityCrudRepository} from '@loopback/repository';
+import {
+  AnyObject,
+  Entity,
+  EntityCrudRepository,
+  model,
+  property,
+} from '@loopback/repository';
 import {expect, toJSON} from '@loopback/testlab';
-import {MixedIdType} from '../helpers.repository-tests';
 import {
   deleteAllModelsInDefaultDataSource,
+  MixedIdType,
   withCrudCtx,
 } from '../helpers.repository-tests';
 import {
@@ -30,6 +35,7 @@ export function createSuiteForReplaceById(
       type: features.idType,
       id: true,
       generated: true,
+      useDefaultIdType: true,
       description: 'The unique identifier for a product',
     })
     id: MixedIdType;
@@ -72,7 +78,6 @@ export function createSuiteForReplaceById(
       // This important! Not all databases allow `patchById` to set
       // properties to "undefined", `replaceById` must always work.
       created.description = undefined;
-
       await repo.replaceById(created.id, created);
 
       const found = await repo.findById(created.id);
@@ -112,7 +117,6 @@ export function createSuiteForReplaceById(
       // This important! Not all databases allow `patchById` to set
       // properties to "undefined", `replaceById` must always work.
       created.description = undefined;
-
       await repo.replaceById(created.id, created);
 
       const found = await repo.findById(created.id);

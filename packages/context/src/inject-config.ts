@@ -65,7 +65,7 @@ export function config(
   propertyPath?: string | ConfigInjectionMetadata,
   metadata?: ConfigInjectionMetadata,
 ) {
-  propertyPath = propertyPath || '';
+  propertyPath = propertyPath ?? '';
   if (typeof propertyPath === 'object') {
     metadata = propertyPath;
     propertyPath = '';
@@ -87,7 +87,7 @@ export namespace config {
     propertyPath?: string | ConfigInjectionMetadata,
     metadata?: ConfigInjectionMetadata,
   ) {
-    propertyPath = propertyPath || '';
+    propertyPath = propertyPath ?? '';
     if (typeof propertyPath === 'object') {
       metadata = propertyPath;
       propertyPath = '';
@@ -109,7 +109,7 @@ export namespace config {
     propertyPath?: string | ConfigInjectionMetadata,
     metadata?: ConfigInjectionMetadata,
   ) {
-    propertyPath = propertyPath || '';
+    propertyPath = propertyPath ?? '';
     if (typeof propertyPath === 'object') {
       metadata = propertyPath;
       propertyPath = '';
@@ -129,7 +129,7 @@ export namespace config {
  */
 function getCurrentBindingKey(session: ResolutionSession) {
   // The current binding is not set if `instantiateClass` is invoked directly
-  return session.currentBinding && session.currentBinding.key;
+  return session.currentBinding?.key;
 }
 
 /**

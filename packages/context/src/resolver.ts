@@ -4,9 +4,8 @@
 // License text available at https://opensource.org/licenses/MIT
 
 import {DecoratorFactory} from '@loopback/metadata';
-import * as assert from 'assert';
-import * as debugModule from 'debug';
-import {BindingScope} from './binding';
+import assert from 'assert';
+import debugModule from 'debug';
 import {isBindingAddress} from './binding-filter';
 import {BindingAddress} from './binding-key';
 import {Context} from './context';
@@ -15,7 +14,11 @@ import {
   describeInjectedProperties,
   Injection,
 } from './inject';
-import {ResolutionOptions, ResolutionSession} from './resolution-session';
+import {
+  ResolutionError,
+  ResolutionOptions,
+  ResolutionSession,
+} from './resolution-session';
 import {
   BoundValue,
   Constructor,
@@ -51,7 +54,7 @@ export function instantiateClass<T>(
   /* istanbul ignore if */
   if (debug.enabled) {
     debug('Instantiating %s', getTargetName(ctor));
-    if (nonInjectedArgs && nonInjectedArgs.length) {
+    if (nonInjectedArgs?.length) {
       debug('Non-injected arguments:', nonInjectedArgs);
     }
   }
@@ -93,12 +96,9 @@ function resolveContext(
   injection: Readonly<Injection>,
   session?: ResolutionSession,
 ) {
-  const currentBinding = session && session.currentBinding;
-  if (
-    currentBinding == null ||
-    currentBinding.scope !== BindingScope.SINGLETON
-  ) {
-    // No current binding or its scope is not `SINGLETON`
+  const currentBinding = session?.currentBinding;
+  if (currentBinding == null) {
+    // No current binding
     return ctx;
   }
 
@@ -109,9 +109,9 @@ function resolveContext(
     typeof injection.methodDescriptorOrParameterIndex !== 'number';
 
   if (isConstructorOrPropertyInjection) {
-    // Set context to the owner context of the current binding for constructor
-    // or property injections against a singleton
-    ctx = ctx.getOwnerContext(currentBinding.key)!;
+    // Set context to the resolution context of the current binding for
+    // constructor or property injections against a singleton
+    ctx = ctx.getResolutionContext(currentBinding)!;
   }
   return ctx;
 }
@@ -201,7 +201,7 @@ export function resolveInjectedArguments(
   // Example value:
   //   [ , 'key1', , 'key2']
   const injectedArgs = describeInjectedArguments(target, method);
-  const extraArgs = nonInjectedArgs || [];
+  const extraArgs = nonInjectedArgs ?? [];
 
   let argLength = DecoratorFactory.getNumberOfParameters(target, method);
 
@@ -230,10 +230,11 @@ export function resolveInjectedArguments(
         return extraArgs[nonInjectedIndex++];
       } else {
         const name = getTargetName(target, method, ix);
-        throw new Error(
-          `Cannot resolve injected arguments for ${name}: ` +
-            `The arguments[${ix}] is not decorated for dependency injection, ` +
-            `but a value is not supplied`,
+        throw new ResolutionError(
+          `The argument '${name}' is not decorated for dependency injection ` +
+            'but no value was supplied by the caller. Did you forget to apply ' +
+            '@inject() to the argument?',
+          {context: ctx, options: {session}},
         );
       }
     }
@@ -270,20 +271,12 @@ export function resolveInjectedProperties(
   }
   const injectedProperties = describeInjectedProperties(constructor.prototype);
 
-  return resolveMap(injectedProperties, (injection, p) => {
-    if (!injection.bindingSelector && !injection.resolve) {
-      const name = getTargetName(constructor, p);
-      throw new Error(
-        `Cannot resolve injected property ${name}: ` +
-          `The property ${p} is not decorated for dependency injection.`,
-      );
-    }
-
-    return resolve(
+  return resolveMap(injectedProperties, injection =>
+    resolve(
       ctx,
       injection,
       // Clone the session so that multiple properties can be resolved in parallel
       ResolutionSession.fork(session),
-    );
-  });
+    ),
+  );
 }

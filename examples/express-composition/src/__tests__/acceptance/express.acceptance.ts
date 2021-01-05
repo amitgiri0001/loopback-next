@@ -1,4 +1,4 @@
-// Copyright IBM Corp. 2019. All Rights Reserved.
+// Copyright IBM Corp. 2019,2020. All Rights Reserved.
 // Node module: @loopback/example-express-composition
 // This file is licensed under the MIT License.
 // License text available at https://opensource.org/licenses/MIT
@@ -36,10 +36,7 @@ describe('ExpressApplication', () => {
   });
 
   it('gets hello world', async () => {
-    await client
-      .get('/hello')
-      .expect(200)
-      .expect('Hello world!');
+    await client.get('/hello').expect(200).expect('Hello world!');
   });
 
   it('redirects to "api/explorer" from "api/explorer"', async () => {

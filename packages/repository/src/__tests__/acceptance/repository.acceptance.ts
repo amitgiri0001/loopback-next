@@ -1,4 +1,4 @@
-// Copyright IBM Corp. 2019. All Rights Reserved.
+// Copyright IBM Corp. 2019,2020. All Rights Reserved.
 // Node module: @loopback/repository
 // This file is licensed under the MIT License.
 // License text available at https://opensource.org/licenses/MIT
@@ -111,6 +111,18 @@ describe('Repository in Thinking in LoopBack', () => {
 
     const stored = await userRepo.findById(created.id);
     expect(stored).to.containDeep(user);
+  });
+
+  it('toObject preserves the prototype of properties', async () => {
+    const DATE = new Date('2020-05-01');
+    const created = await repo.create({
+      createdAt: DATE,
+    });
+
+    expect(created.toObject()).to.deepEqual({
+      id: 1,
+      createdAt: DATE,
+    });
   });
 
   function givenProductRepository() {

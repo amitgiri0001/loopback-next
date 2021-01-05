@@ -1,9 +1,9 @@
-// Copyright IBM Corp. 2019. All Rights Reserved.
+// Copyright IBM Corp. 2019,2020. All Rights Reserved.
 // Node module: @loopback/rest
 // This file is licensed under the MIT License.
 // License text available at https://opensource.org/licenses/MIT
 
-import {Application} from '@loopback/core';
+import {Application, createBindingFromClass} from '@loopback/core';
 import {anOpenApiSpec, anOperationSpec} from '@loopback/openapi-spec-builder';
 import {get, post, requestBody} from '@loopback/openapi-v3';
 import {model, property} from '@loopback/repository';
@@ -13,6 +13,9 @@ import {
   RestComponent,
   RestServer,
 } from '../../..';
+import {RestTags} from '../../../keys';
+import {ConsolidationEnhancer} from '../../../spec-enhancers/consolidate.spec-enhancer';
+import {TestInfoSpecEnhancer} from './fixtures/info.spec.extension';
 
 describe('RestServer.getApiSpec()', () => {
   let app: Application;
@@ -20,10 +23,10 @@ describe('RestServer.getApiSpec()', () => {
   beforeEach(givenApplication);
 
   it('comes with a valid default spec', async () => {
-    await validateApiSpec(server.getApiSpec());
+    await validateApiSpec(await server.getApiSpec());
   });
 
-  it('honours API defined via app.api()', () => {
+  it('honours API defined via app.api()', async () => {
     server.api({
       openapi: '3.0.0',
       info: {
@@ -35,7 +38,7 @@ describe('RestServer.getApiSpec()', () => {
       'x-foo': 'bar',
     });
 
-    const spec = server.getApiSpec();
+    const spec = await server.getApiSpec();
     expect(spec).to.deepEqual({
       openapi: '3.0.0',
       info: {
@@ -52,7 +55,11 @@ describe('RestServer.getApiSpec()', () => {
     function greet() {}
     const binding = server.route('get', '/greet', {responses: {}}, greet);
     expect(binding.key).to.eql('routes.get %2Fgreet');
-    expect(binding.tagNames).containEql('route');
+    expect(binding.tagNames).containEql(RestTags.REST_ROUTE);
+    expect(binding.tagMap).containEql({
+      [RestTags.ROUTE_VERB]: 'get',
+      [RestTags.ROUTE_PATH]: '/greet',
+    });
   });
 
   it('binds a route via app.route(..., Controller, method)', () => {
@@ -69,14 +76,18 @@ describe('RestServer.getApiSpec()', () => {
       'greet',
     );
     expect(binding.key).to.eql('routes.get %2Fgreet%2Ejson');
-    expect(binding.tagNames).containEql('route');
+    expect(binding.tagNames).containEql(RestTags.REST_ROUTE);
+    expect(binding.tagMap).containEql({
+      [RestTags.ROUTE_VERB]: 'get',
+      [RestTags.ROUTE_PATH]: '/greet.json',
+    });
   });
 
-  it('returns routes registered via app.route(route)', () => {
+  it('returns routes registered via app.route(route)', async () => {
     function greet() {}
     server.route('get', '/greet', {responses: {}}, greet);
 
-    const spec = server.getApiSpec();
+    const spec = await server.getApiSpec();
     expect(spec.paths).to.eql({
       '/greet': {
         get: {
@@ -86,7 +97,7 @@ describe('RestServer.getApiSpec()', () => {
     });
   });
 
-  it('ignores routes marked as "x-visibility" via app.route(route)', () => {
+  it('ignores routes marked as "x-visibility" via app.route(route)', async () => {
     function greet() {}
     function meet() {}
     server.route(
@@ -96,7 +107,7 @@ describe('RestServer.getApiSpec()', () => {
       greet,
     );
     server.route('get', '/meet', {responses: {}, spec: {}}, meet);
-    const spec = server.getApiSpec();
+    const spec = await server.getApiSpec();
     expect(spec.paths).to.eql({
       '/meet': {
         get: {
@@ -107,7 +118,7 @@ describe('RestServer.getApiSpec()', () => {
     });
   });
 
-  it('returns routes registered via app.route(..., Controller, method)', () => {
+  it('returns routes registered via app.route(..., Controller, method)', async () => {
     class MyController {
       greet() {}
     }
@@ -121,7 +132,7 @@ describe('RestServer.getApiSpec()', () => {
       'greet',
     );
 
-    const spec = server.getApiSpec();
+    const spec = await server.getApiSpec();
     expect(spec.paths).to.eql({
       '/greet': {
         get: {
@@ -134,7 +145,7 @@ describe('RestServer.getApiSpec()', () => {
     });
   });
 
-  it('ignores routes marked as "x-visibility" via app.route(..., Controller, method)', () => {
+  it('ignores routes marked as "x-visibility" via app.route(..., Controller, method)', async () => {
     class GreetController {
       greet() {}
     }
@@ -161,7 +172,7 @@ describe('RestServer.getApiSpec()', () => {
       'meet',
     );
 
-    const spec = server.getApiSpec();
+    const spec = await server.getApiSpec();
     expect(spec.paths).to.eql({
       '/meet': {
         get: {
@@ -174,14 +185,14 @@ describe('RestServer.getApiSpec()', () => {
     });
   });
 
-  it('honors tags in the operation spec', () => {
+  it('honors tags in the operation spec', async () => {
     class MyController {
       @get('/greet', {responses: {'200': {description: ''}}, tags: ['MyTag']})
       greet() {}
     }
     app.controller(MyController);
 
-    const spec = server.getApiSpec();
+    const spec = await server.getApiSpec();
     expect(spec.paths).to.eql({
       '/greet': {
         get: {
@@ -195,7 +206,7 @@ describe('RestServer.getApiSpec()', () => {
     });
   });
 
-  it('emits all media types for request body', () => {
+  it('emits all media types for request body', async () => {
     const expectedOpSpec = anOperationSpec()
       .withRequestBody({
         description: 'Any object value.',
@@ -229,18 +240,18 @@ describe('RestServer.getApiSpec()', () => {
     }
     app.controller(MyController);
 
-    const spec = server.getApiSpec();
+    const spec = await server.getApiSpec();
     expect(spec.paths['/show-body'].post).to.containDeep(expectedOpSpec);
   });
 
-  it('returns routes registered via app.controller()', () => {
+  it('returns routes registered via app.controller()', async () => {
     class MyController {
       @get('/greet')
       greet() {}
     }
     app.controller(MyController);
 
-    const spec = server.getApiSpec();
+    const spec = await server.getApiSpec();
     expect(spec.paths).to.eql({
       '/greet': {
         get: {
@@ -256,7 +267,7 @@ describe('RestServer.getApiSpec()', () => {
     });
   });
 
-  it('returns definitions inferred via app.controller()', () => {
+  it('returns definitions inferred via app.controller()', async () => {
     @model()
     class MyModel {
       @property()
@@ -268,10 +279,11 @@ describe('RestServer.getApiSpec()', () => {
     }
     app.controller(MyController);
 
-    const spec = server.getApiSpec();
-    expect(spec.components && spec.components.schemas).to.deepEqual({
+    const spec = await server.getApiSpec();
+    expect(spec.components?.schemas).to.deepEqual({
       MyModel: {
         title: 'MyModel',
+        type: 'object',
         properties: {
           bar: {
             type: 'string',
@@ -282,7 +294,7 @@ describe('RestServer.getApiSpec()', () => {
     });
   });
 
-  it('preserves routes specified in app.api()', () => {
+  it('preserves routes specified in app.api()', async () => {
     function status() {}
     server.api(
       anOpenApiSpec()
@@ -296,7 +308,7 @@ describe('RestServer.getApiSpec()', () => {
     function greet() {}
     server.route('get', '/greet', {responses: {}}, greet);
 
-    const spec = server.getApiSpec();
+    const spec = await server.getApiSpec();
     expect(spec.paths).to.eql({
       '/greet': {
         get: {
@@ -305,10 +317,114 @@ describe('RestServer.getApiSpec()', () => {
       },
       '/status': {
         get: {
+          'x-operation': status,
           responses: {},
         },
       },
     });
+  });
+
+  it('registers consolidate enhancer', async () => {
+    const enhancer = await server.OASEnhancer.getEnhancerByName('consolidate');
+    expect(enhancer).to.be.instanceOf(ConsolidationEnhancer);
+  });
+
+  it('invokes registered oas enhancers', async () => {
+    const EXPECTED_SPEC_INFO = {
+      title: 'LoopBack Test Application',
+      version: '1.0.1',
+    };
+    server.add(createBindingFromClass(TestInfoSpecEnhancer));
+    const spec = await server.getApiSpec();
+    expect(spec.info).to.eql(EXPECTED_SPEC_INFO);
+  });
+
+  it('invokes info oas enhancers', async () => {
+    const EXPECTED_SPEC_INFO = {
+      title: 'MyApp',
+      description: 'LoopBack Test Application',
+      version: '1.0.1',
+      contact: {
+        name: 'Barney Rubble',
+        email: 'b@rubble.com',
+        url: 'http://barnyrubble.tumblr.com/',
+      },
+    };
+    app.setMetadata({
+      name: 'MyApp',
+      description: 'LoopBack Test Application',
+      version: '1.0.1',
+      author: 'Barney Rubble <b@rubble.com> (http://barnyrubble.tumblr.com/)',
+    });
+    const spec = await server.getApiSpec();
+    expect(spec.info).to.eql(EXPECTED_SPEC_INFO);
+  });
+
+  it('does not override customized oas.info', async () => {
+    const EXPECTED_SPEC_INFO = {
+      title: 'My LB App',
+      version: '2.0',
+      description: 'LoopBack Test Application',
+      contact: {},
+    };
+    app.setMetadata({
+      name: 'MyApp',
+      description: 'LoopBack Test Application',
+      version: '1.0.1',
+      author: 'Barney Rubble <b@rubble.com> (http://barnyrubble.tumblr.com/)',
+    });
+    server.api({
+      openapi: '3.0.0',
+      info: {
+        title: 'My LB App',
+        version: '2.0',
+        contact: {},
+      },
+      paths: {},
+    });
+    const spec = await server.getApiSpec();
+    expect(spec.info).to.eql(EXPECTED_SPEC_INFO);
+  });
+
+  it('invokes info oas enhancers with author object', async () => {
+    const EXPECTED_SPEC_INFO = {
+      title: 'MyApp',
+      description: '',
+      version: '1.0.1',
+      contact: {
+        name: 'Barney Rubble',
+        email: 'b@rubble.com',
+        url: 'http://barnyrubble.tumblr.com/',
+      },
+    };
+    app.setMetadata({
+      name: 'MyApp',
+      version: '1.0.1',
+      description: '',
+      author: {
+        name: 'Barney Rubble',
+        email: 'b@rubble.com',
+        url: 'http://barnyrubble.tumblr.com/',
+      },
+    });
+    const spec = await server.getApiSpec();
+    expect(spec.info).to.eql(EXPECTED_SPEC_INFO);
+  });
+
+  it('invokes info oas enhancers without author', async () => {
+    const EXPECTED_SPEC_INFO = {
+      title: 'MyApp',
+      description: '',
+      version: '1.0.1',
+      contact: {},
+    };
+    app.setMetadata({
+      name: 'MyApp',
+      version: '1.0.1',
+      description: '',
+    });
+    const spec = await server.getApiSpec();
+    expect(spec.info).to.eql(EXPECTED_SPEC_INFO);
   });
 
   async function givenApplication() {

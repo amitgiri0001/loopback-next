@@ -51,8 +51,8 @@ context. In our case, we mark `GreetingService` as the extension point that
 needs to access a list of greeters.
 
 ```ts
-import {Getter} from '@loopback/context';
-import {extensionFilter, CoreTags} from '@loopback/core';
+import {CoreTags, Getter, extensionFilter} from '@loopback/core';
+
 /**
  * An extension point for greeters that can greet in different languages
  */
@@ -169,7 +169,7 @@ knowing much about one another.
 
 ```ts
 import {Greeter, asGreeter} from '../types';
-import {bind, config} from '@loopback/context';
+import {injectable, config} from '@loopback/core';
 
 /**
  * Options for the Chinese greeter
@@ -182,7 +182,7 @@ export interface ChineseGreeterOptions {
 /**
  * A greeter implementation for Chinese
  */
-@bind(asGreeter)
+@injectable(asGreeter)
 export class ChineseGreeter implements Greeter {
   language = 'zh';
 
@@ -204,7 +204,7 @@ export class ChineseGreeter implements Greeter {
 ```
 
 Please note we use
-[`@bind`](https://loopback.io/doc/en/lb4/Binding.html#configure-binding-attributes-for-a-class)
+[`@injectable`](https://loopback.io/doc/en/lb4/Binding.html#configure-binding-attributes-for-a-class)
 to customize how the class can be bound. In this case, `asGreeter` is a binding
 template function, which is equivalent as configuring a binding with
 `{extensionFor: 'greeter'}` tag and in the `SINGLETON` scope.
@@ -235,8 +235,7 @@ app
 The process can be automated with a component:
 
 ```ts
-import {createBindingFromClass} from '@loopback/context';
-import {Component} from '@loopback/core';
+import {Component, createBindingFromClass} from '@loopback/core';
 import {GreetingService} from './greeting-service';
 import {GREETING_SERVICE} from './keys';
 
@@ -268,10 +267,7 @@ addExtension(app, 'greeters', FrenchGreeter);
 Or:
 
 ```ts
-app
-  .bind('greeters.FrenchGreeter')
-  .toClass(FrenchGreeter)
-  .apply(asGreeter);
+app.bind('greeters.FrenchGreeter').toClass(FrenchGreeter).apply(asGreeter);
 ```
 
 Or:

@@ -19,13 +19,21 @@ export class Shipment extends Entity {
   @property({
     id: true,
     generated: true,
+    useDefaultIdType: true,
   })
   id: MixedIdType;
+
+  @property({
+    type: 'number',
+  })
+  // eslint-disable-next-line @typescript-eslint/naming-convention
+  shipment_id: number;
 
   @property({type: 'string'})
   name: string;
 
-  @hasMany(() => Order, {keyTo: 'shipment_id'})
+  // keyFrom is not the id property of Shipment
+  @hasMany(() => Order, {keyFrom: 'shipment_id', keyTo: 'shipmentInfo'})
   shipmentOrders: Order[];
 
   constructor(data?: Partial<Shipment>) {
@@ -34,7 +42,7 @@ export class Shipment extends Entity {
 }
 
 export interface ShipmentRelations {
-  orders?: OrderWithRelations[];
+  shipmentOrders?: OrderWithRelations[];
 }
 
 export type ShipmentWithRelations = Shipment & ShipmentRelations;
@@ -42,5 +50,5 @@ export type ShipmentWithRelations = Shipment & ShipmentRelations;
 export interface ShipmentRepository
   extends EntityCrudRepository<Shipment, typeof Shipment.prototype.id> {
   // define additional members like relation methods here
-  orders: HasManyRepositoryFactory<Order, MixedIdType>;
+  shipmentOrders: HasManyRepositoryFactory<Order, MixedIdType>;
 }

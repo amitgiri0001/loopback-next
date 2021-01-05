@@ -1,57 +1,51 @@
-// Copyright IBM Corp. 2017,2019. All Rights Reserved.
+// Copyright IBM Corp. 2017,2020. All Rights Reserved.
 // Node module: @loopback/context
 // This file is licensed under the MIT License.
 // License text available at https://opensource.org/licenses/MIT
 
-import * as debugFactory from 'debug';
+import debugFactory, {Debugger} from 'debug';
 import {EventEmitter} from 'events';
-import {v1 as uuidv1} from 'uuid';
-import {Binding, BindingTag} from './binding';
+import {
+  Binding,
+  BindingInspectOptions,
+  BindingScope,
+  BindingTag,
+} from './binding';
 import {
   ConfigurationResolver,
   DefaultConfigurationResolver,
 } from './binding-config';
-import {BindingFilter, filterByKey, filterByTag} from './binding-filter';
+import {
+  BindingFilter,
+  filterByKey,
+  filterByTag,
+  isBindingTagFilter,
+} from './binding-filter';
 import {BindingAddress, BindingKey} from './binding-key';
 import {BindingComparator} from './binding-sorter';
-import {
-  ContextEventObserver,
-  ContextEventType,
-  ContextObserver,
-  Notification,
-  Subscription,
-} from './context-observer';
+import {ContextEvent, ContextEventListener} from './context-event';
+import {ContextEventObserver, ContextObserver} from './context-observer';
+import {ContextSubscriptionManager, Subscription} from './context-subscription';
+import {ContextTagIndexer} from './context-tag-indexer';
 import {ContextView} from './context-view';
+import {JSONObject} from './json-types';
 import {ContextBindings} from './keys';
 import {
   asResolutionOptions,
+  ResolutionError,
   ResolutionOptions,
   ResolutionOptionsOrSession,
   ResolutionSession,
 } from './resolution-session';
+import {generateUniqueId} from './unique-id';
 import {
   BoundValue,
+  Constructor,
   getDeepProperty,
   isPromiseLike,
+  transformValueOrPromise,
   ValueOrPromise,
 } from './value-promise';
-
-/**
- * Polyfill Symbol.asyncIterator as required by TypeScript for Node 8.x.
- * See https://www.typescriptlang.org/docs/handbook/release-notes/typescript-2-3.html
- */
-if (!Symbol.asyncIterator) {
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  (Symbol as any).asyncIterator = Symbol.for('Symbol.asyncIterator');
-}
-/**
- * WARNING: This following import must happen after the polyfill. The
- * `auto-import` by an IDE such as VSCode may move the import before the
- * polyfill. It must be then fixed manually.
- */
-import {iterator, multiple} from 'p-event';
-
-const debug = debugFactory('loopback:context');
 
 /**
  * Context provides an implementation of Inversion of Control (IoC) container
@@ -68,41 +62,44 @@ export class Context extends EventEmitter {
   protected readonly registry: Map<string, Binding> = new Map();
 
   /**
+   * Indexer for bindings by tag
+   */
+  protected readonly tagIndexer: ContextTagIndexer;
+
+  /**
+   * Manager for observer subscriptions
+   */
+  readonly subscriptionManager: ContextSubscriptionManager;
+
+  /**
    * Parent context
    */
   protected _parent?: Context;
 
+  /**
+   * Configuration resolver
+   */
   protected configResolver: ConfigurationResolver;
 
   /**
-   * Event listeners for parent context keyed by event names. It keeps track
-   * of listeners from this context against its parent so that we can remove
-   * these listeners when this context is closed.
+   * A debug function which can be overridden by subclasses.
+   *
+   * @example
+   * ```ts
+   * import debugFactory from 'debug';
+   * const debug = debugFactory('loopback:context:application');
+   * export class Application extends Context {
+   *   super('application');
+   *   this._debug = debug;
+   * }
+   * ```
    */
-  protected _parentEventListeners:
-    | Map<
-        string,
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        (...args: any[]) => void
-      >
-    | undefined;
+  protected _debug: Debugger;
 
   /**
-   * A list of registered context observers. The Set will be created when the
-   * first observer is added.
+   * Scope for binding resolution
    */
-  protected observers: Set<ContextEventObserver> | undefined;
-
-  /**
-   * Internal counter for pending notification events which are yet to be
-   * processed by observers.
-   */
-  private pendingNotifications = 0;
-
-  /**
-   * Queue for background notifications for observers
-   */
-  private notificationQueue: AsyncIterableIterator<Notification> | undefined;
+  scope: BindingScope = BindingScope.CONTEXT;
 
   /**
    * Create a new context.
@@ -123,17 +120,60 @@ export class Context extends EventEmitter {
    * const reqCtx = new Context(appCtx, 'request');
    * ```
    * @param _parent - The optional parent context
-   * @param name - Name of the context, if not provided, a `uuid` will be
-   * generated as the name
+   * @param name - Name of the context. If not provided, a unique identifier
+   * will be generated as the name.
    */
   constructor(_parent?: Context | string, name?: string) {
     super();
+    // The number of listeners can grow with the number of child contexts
+    // For example, each request can add a listener to the RestServer and the
+    // listener is removed when the request processing is finished.
+    // See https://github.com/strongloop/loopback-next/issues/4363
+    this.setMaxListeners(Infinity);
     if (typeof _parent === 'string') {
       name = _parent;
       _parent = undefined;
     }
     this._parent = _parent;
-    this.name = name || uuidv1();
+    this.name = name ?? this.generateName();
+    this.tagIndexer = new ContextTagIndexer(this);
+    this.subscriptionManager = new ContextSubscriptionManager(this);
+    this._debug = debugFactory(this.getDebugNamespace());
+  }
+
+  /**
+   * Get the debug namespace for the context class. Subclasses can override
+   * this method to supply its own namespace.
+   *
+   * @example
+   * ```ts
+   * export class Application extends Context {
+   *   super('application');
+   * }
+   *
+   * protected getDebugNamespace() {
+   *   return 'loopback:context:application';
+   * }
+   * ```
+   */
+  protected getDebugNamespace() {
+    if (this.constructor === Context) return 'loopback:context';
+    const name = this.constructor.name.toLowerCase();
+    return `loopback:context:${name}`;
+  }
+
+  private generateName() {
+    const id = generateUniqueId();
+    if (this.constructor === Context) return id;
+    return `${this.constructor.name}-${id}`;
+  }
+
+  /**
+   * @internal
+   * Getter for ContextSubscriptionManager
+   */
+  get parent() {
+    return this._parent;
   }
 
   /**
@@ -141,187 +181,32 @@ export class Context extends EventEmitter {
    * as the prefix
    * @param args - Arguments for the debug
    */
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  private _debug(...args: any[]) {
+  protected debug(...args: unknown[]) {
     /* istanbul ignore if */
-    if (!debug.enabled) return;
+    if (!this._debug.enabled) return;
     const formatter = args.shift();
     if (typeof formatter === 'string') {
-      debug(`[%s] ${formatter}`, this.name, ...args);
+      this._debug(`[%s] ${formatter}`, this.name, ...args);
     } else {
-      debug('[%s] ', this.name, formatter, ...args);
+      this._debug('[%s] ', this.name, formatter, ...args);
     }
   }
 
   /**
-   * Set up an internal listener to notify registered observers asynchronously
-   * upon `bind` and `unbind` events. This method will be called lazily when
-   * the first observer is added.
+   * A strongly-typed method to emit context events
+   * @param type Event type
+   * @param event Context event
    */
-  private setupEventHandlersIfNeeded() {
-    if (this.notificationQueue != null) return;
-
-    this.addParentEventListener('bind');
-    this.addParentEventListener('unbind');
-
-    // The following are two async functions. Returned promises are ignored as
-    // they are long-running background tasks.
-    this.startNotificationTask().catch(err => {
-      this.handleNotificationError(err);
-    });
-
-    let ctx = this._parent;
-    while (ctx) {
-      ctx.setupEventHandlersIfNeeded();
-      ctx = ctx._parent;
-    }
+  emitEvent<T extends ContextEvent>(type: string, event: T) {
+    this.emit(type, event);
   }
 
   /**
-   * Add an event listener to its parent context so that this context will
-   * be notified of parent events, such as `bind` or `unbind`.
-   * @param event - Event name
+   * Emit an `error` event
+   * @param err Error
    */
-  private addParentEventListener(event: string) {
-    if (this._parent == null) return;
-
-    // Keep track of parent event listeners so that we can remove them
-    this._parentEventListeners = this._parentEventListeners || new Map();
-    if (this._parentEventListeners.has(event)) return;
-
-    const parentEventListener = (
-      binding: Readonly<Binding<unknown>>,
-      context: Context,
-    ) => {
-      // Propagate the event to this context only if the binding key does not
-      // exist in this context. The parent binding is shadowed if there is a
-      // binding with the same key in this one.
-      if (this.contains(binding.key)) {
-        this._debug(
-          'Event %s %s is not re-emitted from %s to %s',
-          event,
-          binding.key,
-          context.name,
-          this.name,
-        );
-        return;
-      }
-      this._debug(
-        'Re-emitting %s %s from %s to %s',
-        event,
-        binding.key,
-        context.name,
-        this.name,
-      );
-      this.emit(event, binding, context);
-    };
-    this._parentEventListeners.set(event, parentEventListener);
-    // Listen on the parent context events
-    this._parent.on(event, parentEventListener);
-  }
-
-  /**
-   * Handle errors caught during the notification of observers
-   * @param err - Error
-   */
-  private handleNotificationError(err: unknown) {
-    // Bubbling up the error event over the context chain
-    // until we find an error listener
-    // eslint-disable-next-line @typescript-eslint/no-this-alias
-    let ctx: Context | undefined = this;
-    while (ctx) {
-      if (ctx.listenerCount('error') === 0) {
-        // No error listener found, try its parent
-        ctx = ctx._parent;
-        continue;
-      }
-      this._debug('Emitting error to context %s', ctx.name, err);
-      ctx.emit('error', err);
-      return;
-    }
-    // No context with error listeners found
-    this._debug('No error handler is configured for the context chain', err);
-    // Let it crash now by emitting an error event
+  emitError(err: unknown) {
     this.emit('error', err);
-  }
-
-  /**
-   * Start a background task to listen on context events and notify observers
-   */
-  private startNotificationTask() {
-    // Set up listeners on `bind` and `unbind` for notifications
-    this.setupNotification('bind', 'unbind');
-
-    // Create an async iterator for the `notification` event as a queue
-    this.notificationQueue = iterator(this, 'notification');
-
-    return this.processNotifications();
-  }
-
-  /**
-   * Process notification events as they arrive on the queue
-   */
-  private async processNotifications() {
-    const events = this.notificationQueue;
-    if (events == null) return;
-    for await (const {eventType, binding, context, observers} of events) {
-      // The loop will happen asynchronously upon events
-      try {
-        // The execution of observers happen in the Promise micro-task queue
-        await this.notifyObservers(eventType, binding, context, observers);
-        this.pendingNotifications--;
-        this._debug(
-          'Observers notified for %s of binding %s',
-          eventType,
-          binding.key,
-        );
-        this.emit('observersNotified', {eventType, binding});
-      } catch (err) {
-        this.pendingNotifications--;
-        this._debug('Error caught from observers', err);
-        // Errors caught from observers. Emit it to the current context.
-        // If no error listeners are registered, crash the process.
-        this.emit('error', err);
-      }
-    }
-  }
-
-  /**
-   * Listen on given event types and emit `notification` event. This method
-   * merge multiple event types into one for notification.
-   * @param eventTypes - Context event types
-   */
-  private setupNotification(...eventTypes: ContextEventType[]) {
-    for (const eventType of eventTypes) {
-      this.on(eventType, (binding, context) => {
-        // No need to schedule notifications if no observers are present
-        if (!this.observers || this.observers.size === 0) return;
-        // Track pending events
-        this.pendingNotifications++;
-        // Take a snapshot of current observers to ensure notifications of this
-        // event will only be sent to current ones. Emit a new event to notify
-        // current context observers.
-        this.emit('notification', {
-          eventType,
-          binding,
-          context,
-          observers: new Set(this.observers),
-        });
-      });
-    }
-  }
-
-  /**
-   * Wait until observers are notified for all of currently pending notification
-   * events.
-   *
-   * This method is for test only to perform assertions after observers are
-   * notified for relevant events.
-   */
-  protected async waitUntilPendingNotificationsDone(timeout?: number) {
-    const count = this.pendingNotifications;
-    if (count === 0) return;
-    await multiple(this, 'observersNotified', {count, timeout});
   }
 
   /**
@@ -345,21 +230,25 @@ export class Context extends EventEmitter {
    */
   add(binding: Binding<unknown>): this {
     const key = binding.key;
-    this._debug('[%s] Adding binding: %s', key);
+    this.debug('[%s] Adding binding: %s', key);
     let existingBinding: Binding | undefined;
     const keyExists = this.registry.has(key);
     if (keyExists) {
       existingBinding = this.registry.get(key);
-      const bindingIsLocked = existingBinding && existingBinding.isLocked;
+      const bindingIsLocked = existingBinding?.isLocked;
       if (bindingIsLocked)
         throw new Error(`Cannot rebind key "${key}" to a locked binding`);
     }
     this.registry.set(key, binding);
     if (existingBinding !== binding) {
       if (existingBinding != null) {
-        this.emit('unbind', existingBinding, this);
+        this.emitEvent('unbind', {
+          binding: existingBinding,
+          context: this,
+          type: 'unbind',
+        });
       }
-      this.emit('bind', binding, this);
+      this.emitEvent('bind', {binding, context: this, type: 'bind'});
     }
     return this;
   }
@@ -418,14 +307,14 @@ export class Context extends EventEmitter {
         },
       );
       if (configResolver) {
-        debug(
+        this.debug(
           'Custom ConfigurationResolver is loaded from %s.',
           ContextBindings.CONFIGURATION_RESOLVER.toString(),
         );
         this.configResolver = configResolver;
       } else {
         // Fallback to DefaultConfigurationResolver
-        debug('DefaultConfigurationResolver is used.');
+        this.debug('DefaultConfigurationResolver is used.');
         this.configResolver = new DefaultConfigurationResolver(this);
       }
     }
@@ -497,15 +386,15 @@ export class Context extends EventEmitter {
    * @returns true if the binding key is found and removed from this context
    */
   unbind(key: BindingAddress): boolean {
-    this._debug('Unbind %s', key);
+    this.debug('Unbind %s', key);
     key = BindingKey.validate(key);
     const binding = this.registry.get(key);
     // If not found, return `false`
     if (binding == null) return false;
-    if (binding && binding.isLocked)
+    if (binding?.isLocked)
       throw new Error(`Cannot unbind key "${key}" of a locked binding`);
     this.registry.delete(key);
-    this.emit('unbind', binding, this);
+    this.emitEvent('unbind', {binding, context: this, type: 'unbind'});
     return true;
   }
 
@@ -514,10 +403,7 @@ export class Context extends EventEmitter {
    * @param observer - Context observer instance or function
    */
   subscribe(observer: ContextEventObserver): Subscription {
-    this.observers = this.observers || new Set();
-    this.setupEventHandlersIfNeeded();
-    this.observers.add(observer);
-    return new ContextSubscription(this, observer);
+    return this.subscriptionManager.subscribe(observer);
   }
 
   /**
@@ -525,8 +411,7 @@ export class Context extends EventEmitter {
    * @param observer - Context event observer
    */
   unsubscribe(observer: ContextEventObserver): boolean {
-    if (!this.observers) return false;
-    return this.observers.delete(observer);
+    return this.subscriptionManager.unsubscribe(observer);
   }
 
   /**
@@ -539,21 +424,9 @@ export class Context extends EventEmitter {
    * which is created per request.
    */
   close() {
-    this._debug('Closing context...');
-    this.observers = undefined;
-    if (this.notificationQueue != null) {
-      // Cancel the notification iterator
-      this.notificationQueue.return!(undefined).catch(err => {
-        this.handleNotificationError(err);
-      });
-      this.notificationQueue = undefined;
-    }
-    if (this._parent && this._parentEventListeners) {
-      for (const [event, listener] of this._parentEventListeners) {
-        this._parent.removeListener(event, listener);
-      }
-      this._parentEventListeners = undefined;
-    }
+    this.debug('Closing context...');
+    this.subscriptionManager.close();
+    this.tagIndexer.close();
   }
 
   /**
@@ -561,8 +434,7 @@ export class Context extends EventEmitter {
    * @param observer - Context observer
    */
   isSubscribed(observer: ContextObserver) {
-    if (!this.observers) return false;
-    return this.observers.has(observer);
+    return this.subscriptionManager.isSubscribed(observer);
   }
 
   /**
@@ -577,34 +449,6 @@ export class Context extends EventEmitter {
     const view = new ContextView<T>(this, filter, comparator);
     view.open();
     return view;
-  }
-
-  /**
-   * Publish an event to the registered observers. Please note the
-   * notification is queued and performed asynchronously so that we allow fluent
-   * APIs such as `ctx.bind('key').to(...).tag(...);` and give observers the
-   * fully populated binding.
-   *
-   * @param eventType - Event names: `bind` or `unbind`
-   * @param binding - Binding bound or unbound
-   * @param context - Owner context
-   * @param observers - Current set of context observers
-   */
-  protected async notifyObservers(
-    eventType: ContextEventType,
-    binding: Readonly<Binding<unknown>>,
-    context: Context,
-    observers = this.observers,
-  ) {
-    if (!observers || observers.size === 0) return;
-
-    for (const observer of observers) {
-      if (typeof observer === 'function') {
-        await observer(eventType, binding, context);
-      } else if (!observer.filter || observer.filter(binding)) {
-        await observer.observe(eventType, binding, context);
-      }
-    }
   }
 
   /**
@@ -630,15 +474,100 @@ export class Context extends EventEmitter {
   }
 
   /**
-   * Get the owning context for a binding key
-   * @param key - Binding key
+   * Get the owning context for a binding or its key
+   * @param keyOrBinding - Binding object or key
    */
-  getOwnerContext(key: BindingAddress): Context | undefined {
-    if (this.contains(key)) return this;
+  getOwnerContext(
+    keyOrBinding: BindingAddress | Readonly<Binding<unknown>>,
+  ): Context | undefined {
+    let key: BindingAddress;
+    if (keyOrBinding instanceof Binding) {
+      key = keyOrBinding.key;
+    } else {
+      key = keyOrBinding as BindingAddress;
+    }
+    if (this.contains(key)) {
+      if (keyOrBinding instanceof Binding) {
+        // Check if the contained binding is the same
+        if (this.registry.get(key.toString()) === keyOrBinding) {
+          return this;
+        }
+        return undefined;
+      }
+      return this;
+    }
     if (this._parent) {
       return this._parent.getOwnerContext(key);
     }
     return undefined;
+  }
+
+  /**
+   * Get the context matching the scope
+   * @param scope - Binding scope
+   */
+  getScopedContext(
+    scope:
+      | BindingScope.APPLICATION
+      | BindingScope.SERVER
+      | BindingScope.REQUEST,
+  ): Context | undefined {
+    if (this.scope === scope) return this;
+    if (this._parent) {
+      return this._parent.getScopedContext(scope);
+    }
+    return undefined;
+  }
+
+  /**
+   * Locate the resolution context for the given binding. Only bindings in the
+   * resolution context and its ancestors are visible as dependencies to resolve
+   * the given binding
+   * @param binding - Binding object
+   */
+  getResolutionContext(
+    binding: Readonly<Binding<unknown>>,
+  ): Context | undefined {
+    let resolutionCtx: Context | undefined;
+    switch (binding.scope) {
+      case BindingScope.SINGLETON:
+        // Use the owner context
+        return this.getOwnerContext(binding.key);
+      case BindingScope.TRANSIENT:
+      case BindingScope.CONTEXT:
+        // Use the current context
+        return this;
+      case BindingScope.REQUEST:
+        resolutionCtx = this.getScopedContext(binding.scope);
+        if (resolutionCtx != null) {
+          return resolutionCtx;
+        } else {
+          // If no `REQUEST` scope exists in the chain, fall back to the current
+          // context
+          this.debug(
+            'No context is found for binding "%s (scope=%s)". Fall back to the current context.',
+            binding.key,
+            binding.scope,
+          );
+          return this;
+        }
+      default:
+        // Use the scoped context
+        return this.getScopedContext(binding.scope);
+    }
+  }
+
+  /**
+   * Check if this context is visible (same or ancestor) to the given one
+   * @param ctx - Another context object
+   */
+  isVisibleTo(ctx: Context) {
+    let current: Context | undefined = ctx;
+    while (current != null) {
+      if (current === this) return true;
+      current = current._parent;
+    }
+    return false;
   }
 
   /**
@@ -658,6 +587,11 @@ export class Context extends EventEmitter {
   find<ValueType = BoundValue>(
     pattern?: string | RegExp | BindingFilter,
   ): Readonly<Binding<ValueType>>[] {
+    // Optimize if the binding filter is for tags
+    if (typeof pattern === 'function' && isBindingTagFilter(pattern)) {
+      return this._findByTagIndex(pattern.bindingTagPattern);
+    }
+
     const bindings: Readonly<Binding<ValueType>>[] = [];
     const filter = filterByKey(pattern);
 
@@ -665,7 +599,7 @@ export class Context extends EventEmitter {
       if (filter(b)) bindings.push(b);
     }
 
-    const parentBindings = this._parent && this._parent.find(filter);
+    const parentBindings = this._parent?.find(filter);
     return this._mergeWithParent(bindings, parentBindings);
   }
 
@@ -687,6 +621,18 @@ export class Context extends EventEmitter {
     tagFilter: BindingTag | RegExp,
   ): Readonly<Binding<ValueType>>[] {
     return this.find(filterByTag(tagFilter));
+  }
+
+  /**
+   * Find bindings by tag leveraging indexes
+   * @param tag - Tag name pattern or name/value pairs
+   */
+  protected _findByTagIndex<ValueType = BoundValue>(
+    tag: BindingTag | RegExp,
+  ): Readonly<Binding<ValueType>>[] {
+    const currentBindings = this.tagIndexer.findByTagIndex(tag);
+    const parentBindings = this._parent?._findByTagIndex(tag);
+    return this._mergeWithParent(currentBindings, parentBindings);
   }
 
   protected _mergeWithParent<ValueType>(
@@ -762,7 +708,7 @@ export class Context extends EventEmitter {
     keyWithPath: BindingAddress<ValueType>,
     optionsOrSession?: ResolutionOptionsOrSession,
   ): Promise<ValueType | undefined> {
-    this._debug('Resolving binding: %s', keyWithPath);
+    this.debug('Resolving binding: %s', keyWithPath);
     return this.getValueOrPromise<ValueType | undefined>(
       keyWithPath,
       optionsOrSession,
@@ -830,7 +776,7 @@ export class Context extends EventEmitter {
     keyWithPath: BindingAddress<ValueType>,
     optionsOrSession?: ResolutionOptionsOrSession,
   ): ValueType | undefined {
-    this._debug('Resolving binding synchronously: %s', keyWithPath);
+    this.debug('Resolving binding synchronously: %s', keyWithPath);
 
     const valueOrPromise = this.getValueOrPromise<ValueType>(
       keyWithPath,
@@ -885,7 +831,7 @@ export class Context extends EventEmitter {
       return this._parent.getBinding<ValueType>(key, options);
     }
 
-    if (options && options.optional) return undefined;
+    if (options?.optional) return undefined;
     throw new Error(
       `The key '${key}' is not bound to any value in context ${this.name}`,
     );
@@ -948,54 +894,166 @@ export class Context extends EventEmitter {
   ): ValueOrPromise<ValueType | undefined> {
     const {key, propertyPath} = BindingKey.parseKeyWithPath(keyWithPath);
 
-    optionsOrSession = asResolutionOptions(optionsOrSession);
+    const options = asResolutionOptions(optionsOrSession);
 
-    const binding = this.getBinding<ValueType>(key, optionsOrSession);
-    if (binding == null) return undefined;
-
-    const boundValue = binding.getValue(this, optionsOrSession);
-    if (propertyPath === undefined || propertyPath === '') {
-      return boundValue;
+    const binding = this.getBinding<ValueType>(key, {optional: true});
+    if (binding == null) {
+      if (options.optional) return undefined;
+      throw new ResolutionError(
+        `The key '${key}' is not bound to any value in context ${this.name}`,
+        {
+          context: this,
+          binding: Binding.bind(key),
+          options,
+        },
+      );
     }
 
-    if (isPromiseLike(boundValue)) {
-      return boundValue.then(v => getDeepProperty<ValueType>(v, propertyPath));
-    }
-
-    return getDeepProperty<ValueType>(boundValue, propertyPath);
+    const boundValue = binding.getValue(this, options);
+    return propertyPath == null || propertyPath === ''
+      ? boundValue
+      : transformValueOrPromise(boundValue, v =>
+          getDeepProperty<ValueType>(v, propertyPath),
+        );
   }
 
   /**
    * Create a plain JSON object for the context
    */
-  toJSON(): Object {
-    const json: {[key: string]: Object} = {};
+  toJSON(): JSONObject {
+    const bindings: JSONObject = {};
     for (const [k, v] of this.registry) {
-      json[k] = v.toJSON();
+      bindings[k] = v.toJSON();
+    }
+    return bindings;
+  }
+
+  /**
+   * Inspect the context and dump out a JSON object representing the context
+   * hierarchy
+   * @param options - Options for inspect
+   */
+  // TODO(rfeng): Evaluate https://nodejs.org/api/util.html#util_custom_inspection_functions_on_objects
+  inspect(options: ContextInspectOptions = {}): JSONObject {
+    return this._inspect(options, new ClassNameMap());
+  }
+
+  /**
+   * Inspect the context hierarchy
+   * @param options - Options for inspect
+   * @param visitedClasses - A map to keep class to name so that we can have
+   * different names for classes with colliding names. The situation can happen
+   * when two classes with the same name are bound in different modules.
+   */
+  private _inspect(
+    options: ContextInspectOptions,
+    visitedClasses: ClassNameMap,
+  ): JSONObject {
+    options = {
+      includeParent: true,
+      includeInjections: false,
+      ...options,
+    };
+    const bindings: JSONObject = {};
+    for (const [k, v] of this.registry) {
+      const ctor = v.valueConstructor ?? v.providerConstructor;
+      let name: string | undefined = undefined;
+      if (ctor != null) {
+        name = visitedClasses.visit(ctor);
+      }
+      bindings[k] = v.inspect(options);
+      if (name != null) {
+        const binding = bindings[k] as JSONObject;
+        if (v.valueConstructor) {
+          binding.valueConstructor = name;
+        } else if (v.providerConstructor) {
+          binding.providerConstructor = name;
+        }
+      }
+    }
+    const json: JSONObject = {
+      name: this.name,
+      bindings,
+    };
+    if (!options.includeParent) return json;
+    if (this._parent) {
+      json.parent = this._parent._inspect(options, visitedClasses);
     }
     return json;
+  }
+
+  /**
+   * The "bind" event is emitted when a new binding is added to the context.
+   * The "unbind" event is emitted when an existing binding is removed.
+   *
+   * @param eventName The name of the event - always `bind` or `unbind`.
+   * @param listener The listener function to call when the event is emitted.
+   */
+  on(eventName: 'bind' | 'unbind', listener: ContextEventListener): this;
+
+  // The generic variant inherited from EventEmitter
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  on(event: string | symbol, listener: (...args: any[]) => void): this;
+
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  on(event: string | symbol, listener: (...args: any[]) => void): this {
+    return super.on(event, listener);
+  }
+
+  /**
+   * The "bind" event is emitted when a new binding is added to the context.
+   * The "unbind" event is emitted when an existing binding is removed.
+   *
+   * @param eventName The name of the event - always `bind` or `unbind`.
+   * @param listener The listener function to call when the event is emitted.
+   */
+  once(eventName: 'bind' | 'unbind', listener: ContextEventListener): this;
+
+  // The generic variant inherited from EventEmitter
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  once(event: string | symbol, listener: (...args: any[]) => void): this;
+
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  once(event: string | symbol, listener: (...args: any[]) => void): this {
+    return super.once(event, listener);
   }
 }
 
 /**
- * An implementation of `Subscription` interface for context events
+ * An internal utility class to handle class name conflicts
  */
-class ContextSubscription implements Subscription {
-  constructor(
-    protected context: Context,
-    protected observer: ContextEventObserver,
-  ) {}
+class ClassNameMap {
+  private readonly classes = new Map<Constructor<unknown>, string>();
+  private readonly nameIndex = new Map<string, number>();
 
-  private _closed = false;
-
-  unsubscribe() {
-    this.context.unsubscribe(this.observer);
-    this._closed = true;
+  visit(ctor: Constructor<unknown>) {
+    let name = this.classes.get(ctor);
+    if (name == null) {
+      name = ctor.name;
+      // Now check if the name collides with another class
+      let index = this.nameIndex.get(name);
+      if (typeof index === 'number') {
+        // A conflict is found, mangle the name as `ClassName #1`
+        this.nameIndex.set(name, ++index);
+        name = `${name} #${index}`;
+      } else {
+        // The name is used for the 1st time
+        this.nameIndex.set(name, 0);
+      }
+      this.classes.set(ctor, name);
+    }
+    return name;
   }
+}
 
-  get closed() {
-    return this._closed;
-  }
+/**
+ * Options for context.inspect()
+ */
+export interface ContextInspectOptions extends BindingInspectOptions {
+  /**
+   * The flag to control if parent context should be inspected
+   */
+  includeParent?: boolean;
 }
 
 /**

@@ -1,10 +1,10 @@
-// Copyright IBM Corp. 2017,2019. All Rights Reserved.
+// Copyright IBM Corp. 2017,2020. All Rights Reserved.
 // Node module: @loopback/metadata
 // This file is licensed under the MIT License.
 // License text available at https://opensource.org/licenses/MIT
 
-import * as debugModule from 'debug';
-import * as _ from 'lodash';
+import debugModule from 'debug';
+import _ from 'lodash';
 import {Reflector} from './reflect';
 import {DecoratorType, MetadataKey, MetadataMap} from './types';
 const debug = debugModule('loopback:metadata:decorator');
@@ -91,14 +91,14 @@ export class DecoratorFactory<
       options,
     );
     const defaultDecoratorName = this.constructor.name.replace(/Factory$/, '');
-    this.decoratorName = this.options.decoratorName || defaultDecoratorName;
+    this.decoratorName = this.options.decoratorName ?? defaultDecoratorName;
     if (this.options.cloneInputSpec) {
       this.spec = DecoratorFactory.cloneDeep(spec);
     }
   }
 
   protected allowInheritance(): boolean {
-    return !!(this.options && this.options.allowInheritance);
+    return !!this.options?.allowInheritance;
   }
 
   /**
@@ -121,17 +121,21 @@ export class DecoratorFactory<
   }
 
   /**
-   * Get the qualified name of a decoration target. For example:
-   * ```
-   * class MyClass
-   * MyClass.constructor[0] // First parameter of the constructor
-   * MyClass.myStaticProperty
-   * MyClass.myStaticMethod()
-   * MyClass.myStaticMethod[0] // First parameter of the myStaticMethod
-   * MyClass.prototype.myProperty
-   * MyClass.prototype.myMethod()
-   * MyClass.prototype.myMethod[1] // Second parameter of myMethod
-   * ```
+   * Get the qualified name of a decoration target.
+   *
+   * @remarks
+   *
+   * Example of target names:
+   *
+   * - class MyClass
+   * - MyClass.constructor[0] // First parameter of the constructor
+   * - MyClass.myStaticProperty
+   * - MyClass.myStaticMethod()
+   * - MyClass.myStaticMethod[0] // First parameter of the myStaticMethod
+   * - MyClass.prototype.myProperty
+   * - MyClass.prototype.myMethod()
+   * - MyClass.prototype.myMethod[1] // Second parameter of myMethod
+   *
    * @param target - Class or prototype of a class
    * @param member - Optional property/method name
    * @param descriptorOrIndex - Optional method descriptor or parameter index
@@ -148,7 +152,7 @@ export class DecoratorFactory<
     if (member == null && descriptorOrIndex == null) {
       return `class ${name}`;
     }
-    if (member == null) member = 'constructor';
+    if (member == null || member === '') member = 'constructor';
 
     const memberAccessor =
       typeof member === 'symbol' ? '[' + member.toString() + ']' : '.' + member;
@@ -337,11 +341,11 @@ export class DecoratorFactory<
    * @param options - Options for the decorator
    */
   protected static _createDecorator<
-    T,
-    M extends T | MetadataMap<T> | MetadataMap<T[]>,
-    D extends DecoratorType
-  >(key: MetadataKey<T, D>, spec: T, options?: DecoratorOptions): D {
-    const inst = new this<T, M, D>(key.toString(), spec, options);
+    S,
+    MT extends S | MetadataMap<S> | MetadataMap<S[]>,
+    DT extends DecoratorType
+  >(key: MetadataKey<S, DT>, spec: S, options?: DecoratorOptions): DT {
+    const inst = new this<S, MT, DT>(key.toString(), spec, options);
     return inst.create();
   }
 
@@ -422,12 +426,12 @@ export class ClassDecoratorFactory<T> extends DecoratorFactory<
    * @param spec - Metadata object from the decorator function
    * @param options - Options for the decorator
    */
-  static createDecorator<T>(
-    key: MetadataKey<T, ClassDecorator>,
-    spec: T,
+  static createDecorator<S>(
+    key: MetadataKey<S, ClassDecorator>,
+    spec: S,
     options?: DecoratorOptions,
   ) {
-    return super._createDecorator<T, T, ClassDecorator>(key, spec, options);
+    return super._createDecorator<S, S, ClassDecorator>(key, spec, options);
   }
 }
 
@@ -483,12 +487,12 @@ export class PropertyDecoratorFactory<T> extends DecoratorFactory<
    * @param spec - Metadata object from the decorator function
    * @param options - Options for the decorator
    */
-  static createDecorator<T>(
-    key: MetadataKey<T, PropertyDecorator>,
-    spec: T,
+  static createDecorator<S>(
+    key: MetadataKey<S, PropertyDecorator>,
+    spec: S,
     options?: DecoratorOptions,
   ) {
-    return super._createDecorator<T, MetadataMap<T>, PropertyDecorator>(
+    return super._createDecorator<S, MetadataMap<S>, PropertyDecorator>(
       key,
       spec,
       options,
@@ -549,12 +553,12 @@ export class MethodDecoratorFactory<T> extends DecoratorFactory<
    * @param spec - Metadata object from the decorator function
    * @param options - Options for the decorator
    */
-  static createDecorator<T>(
-    key: MetadataKey<T, MethodDecorator>,
-    spec: T,
+  static createDecorator<S>(
+    key: MetadataKey<S, MethodDecorator>,
+    spec: S,
     options?: DecoratorOptions,
   ) {
-    return super._createDecorator<T, MetadataMap<T>, MethodDecorator>(
+    return super._createDecorator<S, MetadataMap<S>, MethodDecorator>(
       key,
       spec,
       options,
@@ -642,12 +646,12 @@ export class ParameterDecoratorFactory<T> extends DecoratorFactory<
    * @param spec - Metadata object from the decorator function
    * @param options - Options for the decorator
    */
-  static createDecorator<T>(
-    key: MetadataKey<T, ParameterDecorator>,
-    spec: T,
+  static createDecorator<S>(
+    key: MetadataKey<S, ParameterDecorator>,
+    spec: S,
     options?: DecoratorOptions,
   ) {
-    return super._createDecorator<T, MetadataMap<T[]>, ParameterDecorator>(
+    return super._createDecorator<S, MetadataMap<S[]>, ParameterDecorator>(
       key,
       spec,
       options,
@@ -777,15 +781,92 @@ export class MethodParameterDecoratorFactory<T> extends DecoratorFactory<
    * @param spec - Metadata object from the decorator function
    * @param options - Options for the decorator
    */
-  static createDecorator<T>(
-    key: MetadataKey<T, MethodDecorator>,
-    spec: T,
+  static createDecorator<S>(
+    key: MetadataKey<S, MethodDecorator>,
+    spec: S,
     options?: DecoratorOptions,
   ) {
-    return super._createDecorator<T, MetadataMap<T[]>, MethodDecorator>(
+    return super._createDecorator<S, MetadataMap<S[]>, MethodDecorator>(
       key,
       spec,
       options,
     );
+  }
+}
+
+/**
+ *  Factory for an append-array of method-level decorators
+ *  The `@response` metadata for a method is an array.
+ *  Each item in the array should be a single value, containing
+ *  a response code and a single spec or Model.  This should allow:
+ *
+ * @example
+ * ```ts
+ *  @response(200, MyFirstModel)
+ *  @response(403, [NotAuthorizedReasonOne, NotAuthorizedReasonTwo])
+ *  @response(404, NotFoundOne)
+ *  @response(404, NotFoundTwo)
+ *  @response(409, {schema: {}})
+ *  public async myMethod() {}
+ * ```
+ *
+ * In the case that a ResponseObject is passed, it becomes the
+ * default for description/content, and if possible, further Models are
+ * incorporated as a `oneOf: []` array.
+ *
+ * In the case that a ReferenceObject is passed, it and it alone is used, since
+ * references can be external and we cannot `oneOf` their content.
+ *
+ * The factory creates and updates an array of items T[], and the getter
+ * provides the values as that array.
+ */
+export class MethodMultiDecoratorFactory<T> extends MethodDecoratorFactory<
+  T[]
+> {
+  protected mergeWithInherited(
+    inheritedMetadata: MetadataMap<T[]>,
+    target: Object,
+    methodName?: string,
+  ) {
+    inheritedMetadata = inheritedMetadata || {};
+
+    inheritedMetadata[methodName!] = this._mergeArray(
+      inheritedMetadata[methodName!],
+      this.withTarget(this.spec, target),
+    );
+
+    return inheritedMetadata;
+  }
+
+  protected mergeWithOwn(
+    ownMetadata: MetadataMap<T[]>,
+    target: Object,
+    methodName?: string,
+    methodDescriptor?: TypedPropertyDescriptor<any> | number,
+  ) {
+    ownMetadata = ownMetadata || {};
+    ownMetadata[methodName!] = this._mergeArray(
+      ownMetadata[methodName!],
+      this.withTarget(this.spec, target),
+    );
+    return ownMetadata;
+  }
+
+  private _mergeArray(result: T[], methodMeta: T | T[]) {
+    if (!result) {
+      if (Array.isArray(methodMeta)) {
+        result = methodMeta;
+      } else {
+        result = [methodMeta];
+      }
+    } else {
+      if (Array.isArray(methodMeta)) {
+        result.push(...methodMeta);
+      } else {
+        result.push(methodMeta);
+      }
+    }
+
+    return result;
   }
 }

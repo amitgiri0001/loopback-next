@@ -1,7 +1,7 @@
 ---
 lang: en
 title: 'Add a Service'
-keywords: LoopBack 4.0, LoopBack 4
+keywords: LoopBack 4.0, LoopBack 4, Node.js, TypeScript, OpenAPI, SOAP
 sidebar: lb4_sidebar
 permalink: /doc/en/lb4/soap-calculator-tutorial-add-service.html
 ---
@@ -54,7 +54,7 @@ export interface CalculatorService {
 
 export class CalculatorServiceProvider implements Provider<CalculatorService> {
   constructor(
-    // calculator must match the name property in the datasource json file
+    // calculator must match the name property in the datasource file
     @inject('datasources.calculator')
     protected dataSource: CalculatorDataSource = new CalculatorDataSource(),
   ) {}

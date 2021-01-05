@@ -1,14 +1,16 @@
 {
   "name": "@loopback/core",
-  "version": "1.10.7",
-  "description": "LoopBack 4 core",
+  "version": "2.13.1",
+  "description": "Define and implement core constructs such as Application and Component",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
   "engines": {
-    "node": ">=8.9"
+    "node": "^10.16 || 12 || 14"
   },
   "scripts": {
     "acceptance": "lb-mocha \"dist/__tests__/acceptance/**/*.js\"",
     "build": "lb-tsc",
-    "clean": "lb-clean loopback-core*.tgz dist tsconfig.build.tsbuildinfo package",
+    "clean": "lb-clean loopback-core*.tgz dist *.tsbuildinfo package",
     "pretest": "npm run build",
     "integration": "lb-mocha \"dist/__tests__/integration/**/*.js\"",
     "test": "lb-mocha \"dist/__tests__/**/*.js\"",
@@ -18,21 +20,23 @@
   "author": "IBM Corp.",
   "copyright.owner": "IBM Corp.",
   "license": "MIT",
+  "publishConfig": {
+    "access": "public"
+  },
   "dependencies": {
-    "@loopback/context": "^1.23.5",
-    "debug": "^4.1.1"
+    "@loopback/context": "^3.13.2",
+    "debug": "^4.3.1",
+    "tslib": "^2.0.3"
   },
   "devDependencies": {
-    "@loopback/build": "^2.0.16",
-    "@loopback/eslint-config": "^4.1.4",
-    "@loopback/testlab": "^1.9.4",
+    "@loopback/build": "^6.2.8",
+    "@loopback/eslint-config": "^10.0.4",
+    "@loopback/testlab": "^3.2.10",
     "@types/debug": "^4.1.5",
-    "@types/node": "^10.17.5"
+    "@types/node": "^10.17.35"
   },
   "files": [
     "README.md",
-    "index.js",
-    "index.d.ts",
     "dist",
     "src",
     "!*/__tests__"

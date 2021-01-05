@@ -1,4 +1,4 @@
-// Copyright IBM Corp. 2019. All Rights Reserved.
+// Copyright IBM Corp. 2019,2020. All Rights Reserved.
 // Node module: @loopback/rest
 // This file is licensed under the MIT License.
 // License text available at https://opensource.org/licenses/MIT
@@ -9,8 +9,8 @@ import {
   InvocationContext,
   Provider,
   ValueOrPromise,
-} from '@loopback/context';
-import {Request, RestBindings} from '../../..';
+} from '@loopback/core';
+import {Request, RestBindings, RouteSource} from '../../..';
 
 /**
  * Execution status
@@ -61,6 +61,12 @@ export async function cache<T>(
   next: () => ValueOrPromise<T>,
 ) {
   status.returnFromCache = false;
+  if (
+    invocationCtx.source == null ||
+    !(invocationCtx.source instanceof RouteSource)
+  ) {
+    return next();
+  }
   const req = await invocationCtx.get(RestBindings.Http.REQUEST, {
     optional: true,
   });

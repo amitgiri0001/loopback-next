@@ -3,6 +3,339 @@
 All notable changes to this project will be documented in this file.
 See [Conventional Commits](https://conventionalcommits.org) for commit guidelines.
 
+## [2.13.1](https://github.com/strongloop/loopback-next/compare/@loopback/core@2.13.0...@loopback/core@2.13.1) (2020-12-07)
+
+
+### Bug Fixes
+
+* **core:** fix compilation error reported by tsc with typescript@4.1.x ([c538c1b](https://github.com/strongloop/loopback-next/commit/c538c1b6ad6270516abff190364d8bfce6111f91))
+
+
+
+
+
+# [2.13.0](https://github.com/strongloop/loopback-next/compare/@loopback/core@2.12.0...@loopback/core@2.13.0) (2020-11-18)
+
+
+### Bug Fixes
+
+* re-export generateUniqueId in index.ts ([e392056](https://github.com/strongloop/loopback-next/commit/e392056471cb06c603ed9313e78886fe606e34a9)), closes [#6767](https://github.com/strongloop/loopback-next/issues/6767)
+
+
+### Features
+
+* **core:** allow parameter injection for lifecycle methods ([d5351fd](https://github.com/strongloop/loopback-next/commit/d5351fdc81422a523dc2fd78017bda0ef4dbadfd))
+
+
+
+
+
+# [2.12.0](https://github.com/strongloop/loopback-next/compare/@loopback/core@2.11.0...@loopback/core@2.12.0) (2020-11-05)
+
+
+### Features
+
+* **core:** add `init` to application life cycle events ([747bc7f](https://github.com/strongloop/loopback-next/commit/747bc7fda83f44b288aefa505c6eddbe387122d4))
+
+
+
+
+
+# [2.11.0](https://github.com/strongloop/loopback-next/compare/@loopback/core@2.10.1...@loopback/core@2.11.0) (2020-10-07)
+
+
+### Features
+
+* **context:** introduce new binding scopes ([9916cfd](https://github.com/strongloop/loopback-next/commit/9916cfd4449a870f7a3378e2e674957aed7c1626))
+
+
+
+
+
+## [2.10.1](https://github.com/strongloop/loopback-next/compare/@loopback/core@2.10.0...@loopback/core@2.10.1) (2020-09-17)
+
+**Note:** Version bump only for package @loopback/core
+
+
+
+
+
+# [2.10.0](https://github.com/strongloop/loopback-next/compare/@loopback/core@2.9.5...@loopback/core@2.10.0) (2020-09-15)
+
+
+### Bug Fixes
+
+* improve handling of missing design-time type metadata ([95b6a2b](https://github.com/strongloop/loopback-next/commit/95b6a2b7ce64e614720df43b905f77a53a54e438))
+
+
+### Features
+
+* add `app.onStart()` and `app.onStop()` helpers ([92daddd](https://github.com/strongloop/loopback-next/commit/92daddd8dfaf24c16e03ed3af66d491a8fd9503e))
+* allow dynamic value provider classes and classes with [@inject](https://github.com/inject) to be booted ([7b85cdf](https://github.com/strongloop/loopback-next/commit/7b85cdf63730ef659a4ee799f05f02eea8a1e3e8))
+
+
+
+
+
+## [2.9.5](https://github.com/strongloop/loopback-next/compare/@loopback/core@2.9.4...@loopback/core@2.9.5) (2020-08-27)
+
+**Note:** Version bump only for package @loopback/core
+
+
+
+
+
+## [2.9.4](https://github.com/strongloop/loopback-next/compare/@loopback/core@2.9.3...@loopback/core@2.9.4) (2020-08-19)
+
+**Note:** Version bump only for package @loopback/core
+
+
+
+
+
+## [2.9.3](https://github.com/strongloop/loopback-next/compare/@loopback/core@2.9.2...@loopback/core@2.9.3) (2020-08-05)
+
+**Note:** Version bump only for package @loopback/core
+
+
+
+
+
+## [2.9.2](https://github.com/strongloop/loopback-next/compare/@loopback/core@2.9.1...@loopback/core@2.9.2) (2020-07-20)
+
+**Note:** Version bump only for package @loopback/core
+
+
+
+
+
+## [2.9.1](https://github.com/strongloop/loopback-next/compare/@loopback/core@2.9.0...@loopback/core@2.9.1) (2020-06-30)
+
+**Note:** Version bump only for package @loopback/core
+
+
+
+
+
+# [2.9.0](https://github.com/strongloop/loopback-next/compare/@loopback/core@2.8.0...@loopback/core@2.9.0) (2020-06-23)
+
+
+### Bug Fixes
+
+* set node version to >=10.16 to support events.once ([e39da1c](https://github.com/strongloop/loopback-next/commit/e39da1ca47728eafaf83c10ce35b09b03b6a4edc))
+
+
+### Features
+
+* **core:** enable application config with configure/getConfig/[@config](https://github.com/config) ([3a74ee1](https://github.com/strongloop/loopback-next/commit/3a74ee180633754ecd369b07454a104e731129f1))
+
+
+
+
+
+# [2.8.0](https://github.com/strongloop/loopback-next/compare/@loopback/core@2.7.1...@loopback/core@2.8.0) (2020-06-11)
+
+
+### Features
+
+* **core:** add services to component artifacts ([5545345](https://github.com/strongloop/loopback-next/commit/5545345a7a1a51333d518d5a5cb8580d74ff2492))
+
+
+
+
+
+## [2.7.1](https://github.com/strongloop/loopback-next/compare/@loopback/core@2.7.0...@loopback/core@2.7.1) (2020-05-28)
+
+**Note:** Version bump only for package @loopback/core
+
+
+
+
+
+# [2.7.0](https://github.com/strongloop/loopback-next/compare/@loopback/core@2.6.0...@loopback/core@2.7.0) (2020-05-20)
+
+
+### Features
+
+* **service-proxy:** refine service mixin ([a6d0e2a](https://github.com/strongloop/loopback-next/commit/a6d0e2a457751568faffc1e733dc15f2e7232d2c))
+
+
+
+
+
+# [2.6.0](https://github.com/strongloop/loopback-next/compare/@loopback/core@2.5.0...@loopback/core@2.6.0) (2020-05-19)
+
+
+### Features
+
+* **core:** allow extensionFilter to take a list of extension point names ([8f315eb](https://github.com/strongloop/loopback-next/commit/8f315eb46bee7365da5325a23b948df9d477bfdb))
+
+
+
+
+
+# [2.5.0](https://github.com/strongloop/loopback-next/compare/@loopback/core@2.4.2...@loopback/core@2.5.0) (2020-05-07)
+
+
+### Features
+
+* **context:** add registerInterceptor helper function and app.interceptor ([c760966](https://github.com/strongloop/loopback-next/commit/c76096684771ffaf535b75b025892ccfb057bff0))
+* **context:** force interceptor functions to return a value ([5663a76](https://github.com/strongloop/loopback-next/commit/5663a7642cbbb43fab08020d398393d0aabeed86))
+* **core:** allow options for artifact registration on an application ([f3fdc3b](https://github.com/strongloop/loopback-next/commit/f3fdc3b94e34610dd1bebb600a497c77a2794019))
+
+
+
+
+
+## [2.4.2](https://github.com/strongloop/loopback-next/compare/@loopback/core@2.4.1...@loopback/core@2.4.2) (2020-04-29)
+
+**Note:** Version bump only for package @loopback/core
+
+
+
+
+
+## [2.4.1](https://github.com/strongloop/loopback-next/compare/@loopback/core@2.4.0...@loopback/core@2.4.1) (2020-04-23)
+
+**Note:** Version bump only for package @loopback/core
+
+
+
+
+
+# [2.4.0](https://github.com/strongloop/loopback-next/compare/@loopback/core@2.3.0...@loopback/core@2.4.0) (2020-04-22)
+
+
+### Features
+
+* update package.json and .travis.yml for builds ([cb2b8e6](https://github.com/strongloop/loopback-next/commit/cb2b8e6a18616dda7783c0193091039d4e608131))
+* **core:** improve typing for `app.controller` and `app.component` ([ac4b1ea](https://github.com/strongloop/loopback-next/commit/ac4b1eac8c3643087b64a5d3a98b701c92e15cf1))
+
+
+
+
+
+# [2.3.0](https://github.com/strongloop/loopback-next/compare/@loopback/core@2.2.1...@loopback/core@2.3.0) (2020-04-11)
+
+
+### Features
+
+* **core:** improve application signal handler registration ([8086932](https://github.com/strongloop/loopback-next/commit/8086932b66a3aaad2fff6023231f983a43e1791a))
+
+
+
+
+
+## [2.2.1](https://github.com/strongloop/loopback-next/compare/@loopback/core@2.2.0...@loopback/core@2.2.1) (2020-04-08)
+
+**Note:** Version bump only for package @loopback/core
+
+
+
+
+
+# [2.2.0](https://github.com/strongloop/loopback-next/compare/@loopback/core@2.1.0...@loopback/core@2.2.0) (2020-03-24)
+
+
+### Features
+
+* **core:** add more flavors of [@extensions](https://github.com/extensions) decorator ([192563a](https://github.com/strongloop/loopback-next/commit/192563a3f4cdb136b86d898760a33051436a56de))
+
+
+
+
+
+# [2.1.0](https://github.com/strongloop/loopback-next/compare/@loopback/core@2.0.0...@loopback/core@2.1.0) (2020-03-17)
+
+
+### Features
+
+* **core:** allow an extension to be used by multiple extension points ([5cc29d6](https://github.com/strongloop/loopback-next/commit/5cc29d630b97a02ba6ac7e5962bb2af2b314a89d))
+
+
+
+
+
+# [2.0.0](https://github.com/strongloop/loopback-next/compare/@loopback/core@1.12.4...@loopback/core@2.0.0) (2020-03-05)
+
+
+### chore
+
+* remove support for Node.js v8.x ([4281d9d](https://github.com/strongloop/loopback-next/commit/4281d9df50f0715d32879e1442a90b643ec8f542))
+
+
+### Features
+
+* add `tslib` as dependency ([a6e0b4c](https://github.com/strongloop/loopback-next/commit/a6e0b4ce7b862764167cefedee14c1115b25e0a4)), closes [#4676](https://github.com/strongloop/loopback-next/issues/4676)
+
+
+### BREAKING CHANGES
+
+* Node.js v8.x is now end of life. Please upgrade to version
+10 and above. See https://nodejs.org/en/about/releases.
+
+
+
+
+
+## [1.12.4](https://github.com/strongloop/loopback-next/compare/@loopback/core@1.12.3...@loopback/core@1.12.4) (2020-02-06)
+
+**Note:** Version bump only for package @loopback/core
+
+
+
+
+
+## [1.12.3](https://github.com/strongloop/loopback-next/compare/@loopback/core@1.12.2...@loopback/core@1.12.3) (2020-02-05)
+
+**Note:** Version bump only for package @loopback/core
+
+
+
+
+
+## [1.12.2](https://github.com/strongloop/loopback-next/compare/@loopback/core@1.12.1...@loopback/core@1.12.2) (2020-01-27)
+
+**Note:** Version bump only for package @loopback/core
+
+
+
+
+
+## [1.12.1](https://github.com/strongloop/loopback-next/compare/@loopback/core@1.12.0...@loopback/core@1.12.1) (2020-01-07)
+
+**Note:** Version bump only for package @loopback/core
+
+
+
+
+
+# [1.12.0](https://github.com/strongloop/loopback-next/compare/@loopback/core@1.11.0...@loopback/core@1.12.0) (2019-12-09)
+
+
+### Features
+
+* **core:** allow application to trap shutdown signals ([2130634](https://github.com/strongloop/loopback-next/commit/213063424c2690aa7ef3f4494d8fc2a7e593b883))
+* **core:** emit stateChanged events for application state transitions ([5257a8f](https://github.com/strongloop/loopback-next/commit/5257a8f68525921028b98a340c75758725d256b9))
+* **core:** enable start/stop/boot to be idempotent ([b614a78](https://github.com/strongloop/loopback-next/commit/b614a7825be1dc1875556388443f72385525fa29))
+* **core:** improve application states for start/stop ([01dac15](https://github.com/strongloop/loopback-next/commit/01dac151260e6c743cc77863f6495a85d19d338c))
+* **core:** simplify state management by checking in process states ([874d2b3](https://github.com/strongloop/loopback-next/commit/874d2b385dd8c1dbf3d3980118898c6b99f145aa))
+
+
+
+
+
+# [1.11.0](https://github.com/strongloop/loopback-next/compare/@loopback/core@1.10.7...@loopback/core@1.11.0) (2019-11-25)
+
+
+### Features
+
+* **core:** add [@service](https://github.com/service) decorator to inject a service by class/interface ([1d80904](https://github.com/strongloop/loopback-next/commit/1d80904b670724b00cb6a2965b8472f44d23eed0))
+
+
+
+
+
 ## [1.10.7](https://github.com/strongloop/loopback-next/compare/@loopback/core@1.10.6...@loopback/core@1.10.7) (2019-11-12)
 
 **Note:** Version bump only for package @loopback/core

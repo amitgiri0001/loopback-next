@@ -1,4 +1,4 @@
-// Copyright IBM Corp. 2019. All Rights Reserved.
+// Copyright IBM Corp. 2019,2020. All Rights Reserved.
 // Node module: @loopback/cli
 // This file is licensed under the MIT License.
 // License text available at https://opensource.org/licenses/MIT
@@ -33,7 +33,6 @@ describe('importLb3ModelDefinition', () => {
       expect(toJSON(modelData.settings)).to.deepEqual({
         // By default, LB3 models are not strict
         strict: false,
-        replaceOnPUT: true,
       });
     });
 
@@ -42,24 +41,20 @@ describe('importLb3ModelDefinition', () => {
     });
 
     it('normalizes custom property', () => {
-      expect(modelData.properties)
-        .to.have.property('name')
-        .deepEqual({
-          type: `'string'`,
-          tsType: 'string',
-        });
+      expect(modelData.properties).to.have.property('name').deepEqual({
+        type: `'string'`,
+        tsType: 'string',
+      });
     });
 
     it('handles id property injected by the connector', () => {
-      expect(modelData.properties)
-        .to.have.property('id')
-        .deepEqual({
-          type: `'number'`,
-          tsType: 'number',
-          id: 1,
-          generated: true,
-          updateOnly: true,
-        });
+      expect(modelData.properties).to.have.property('id').deepEqual({
+        type: `'number'`,
+        tsType: 'number',
+        id: 1,
+        generated: true,
+        updateOnly: true,
+      });
     });
 
     it('adds other data for the model template', () => {
@@ -77,6 +72,70 @@ describe('importLb3ModelDefinition', () => {
     });
   });
 
+  context('model properties with db settings', () => {
+    let modelData;
+
+    const STRING_PROPERTY = {
+      type: 'String',
+      required: false,
+      length: 25,
+      precision: null,
+      scale: null,
+      postgresql: {
+        columnName: 'name',
+        dataType: 'character varying',
+        dataLength: 25,
+        dataPrecision: null,
+        dataScale: null,
+        nullable: 'YES',
+      },
+    };
+
+    const NUMERIC_PROPERTY = {
+      type: 'Number',
+      required: false,
+      length: null,
+      precision: 64,
+      scale: 0,
+      postgresql: {
+        columnName: 'count',
+        dataType: 'bigint',
+        dataLength: null,
+        dataPrecision: 64,
+        dataScale: 0,
+        nullable: 'YES',
+      },
+    };
+
+    before(function modelWithCustomDbSettings() {
+      const properties = {
+        name: STRING_PROPERTY,
+        count: NUMERIC_PROPERTY,
+      };
+      const MyModel = givenLb3Model('MyModel', properties, {});
+      modelData = importLb3ModelDefinition(MyModel, log);
+    });
+
+    it('connector metadata is migrated for string property', () => {
+      expect(modelData.properties).to.have.property('name').deepEqual({
+        type: `'string'`,
+        tsType: 'string',
+        length: 25,
+        postgresql: `{columnName: 'name', dataType: 'character varying', dataLength: 25, dataPrecision: null, dataScale: null, nullable: 'YES'}`,
+      });
+    });
+
+    it('connector metadata is migrated for numeric property', () => {
+      expect(modelData.properties).to.have.property('count').deepEqual({
+        type: `'number'`,
+        tsType: 'number',
+        precision: 64,
+        scale: 0,
+        postgresql: `{columnName: 'count', dataType: 'bigint', dataLength: null, dataPrecision: 64, dataScale: 0, nullable: 'YES'}`,
+      });
+    });
+  });
+
   context('array properties', () => {
     it('correctly converts short-hand definition', () => {
       const MyModel = givenLb3Model('MyModel', {
@@ -84,13 +143,11 @@ describe('importLb3ModelDefinition', () => {
       });
       const modelData = importLb3ModelDefinition(MyModel, log);
 
-      expect(modelData.properties)
-        .to.have.property('tags')
-        .deepEqual({
-          type: "'array'",
-          itemType: "'string'",
-          tsType: 'string[]',
-        });
+      expect(modelData.properties).to.have.property('tags').deepEqual({
+        type: "'array'",
+        itemType: "'string'",
+        tsType: 'string[]',
+      });
     });
 
     it('correctly converts long-style definition', () => {
@@ -102,14 +159,12 @@ describe('importLb3ModelDefinition', () => {
       });
       const modelData = importLb3ModelDefinition(MyModel, log);
 
-      expect(modelData.properties)
-        .to.have.property('counts')
-        .deepEqual({
-          type: "'array'",
-          itemType: "'number'",
-          tsType: 'number[]',
-          required: true,
-        });
+      expect(modelData.properties).to.have.property('counts').deepEqual({
+        type: "'array'",
+        itemType: "'number'",
+        tsType: 'number[]',
+        required: true,
+      });
     });
   });
 
@@ -152,13 +207,33 @@ describe('importLb3ModelDefinition', () => {
       });
     });
 
-    it('refuses to import model extending a non-LB4-built-in (for now)', () => {
-      // Note: User is a built-in model in LB3
-      const MyModel = givenLb3Model('MyModel', {}, {base: 'User'});
-      expect(() => importLb3ModelDefinition(MyModel, log)).to.throw(
-        'Models inheriting from app-specific models cannot be migrated yet. ' +
-          'Base model configured: User',
-      );
+    it('supports LB3 built-in base classes not available in LB4', () => {
+      const Customer = givenLb3Model('Customer', {}, {base: 'User'});
+      const modelData = importLb3ModelDefinition(Customer, log);
+
+      const options = getModelTemplateOptions(modelData);
+      expect(options).to.containDeep({
+        modelBaseClass: 'User',
+        isModelBaseBuiltin: false,
+      });
+
+      log.resetHistory(); // ignore messages about ACLs & Relations
+    });
+
+    it('supports custom base classes', () => {
+      const {model: Admin} = givenLb3BaseAndChildModels({
+        model: {name: 'Admin'},
+        base: {name: 'MyUserBase'},
+      });
+      const modelData = importLb3ModelDefinition(Admin, log);
+
+      const options = getModelTemplateOptions(modelData);
+      expect(options).to.containDeep({
+        modelBaseClass: 'MyUserBase',
+        isModelBaseBuiltin: false,
+      });
+
+      log.resetHistory(); // disable assertion in afterEach hook
     });
   });
 
@@ -237,6 +312,41 @@ describe('importLb3ModelDefinition', () => {
         mongodb: {
           collection: 'CustomCollectionName',
         },
+      });
+    });
+  });
+
+  context('inheritance', () => {
+    let Customer, modelData;
+    beforeEach(function defineCustomerInheritingFromUser() {
+      Customer = givenLb3Model(
+        'Customer',
+        {
+          isPreferred: {type: 'boolean', required: true},
+        },
+        {
+          base: 'User',
+          customCustomerSetting: true,
+        },
+      );
+      modelData = importLb3ModelDefinition(Customer, log);
+      log.resetHistory(); // ignore messages about ACLs & Relations
+    });
+
+    it('emits properties defined by the child model but not inherited', () => {
+      expect(Object.keys(modelData.properties)).to.deepEqual(['isPreferred']);
+      expect(modelData.properties).to.have.property('isPreferred').deepEqual({
+        type: `'boolean'`,
+        tsType: 'boolean',
+        required: true,
+      });
+    });
+
+    it('emits model-level settings defined by the model but not inherited', () => {
+      expect(toJSON(modelData.settings)).to.deepEqual({
+        // By default, LB3 models are not strict
+        strict: false,
+        customCustomerSetting: true,
       });
     });
   });
@@ -322,7 +432,7 @@ describe('importLb3ModelDefinition', () => {
       app.dataSource('ds', {connector: 'memory'});
 
       // Register a dummy mixin
-      app.registry.modelBuilder.mixins.define('timestamp', function(ctor) {});
+      app.registry.modelBuilder.mixins.define('timestamp', function (ctor) {});
 
       // Create a model using that mixin
       const DUMMY_MIXINS = {
@@ -362,6 +472,26 @@ function givenLb3Model(
   const ModelCtor = app.registry.createModel(name, properties, settings);
   app.model(ModelCtor, {dataSource: 'ds'});
   return ModelCtor;
+}
+
+function givenLb3BaseAndChildModels({
+  model,
+  base,
+  dataSourceConfig = {connector: 'memory'},
+}) {
+  const app = givenLb3App();
+  app.dataSource('ds', dataSourceConfig);
+  const BaseCtor = app.registry.createModel(
+    base.name,
+    base.properties,
+    base.settings,
+  );
+  const ModelCtor = app.registry.createModel(model.name, model.properties, {
+    base: base.name,
+    ...model.settings,
+  });
+  app.model(ModelCtor, {dataSource: 'ds'});
+  return {model: ModelCtor, base: BaseCtor};
 }
 
 function getModelTemplateOptions(templateData) {

@@ -1,4 +1,4 @@
-// Copyright IBM Corp. 2018,2019. All Rights Reserved.
+// Copyright IBM Corp. 2018,2020. All Rights Reserved.
 // Node module: @loopback/repository
 // This file is licensed under the MIT License.
 // License text available at https://opensource.org/licenses/MIT
@@ -52,6 +52,14 @@ export function isTypeResolver<T extends object>(
 }
 
 /**
+ * A boxed type for `null`
+ */
+// eslint-disable-next-line @typescript-eslint/naming-convention
+export function Null() {
+  return null;
+}
+
+/**
  * Check if the provided function is a built-in type provided by JavaScript
  * and/or Node.js. E.g. `Number`, `Array`, `Buffer`, etc.
  */
@@ -67,6 +75,7 @@ export function isBuiltinType(fn: Function): boolean {
     fn === Date ||
     fn === RegExp ||
     fn === Buffer ||
+    fn === Null ||
     // function as a type
     fn === Function
   );

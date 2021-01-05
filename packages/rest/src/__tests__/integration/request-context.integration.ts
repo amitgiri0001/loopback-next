@@ -1,4 +1,4 @@
-// Copyright IBM Corp. 2018. All Rights Reserved.
+// Copyright IBM Corp. 2019,2020. All Rights Reserved.
 // Node module: @loopback/rest
 // This file is licensed under the MIT License.
 // License text available at https://opensource.org/licenses/MIT
@@ -12,7 +12,7 @@ import {
   httpsGetAsync,
   supertest,
 } from '@loopback/testlab';
-import * as express from 'express';
+import express from 'express';
 import {RequestContext} from '../../request-context';
 import {RestApplication} from '../../rest.application';
 import {RestServer, RestServerConfig} from '../../rest.server';
@@ -67,9 +67,7 @@ describe('RequestContext', () => {
       const expressApp = express();
       expressApp.use('/api', lbApp.requestHandler);
 
-      await supertest(expressApp)
-        .get('/api/products')
-        .expect(200);
+      await supertest(expressApp).get('/api/products').expect(200);
 
       expect(observedCtx.basePath).to.equal('/api');
     });
@@ -82,9 +80,7 @@ describe('RequestContext', () => {
       const expressApp = express();
       expressApp.use('/api', lbApp.requestHandler); // mount the app at baseUrl
 
-      await supertest(expressApp)
-        .get('/api/v1/products')
-        .expect(200);
+      await supertest(expressApp).get('/api/v1/products').expect(200);
 
       expect(observedCtx.basePath).to.equal('/api/v1');
     });
@@ -142,7 +138,7 @@ describe('close', () => {
         .expect(200);
     }
     expect(observedCtx.contains('req.originalUrl'));
-    expect(server.listenerCount('bind')).to.eql(1);
+    expect(server.listenerCount('bind')).to.eql(2);
   });
 });
 
@@ -158,7 +154,7 @@ async function teardown() {
 
 async function givenRunningAppWithClient(
   restOptions?: RestServerConfig,
-  setupFn: (app: RestApplication) => void = () => {},
+  setupFn: (restApp: RestApplication) => void = () => {},
 ) {
   const options: ApplicationConfig = {
     rest: givenHttpServerConfig(restOptions),

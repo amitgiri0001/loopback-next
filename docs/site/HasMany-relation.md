@@ -1,12 +1,14 @@
 ---
 lang: en
 title: 'hasMany Relation'
-keywords: LoopBack 4.0, LoopBack 4
+keywords: LoopBack 4.0, LoopBack 4, Node.js, TypeScript, OpenAPI, Model Relation
 sidebar: lb4_sidebar
 permalink: /doc/en/lb4/HasMany-relation.html
 ---
 
 ## Overview
+
+{% include important.html content="Please read [Relations](Relations.md) first." %}
 
 {% include note.html content="
 This relation best works with databases that support foreign key
@@ -80,7 +82,7 @@ decorator. The decorator takes in a function resolving the target model class
 constructor and optionally a custom foreign key to store the relation metadata.
 The decorator logic also designates the relation type and tries to infer the
 foreign key on the target model (`keyTo` in the relation metadata) to a default
-value (source model name appended with `id` in camel case, same as LoopBack 3).
+value (source model name appended with `Id` in camel case, same as LoopBack 3).
 It also calls `property.array()` to ensure that the type of the property is
 inferred properly as an array of the target model instances.
 
@@ -181,6 +183,11 @@ export interface OrderRelations {
 export type OrderWithRelations = Order & OrderRelations;
 ```
 
+LB4 also provides an CLI tool `lb4 relation` to generate `hasMany` relation for
+you. Before you check out the
+[`Relation Generator`](https://loopback.io/doc/en/lb4/Relation-generator.html)
+page, read on to learn how you can define relations to meet your requirements.
+
 ### Relation Metadata
 
 LB4 uses three `keyFrom`, `keyTo` and `name` fields in the `hasMany` relation
@@ -206,7 +213,7 @@ values for these three fields:
     <tr>
       <td><code>keyTo</code></td>
       <td>the foreign key of the target model</td>
-      <td>the source model name appended with `id` in camel case</td>
+      <td>the source model name appended with `Id` in camel case</td>
       <td><code>Order.customerId</code></td>
     </tr>
     <tr>
@@ -219,8 +226,8 @@ values for these three fields:
   </tbody>
 </table>
 
-We recommend to use default values. If you'd like to customize foreign key name,
-you'll need to specify some fields through the relation decorator.
+We recommend to use default values. If you'd like to customize the foreign key
+name, you'll need to specify some fields through the relation decorator.
 
 For customizing the foreign key name, `keyTo` field needs to be specified via
 `@hasMany` decorator. The following example shows how to customize the foreign
@@ -231,6 +238,7 @@ key name as `my_customer_id` instead of `customerId`:
 @model()
 export class Customer extends Entity {
   // constructor, properties, etc.
+
   @hasMany(() => Order, {keyTo: 'my_customer_id'})
   orders: Order[];
 }
@@ -241,6 +249,7 @@ export class Customer extends Entity {
 @model()
 export class Order extends Entity {
   // constructor, properties, etc.
+
   @property({
     type: 'number',
   })
@@ -248,10 +257,10 @@ export class Order extends Entity {
 }
 ```
 
-Notice that if you decorate the corresponding foreign key of the target model
-with `@belongsTo`, you also need to specify the `belongsTo` relation name in the
-`name` field of its relation metadata. See [BelongsTo](BelongsTo-relation.md)
-for more details.
+Notice that if you decorate the corresponding customized foreign key of the
+target model with `@belongsTo`, you also need to specify the `belongsTo`
+relation name in the `name` field of its relation metadata. See
+[BelongsTo](BelongsTo-relation.md) for more details.
 
 ```ts
 // import statements
@@ -265,6 +274,54 @@ export class Order extends Entity {
 }
 ```
 
+If you need to use another attribute other than the id property to be the source
+key, customizing `keyFrom` field would allow you to do so:
+
+```ts
+export class Customer extends Entity {
+  @property({
+    type: 'number',
+    id: true,
+  })
+  id: number;
+
+  // if you'd like to use this property as the source id
+  // of a certain relation that relates to a model `Review`
+  @property({
+    type: 'number',
+  })
+  authorId: number; // not primary key
+
+  @hasMany(() => Review, {keyFrom: 'authorId'})
+  reviews?: Review[];
+
+  @hasMany(() => Order)
+  orders?: Order[];
+
+  // ..constructor
+  }
+}
+```
+
+Notice that if you decorate the corresponding foreign key of the target model
+with `@belongsTo`, you also need to specify the `keyTo` field of its relation
+metadata. See [BelongsTo](BelongsTo-relation.md#relation-metadata) for more
+details.
+
+```ts
+// import statements
+@model()
+export class Review extends Entity {
+  // constructor, properties, etc.
+
+  // specify the keyTo if the source key is not the id property
+  @belongsTo(() => Customer, {keyTo: 'authorId'})
+  customerId: number; // default foreign key name
+}
+```
+
+{% include important.html content="It is user's responsibility to make sure the non-id source key doesn't have duplicate value. Besides, LB4 doesn't support composite keys for now. e.g joining two tables with more than one source key. Related GitHub issue: [Composite primary/foreign keys](https://github.com/strongloop/loopback-next/issues/1830)" %}
+
 If you need to use _different names for models and database columns_, to use
 `my_orders` as db column name other than `orders` for example, the following
 setting would allow you to do so:
@@ -274,7 +331,7 @@ setting would allow you to do so:
 @model()
 export class Customer extends Entity {
   // constructor, properties, etc.
-  @hasMany(() => Order, {keyFrom: 'orders'}, {name: 'my_orders'})
+  @hasMany(() => Order, {_relationMetadata_}, {name: 'my_orders'})
   orders: Order[];
 }
 ```
@@ -333,12 +390,12 @@ export class CustomerRepository extends DefaultCrudRepository<
   constructor(
     @inject('datasources.db') protected db: juggler.DataSource,
     @repository.getter('OrderRepository')
-    getOrderRepository: Getter<OrderRepository>,
+    orderRepositoryGetter: Getter<OrderRepository>,
   ) {
     super(Customer, db);
     this.orders = this.createHasManyRepositoryFactoryFor(
       'orders',
-      getOrderRepository,
+      orderRepositoryGetter,
     );
   }
 }
@@ -347,17 +404,33 @@ export class CustomerRepository extends DefaultCrudRepository<
 The following CRUD APIs are now available in the constrained target repository
 factory `orders` for instances of `customerRepository`:
 
-- `create` for creating a target model instance belonging to customer model
+- `create` for creating a target model instance belonging to source model
   instance
   ([API Docs](https://loopback.io/doc/en/lb4/apidocs.repository.hasmanyrepository.create.html))
-- `find` finding target model instance(s) belonging to customer model instance
+- `find` finding target model instance(s) belonging to source model instance
   ([API Docs](https://loopback.io/doc/en/lb4/apidocs.repository.hasmanyrepository.find.html))
-- `delete` for deleting target model instance(s) belonging to customer model
+- `delete` for deleting target model instance(s) belonging to source model
   instance
   ([API Docs](https://loopback.io/doc/en/lb4/apidocs.repository.hasmanyrepository.delete.html))
-- `patch` for patching target model instance(s) belonging to customer model
+- `patch` for patching target model instance(s) belonging to source model
   instance
   ([API Docs](https://loopback.io/doc/en/lb4/apidocs.repository.hasmanyrepository.patch.html))
+
+Here is an example of creating the related models:
+
+```ts
+const myCustomer = await customerRepository.create({id: 1, name: 'Fiorio'});
+const orderData = {id: 1, customerId: myCustomer.id};
+// create the related order
+customerRepository.orders(myCustomer.id).create(orderData);
+```
+
+{% include note.html content="Notice that `CustomerRepository.create()` expects a `Customer` model only, navigational properties are not expected to be included in the target data. For instance, the following request will be rejected:
+`customerRepository.create({`
+`  id: 1,`
+`  name:'invalid request',`
+`  orders:[{id: 1, customerId: 1}]`
+`})`" %}
 
 For **updating** (full replace of all properties on a `PUT` endpoint for
 instance) a target model you have to directly use this model repository. In this
@@ -374,7 +447,7 @@ controller methods is employed for `hasMany` repositories. Once the hasMany
 relation has been defined and configured, controller methods can call the
 underlying constrained repository CRUD APIs and expose them as routes once
 decorated with
-[Route decorators](Routes.md#using-route-decorators-with-controller-methods). It
+[Route decorators](Route.md#using-route-decorators-with-controller-methods). It
 will require the value of the foreign key and, depending on the request method,
 a value for the target model instance as demonstrated below.
 
@@ -440,16 +513,16 @@ allows users to retrieve all customers along with their related orders through
 the following code at the repository level:
 
 ```ts
-customerRepo.find({include: [{relation: 'orders'}]});
+customerRepo.find({include: ['orders']});
 ```
 
 or use APIs with controllers:
 
 ```
-GET http://localhost:3000/customers?filter[include][][relation]=orders
+GET http://localhost:3000/customers?filter[include][]=orders
 ```
 
-### Enable/disable the inclusion resolvers:
+### Enable/disable the inclusion resolvers
 
 - Base repository classes have a public property `inclusionResolvers`, which
   maintains a map containing inclusion resolvers for each relation.
@@ -465,7 +538,7 @@ has-many relation 'orders':
 
 ```ts
 export class CustomerRepository extends DefaultCrudRepository {
-  products: HasManyRepositoryFactory<Order, typeof Customer.prototype.id>;
+  orders: HasManyRepositoryFactory<Order, typeof Customer.prototype.id>;
 
   constructor(
     dataSource: juggler.DataSource,
@@ -492,13 +565,13 @@ export class CustomerRepository extends DefaultCrudRepository {
   if you process data at the repository level:
 
   ```ts
-  customerRepository.find({include: [{relation: 'orders'}]});
+  customerRepository.find({include: ['orders']});
   ```
 
   this is the same as the url:
 
   ```
-  GET http://localhost:3000/customers?filter[include][][relation]=orders
+  GET http://localhost:3000/customers?filter[include][]=orders
   ```
 
   which returns:
@@ -521,17 +594,142 @@ export class CustomerRepository extends DefaultCrudRepository {
   ];
   ```
 
-  Here is a diagram to make this more intuitive:
+Here is a diagram to make this more intuitive:
 
-  ![Graph](./imgs/hasMany-relation-graph.png)
+![Graph](./imgs/hasMany-relation-graph.png)
 
 - You can delete a relation from `inclusionResolvers` to disable the inclusion
   for a certain relation. e.g
   `customerRepository.inclusionResolvers.delete('orders')`
 
-{% include note.html content="
-Inclusion with custom scope:
-Besides specifying the relation name to include, it's also possible to specify additional scope constraints.
-However, this feature is not supported yet. Check our GitHub issue for more information:
-[Include related models with a custom scope](https://github.com/strongloop/loopback-next/issues/3453).
-" %}
+### Query multiple relations
+
+It is possible to query several relations or nested include relations with
+custom scope. Once you have the inclusion resolver of each relation set up, the
+following queries would allow you traverse data differently:
+
+In our example, we have relations:
+
+- `Customer` _hasOne_ an `Address` - denoted as `address`.
+- `Customer` _hasMany_ `Order`s - denoted as `orders`.
+- `Order` _hasMany_ `Manufacturer` - denoted as `manufacturers`.
+
+To query **multiple relations**, for example, return all customers including
+their orders and address, in Node API:
+
+```ts
+customerRepo.find({include: ['orders', 'address']});
+```
+
+Equivalently, with url, you can do:
+
+```
+GET http://localhost:3000/customers?filter[include][0][relation]=orders&filter[include][1][relation]=address
+```
+
+This gives
+
+```ts
+[
+  {
+    id: 1,
+    name: 'Thor',
+    addressId: 3
+    orders: [
+      {name: 'Mjolnir', customerId: 1},
+      {name: 'Rocket Raccoon', customerId: 1},
+    ],
+    address:{
+          id: 3
+          city: 'Thrudheim',
+          province: 'Asgard',
+          zipcode: '8200',
+    }
+  },
+  {
+    id: 2,
+    name: 'Captain',
+    orders: [{name: 'Shield', customerId: 2}], // doesn't have a related address
+  },
+]
+```
+
+To query **nested relations**, for example, return all customers including their
+orders and include orders' manufacturers , this can be done with filter:
+
+```ts
+customerRepo.find({
+  include: [
+    {
+      relation: 'orders',
+      scope: {
+        include: ['manufacturers'],
+      },
+    },
+  ],
+});
+```
+
+( You might use `encodeURIComponent(JSON.stringify(filter))` to convert the
+filter object to a query string.)
+
+<!-- FIXME: the url isn't being converted to JSON correctly. Add an example url once it's fixed
+
+Equivalently, with url, you can do:
+
+```
+// need to fix this
+ GET http://localhost:3000/customers?filter[include][0][relation]=orders&filter[include][0][scope]filter[include][0][relation]=manufacturers
+``` -->
+
+which gives
+
+```ts
+{
+  id: 1,
+  name: 'Thor',
+  addressId: 3
+  orders: [
+    {
+      name: 'Mjolnir',
+      customerId: 1
+    },
+    {
+      name: 'Rocket Raccoon',
+      customerId: 1,
+      manufacturers:[ // nested related models of orders
+        {
+          name: 'ToysRUs',
+          orderId: 1
+        },
+                {
+          name: 'ToysRThem',
+          orderId: 1
+        }
+      ]
+    },
+  ],
+}
+```
+
+You can also have other query clauses in the scope such as `where`, `limit`,
+etc.
+
+```ts
+customerRepo.find({
+  include: [
+    {
+      relation: 'orders',
+      scope: {
+        where: {name: 'ToysRUs'},
+        include: ['manufacturers'],
+      },
+    },
+  ],
+});
+```
+
+The `Where` clause above filters the result of `orders`.
+
+{% include tip.html content="Make sure that you have all inclusion resolvers that you need REGISTERED, and
+all relation names should be UNIQUE."%}

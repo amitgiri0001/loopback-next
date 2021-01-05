@@ -1,16 +1,16 @@
-// Copyright IBM Corp. 2019. All Rights Reserved.
+// Copyright IBM Corp. 2019,2020. All Rights Reserved.
 // Node module: @loopback/example-context
 // This file is licensed under the MIT License.
 // License text available at https://opensource.org/licenses/MIT
 
 import {
-  bind,
   BindingAddress,
   BindingTag,
   Constructor,
   Context,
   createBindingFromClass,
   inject,
+  injectable,
 } from '@loopback/context';
 
 /**
@@ -29,7 +29,7 @@ function createClassWithDecoration(
   bindingKeyForName: BindingAddress<string>,
   ...tags: BindingTag[]
 ): Constructor<Greeter> {
-  @bind({tags})
+  @injectable({tags})
   class GreeterTemplate implements Greeter {
     constructor(@inject(bindingKeyForName) private userName: string) {}
 

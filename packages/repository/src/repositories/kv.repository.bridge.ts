@@ -1,31 +1,18 @@
-// Copyright IBM Corp. 2018,2019. All Rights Reserved.
+// Copyright IBM Corp. 2018,2020. All Rights Reserved.
 // Node module: @loopback/repository
 // This file is licensed under the MIT License.
 // License text available at https://opensource.org/licenses/MIT
 
-import * as legacy from 'loopback-datasource-juggler';
-
-import {Options, DataObject} from '../common-types';
-import {Entity} from '../model';
-
-import {KeyValueRepository, KeyValueFilter} from './kv.repository';
-
-import {juggler, ensurePromise} from './legacy-juggler-bridge';
-
-/**
- * Polyfill for Symbol.asyncIterator
- * See https://www.typescriptlang.org/docs/handbook/release-notes/typescript-2-3.html
- */
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-if (!(Symbol as any).asyncIterator) {
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  (Symbol as any).asyncIterator = Symbol.for('Symbol.asyncIterator');
-}
+import legacy from 'loopback-datasource-juggler';
+import {DataObject, Options} from '../common-types';
+import {Model} from '../model';
+import {KeyValueFilter, KeyValueRepository} from './kv.repository';
+import {ensurePromise, juggler} from './legacy-juggler-bridge';
 
 /**
  * An implementation of KeyValueRepository based on loopback-datasource-juggler
  */
-export class DefaultKeyValueRepository<T extends Entity>
+export class DefaultKeyValueRepository<T extends Model>
   implements KeyValueRepository<T> {
   /**
    * A legacy KeyValueModel class
@@ -37,7 +24,7 @@ export class DefaultKeyValueRepository<T extends Entity>
    * @param ds - Legacy DataSource
    */
   constructor(
-    private entityClass: typeof Entity & {prototype: T},
+    private entityClass: typeof Model & {prototype: T},
     ds: juggler.DataSource,
   ) {
     // KVModel class is placeholder to receive methods from KeyValueAccessObject
@@ -66,9 +53,10 @@ export class DefaultKeyValueRepository<T extends Entity>
   }
 
   async get(key: string, options?: Options): Promise<T> {
-    const val = this.kvModelClass.get(key, options) as legacy.PromiseOrVoid<
-      legacy.ModelData
-    >;
+    const val = this.kvModelClass.get(
+      key,
+      options,
+    ) as legacy.PromiseOrVoid<legacy.ModelData>;
     const result = await ensurePromise(val);
     return this.toEntity(result);
   }
@@ -103,7 +91,7 @@ class AsyncKeyIteratorImpl implements AsyncIterator<string> {
   next() {
     const key = ensurePromise<string | undefined>(this.keys.next());
     return key.then(k => {
-      return {done: k === undefined, value: k || ''};
+      return {done: k === undefined, value: k ?? ''};
     });
   }
 }

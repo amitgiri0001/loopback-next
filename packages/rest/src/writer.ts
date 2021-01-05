@@ -1,4 +1,4 @@
-// Copyright IBM Corp. 2017,2018. All Rights Reserved.
+// Copyright IBM Corp. 2017,2020. All Rights Reserved.
 // Node module: @loopback/rest
 // This file is licensed under the MIT License.
 // License text available at https://opensource.org/licenses/MIT
@@ -31,7 +31,7 @@ export function writeResultToResponse(
   }
 
   const isStream =
-    result instanceof Readable || typeof (result && result.pipe) === 'function';
+    result instanceof Readable || typeof result?.pipe === 'function';
 
   if (isStream) {
     response.setHeader('Content-Type', 'application/octet-stream');

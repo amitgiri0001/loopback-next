@@ -1,7 +1,7 @@
 ---
 lang: en
 title: 'Command-line interface'
-keywords: LoopBack 4.0, LoopBack 4
+keywords: LoopBack 4.0, LoopBack 4, Node.js, TypeScript, OpenAPI, CLI
 sidebar: lb4_sidebar
 permalink: /doc/en/lb4/Command-line-interface.html
 ---
@@ -59,7 +59,6 @@ cli.
   - @loopback/core: ^1.10.4
   - @loopback/metadata: ^1.3.4
   - @loopback/openapi-spec-builder: ^1.2.15
-  - @loopback/openapi-v3: ^1.9.9
   - @loopback/repository-json-schema: ^1.10.2
   - @loopback/repository: ^1.15.1
   - @loopback/rest: ^1.20.1
@@ -84,7 +83,7 @@ cli.
   - @loopback/example-greeting-app: ^1.2.2
   - @loopback/example-context: ^1.2.16
   - @loopback/repository-tests: ^0.5.1
-  - @loopback/extension-health: ^0.2.8
+  - @loopback/health: ^0.2.8
   - @loopback/authorization: ^0.4.1
   - @loopback/rest-crud: ^0.3.2
   - @loopback/security: ^0.1.4
@@ -99,6 +98,52 @@ To update dependencies in the `package.json`, you can use `npm update` or
 [npm-check](https://www.npmjs.com/package/npm-check). The existing application
 may be broken due to dependency changes. Please make sure build/test/run are
 still passing after the upgrade.
+
+## Install shell autocompletion
+
+To enable shell autocompletion with the `tab` key:
+
+```
+lb4 install-completion
+? Which Shell do you use ? (Use arrow keys)
+❯ bash
+  zsh
+  fish
+? Which Shell do you use ? bash
+? We will install completion to ~/.bashrc, is it ok ? Yes
+=> Tabtab line already exists in ~/.config/tabtab/__tabtab.bash file
+=> Tabtab line already exists in ~/.bashrc file
+=> Wrote completion script to /Users/<user>/.config/tabtab/lb4.bash file
+
+      => Tabtab source line added to ~/.bashrc for lb4 package.
+
+      Make sure to reload your SHELL.
+```
+
+Now you can type `lb4` followed by pressing the `tab` keys twice to be prompted
+for auto completion, including commands and options.
+
+```sh
+$ lb4
+app                example            observer           service
+controller         extension          openapi            update
+copyright          import-lb3-models  relation
+datasource         interceptor        repository
+discover           model              rest-crud
+```
+
+```sh
+$ lb4 controller --
+--ask-answered    --force-install   --skip-cache
+--config          --format          --skip-install
+--controllerType  --help            --yes
+```
+
+To uninstall it, run:
+
+```sh
+lb4 uninstall-completion
+```
 
 ## Naming Convention
 

@@ -1,10 +1,9 @@
-// Copyright IBM Corp. 2019. All Rights Reserved.
+// Copyright IBM Corp. 2018,2020. All Rights Reserved.
 // Node module: @loopback/authorization
 // This file is licensed under the MIT License.
 // License text available at https://opensource.org/licenses/MIT
 
-import {Context, invokeMethod, Provider} from '@loopback/context';
-import {Application} from '@loopback/core';
+import {Context, invokeMethod, Provider, Application} from '@loopback/core';
 import {SecurityBindings, securityId} from '@loopback/security';
 import {expect} from '@loopback/testlab';
 import {
@@ -37,15 +36,18 @@ describe('Authorization', () => {
       },
     ]);
     expect(orderId).to.eql('order-1');
-    expect(events).to.containEql('OrderController.prototype.placeOrder');
+    expect(events).to.eql(['OrderController.prototype.placeOrder']);
   });
 
   it('denies cancelOrder for regular user', async () => {
     const result = invokeMethod(controller, 'cancelOrder', reqCtx, [
       'order-01',
     ]);
-    await expect(result).to.be.rejectedWith('Access denied');
-    expect(events).to.containEql('OrderController.prototype.cancelOrder');
+    await expect(result).to.be.rejectedWith({
+      statusCode: 403,
+      message: 'Access denied',
+    });
+    expect(events).to.eql(['OrderController.prototype.cancelOrder']);
   });
 
   class Order {

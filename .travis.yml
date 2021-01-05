@@ -1,57 +1,93 @@
-sudo: false
 language: node_js
-node_js:
-  - "8"
-  - "10"
-  - "12"
-  - "13"
 
 os:
   - linux
+
+node_js:
+  - "10"
+  - "12"
+  - "14"
+  - "15"
 
 script:
   - npm run postinstall
   - npm run build
   - npm run test:ci
 
-env: TASK=test
+# Increase the memory to 2G for node
+env: TASK=test NODE_OPTIONS="--max-old-space-size=2048"
+
+cache:
+  yarn: true
+
+before_install:
+  - npm i -g yarn
+  - yarn --version
+  - |
+    NPMVER=`npm --version`
+    if [ ${NPMVER/\.*/} = 7 ]
+    then
+      echo "Downgrading bundled npm version $NPMVER to v6"
+      npm i -g npm@6
+    else
+      echo "Using bundled npm version $NPMVER"
+    fi
+  - npm --version
+
 install: npm ci --ignore-scripts
 
 after_success:
   - if [[ "${TRAVIS_OS_NAME}" == "linux" ]] && [[ $(echo $TRAVIS_NODE_VERSION | cut -d'.' -f1) == "10" ]]; then npm run coverage:ci; fi
 
-matrix:
+branches:
+  only:
+    - master
+
+jobs:
   include:
     - node_js: "12"
       os: osx
-      # using the default script to build & run the tests
 
-    - node_js: "8"
+      # using the default script to build & run the tests
+    - node_js: "12"
       os: linux
       env: TASK=code-lint
       # Running Code Linter -- Requires @loopback/build so it's bootstrapped
+      # We actually need to bootstrap all packages, otherwise typescript-eslint
+      # is not able to access type information for dependencies
       script:
-        - lerna bootstrap --scope @loopback/build --include-dependencies
+        - lerna bootstrap
+        - npm run build
         - npm run lint
-    - node_js: "8"
+        - npm run check-package-metadata
+
+    - node_js: "12"
       os: linux
       env: TASK=commit-lint
       script: commitlint-travis
-    - node_js: "8"
+
+    - node_js: "12"
       os: linux
       env: TASK=verify-docs
-      script: ./bin/verify-doc-changes.sh
-    - node_js: "10"
+      # The default npm for node v12.16.1 (npm v6.13.4) fails with cb() never called
+      before_install: npm i -g npm
+      script:
+        - lerna bootstrap
+        - npm run build
+        - npm run --prefix docs version
+        - ./bin/verify-doc-changes.sh
+
+    - node_js: "12"
       os: linux
       env:
         - TASK=test-repository-mongodb
       services:
         - mongodb
       script:
-        - npm run postinstall -- --scope "@loopback/test-repository-mongodb" --include-dependencies
-        - npm run build -- --scope "@loopback/test-repository-mongodb" --include-dependencies
-        - cd acceptance/repository-mongodb && npm run mocha
-    - node_js: "10"
+        - lerna bootstrap --scope "@loopback/test-repository-mongodb" --include-dependencies
+        - cd acceptance/repository-mongodb && npm test
+
+    - node_js: "12"
       os: linux
       env:
         - TASK=test-repository-mysql
@@ -65,10 +101,10 @@ matrix:
         - mysql -e "GRANT ALL PRIVILEGES ON *.* TO 'test'@'localhost' WITH GRANT OPTION;FLUSH PRIVILEGES;"
         - mysql -e "GRANT SUPER ON *.* TO 'test'@'localhost' IDENTIFIED BY 'test';FLUSH PRIVILEGES;"
       script:
-        - npm run postinstall -- --scope "@loopback/test-repository-mysql" --include-dependencies
-        - npm run build -- --scope "@loopback/test-repository-mysql" --include-dependencies
-        - cd acceptance/repository-mysql && npm run mocha
-    - node_js: "10"
+        - lerna bootstrap --scope "@loopback/test-repository-mysql" --include-dependencies
+        - cd acceptance/repository-mysql && npm test
+
+    - node_js: "12"
       os: linux
       env:
         - TASK=test-repository-postgresql
@@ -76,21 +112,34 @@ matrix:
       services:
         - postgresql
       script:
-        - npm run postinstall -- --scope "@loopback/test-repository-postgresql" --include-dependencies
-        - npm run build -- --scope "@loopback/test-repository-postgresql" --include-dependencies
+        - lerna bootstrap --scope "@loopback/test-repository-postgresql" --include-dependencies
         - psql -U postgres -a -f acceptance/repository-postgresql/test/schema.sql
-        - cd acceptance/repository-postgresql && npm run mocha
-    - node_js: "10"
+        - cd acceptance/repository-postgresql && npm test
+
+    - node_js: "12"
       os: linux
       env:
         - TASK=test-repository-cloudant
       script:
         # set up docker image and create admin for cloudant.
-        - npm run postinstall -- --scope "@loopback/test-repository-cloudant" --include-dependencies
-        - npm run build -- --scope "@loopback/test-repository-cloudant" --include-dependencies
-        - cd acceptance/repository-cloudant && npm run docker:setup
-        - source cloudant-config.sh && npm run mocha
+        - lerna bootstrap --scope "@loopback/test-repository-cloudant" --include-dependencies
+        - cd acceptance/repository-cloudant && sh setup.sh
+        - npm test
 
-branches:
-  only:
-    - master
+    - node_js: "12"
+      os: linux
+      env:
+        - TASK=test-extension-logging-fluentd
+      services:
+        - docker
+      script:
+        - lerna bootstrap --scope "@loopback/test-extension-logging-fluentd" --include-dependencies
+        - cd acceptance/extension-logging-fluentd && npm test
+
+    - node_js: "12"
+      os: linux
+      env:
+        - TASK=test-benchmark
+      script:
+        - lerna bootstrap --scope "@loopback/benchmark" --include-dependencies
+        - cd benchmark && npm test

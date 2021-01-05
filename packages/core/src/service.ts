@@ -1,4 +1,4 @@
-// Copyright IBM Corp. 2019. All Rights Reserved.
+// Copyright IBM Corp. 2019,2020. All Rights Reserved.
 // Node module: @loopback/core
 // This file is licensed under the MIT License.
 // License text available at https://opensource.org/licenses/MIT
@@ -6,19 +6,21 @@
 import {
   Binding,
   BindingFilter,
+  BindingFromClassOptions,
   BindingTemplate,
   bindingTemplateFor,
-  Constructor,
   ContextTags,
   ContextView,
   createBindingFromClass,
+  DecoratorFactory,
   inject,
   InjectionMetadata,
+  isDynamicValueProviderClass,
   isProviderClass,
   MetadataInspector,
-  Provider,
   transformValueOrPromise,
 } from '@loopback/context';
+import {ServiceOrProviderClass} from './application';
 import {CoreTags} from './keys';
 
 /**
@@ -31,10 +33,9 @@ export type ServiceInterface = string | symbol | Function;
 /**
  * Options to register a service binding
  */
-export type ServiceOptions = {
-  name?: string;
+export interface ServiceOptions extends BindingFromClassOptions {
   interface?: ServiceInterface;
-};
+}
 
 /**
  * `@service` injects a service instance that matches the class or interface.
@@ -81,7 +82,7 @@ export function service(
           serviceType = MetadataInspector.getDesignTypeForMethod(
             injection.target,
             injection.member!,
-          ).parameterTypes[injection.methodDescriptorOrParameterIndex];
+          )?.parameterTypes[injection.methodDescriptorOrParameterIndex];
         } else {
           serviceType = MetadataInspector.getDesignTypeForProperty(
             injection.target,
@@ -89,6 +90,19 @@ export function service(
           );
         }
       }
+      if (serviceType === undefined) {
+        const targetName = DecoratorFactory.getTargetName(
+          injection.target,
+          injection.member,
+          injection.methodDescriptorOrParameterIndex,
+        );
+        const msg =
+          `No design-time type metadata found while inspecting ${targetName}. ` +
+          'You can either use `@service(ServiceClass)` or ensure `emitDecoratorMetadata` is enabled in your TypeScript configuration. ' +
+          'Run `tsc --showConfig` to print the final TypeScript configuration of your project.';
+        throw new Error(msg);
+      }
+
       if (serviceType === Object || serviceType === Array) {
         throw new Error(
           'Service class cannot be inferred from design type. Use @service(ServiceClass).',
@@ -110,7 +124,7 @@ export function service(
             `More than one bindings found for ${serviceTypeName}`,
           );
         } else {
-          if (metadata && metadata.optional) {
+          if (metadata?.optional) {
             return undefined;
           }
           throw new Error(
@@ -142,7 +156,7 @@ export function filterByServiceInterface(
  * @param options - Service options
  */
 export function createServiceBinding<S>(
-  cls: Constructor<S> | Constructor<Provider<S>>,
+  cls: ServiceOrProviderClass<S>,
   options: ServiceOptions = {},
 ): Binding<S> {
   let name = options.name;
@@ -159,10 +173,23 @@ export function createServiceBinding<S>(
       name = cls.name.replace(/Provider$/, '');
     }
   }
+  if (!name && isDynamicValueProviderClass(cls)) {
+    // Trim `Provider` from the default service name
+    const templateFn = bindingTemplateFor(cls);
+    const template = Binding.bind<S>('template').apply(templateFn);
+    if (
+      template.tagMap[ContextTags.DYNAMIC_VALUE_PROVIDER] &&
+      !template.tagMap[ContextTags.NAME]
+    ) {
+      // The class is a provider and no `name` tag is found
+      name = cls.name.replace(/Provider$/, '');
+    }
+  }
   const binding = createBindingFromClass(cls, {
     name,
     type: CoreTags.SERVICE,
-  }).apply(asService(options.interface || cls));
+    ...options,
+  }).apply(asService(options.interface ?? cls));
   return binding;
 }
 

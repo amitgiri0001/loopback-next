@@ -1,19 +1,18 @@
-// Copyright IBM Corp. 2019. All Rights Reserved.
+// Copyright IBM Corp. 2019,2020. All Rights Reserved.
 // Node module: @loopback/example-express-composition
 // This file is licensed under the MIT License.
 // License text available at https://opensource.org/licenses/MIT
 
 import {BootMixin} from '@loopback/boot';
 import {ApplicationConfig} from '@loopback/core';
-import {
-  RestExplorerComponent,
-  RestExplorerBindings,
-} from '@loopback/rest-explorer';
 import {RepositoryMixin} from '@loopback/repository';
 import {RestApplication} from '@loopback/rest';
+import {RestExplorerComponent} from '@loopback/rest-explorer';
 import {ServiceMixin} from '@loopback/service-proxy';
+import path from 'path';
 import {MySequence} from './sequence';
-import * as path from 'path';
+
+export {ApplicationConfig};
 
 export class NoteApplication extends BootMixin(
   ServiceMixin(RepositoryMixin(RestApplication)),

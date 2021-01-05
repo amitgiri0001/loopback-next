@@ -1,11 +1,11 @@
-// Copyright IBM Corp. 2019. All Rights Reserved.
+// Copyright IBM Corp. 2019,2020. All Rights Reserved.
 // Node module: @loopback/repository
 // This file is licensed under the MIT License.
 // License text available at https://opensource.org/licenses/MIT
 
+import {Filter, InclusionFilter} from '@loopback/filter';
 import {AnyObject, Options} from '../../common-types';
 import {Entity} from '../../model';
-import {Filter, Inclusion} from '../../query';
 import {EntityCrudRepository} from '../../repositories/repository';
 import {
   deduplicate,
@@ -44,7 +44,7 @@ export function createBelongsToInclusionResolver<
 
   return async function fetchIncludedModels(
     entities: Entity[],
-    inclusion: Inclusion,
+    inclusion: InclusionFilter,
     options?: Options,
   ): Promise<((Target & TargetRelations) | undefined)[]> {
     if (!entities.length) return [];
@@ -52,13 +52,17 @@ export function createBelongsToInclusionResolver<
     const sourceKey = relationMeta.keyFrom;
     const sourceIds = entities.map(e => (e as AnyObject)[sourceKey]);
     const targetKey = relationMeta.keyTo as StringKeyOf<Target>;
+    const dedupedSourceIds = deduplicate(sourceIds);
+
+    const scope =
+      typeof inclusion === 'string' ? {} : (inclusion.scope as Filter<Target>);
 
     const targetRepo = await getTargetRepo();
     const targetsFound = await findByForeignKeys(
       targetRepo,
       targetKey,
-      deduplicate(sourceIds),
-      inclusion.scope as Filter<Target>,
+      dedupedSourceIds.filter(e => e),
+      scope,
       options,
     );
 

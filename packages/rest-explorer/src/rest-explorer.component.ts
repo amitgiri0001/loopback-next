@@ -1,11 +1,16 @@
-// Copyright IBM Corp. 2018. All Rights Reserved.
+// Copyright IBM Corp. 2018,2020. All Rights Reserved.
 // Node module: @loopback/rest-explorer
 // This file is licensed under the MIT License.
 // License text available at https://opensource.org/licenses/MIT
 
-// eslint-disable-next-line @typescript-eslint/no-unused-vars
-import {bind, config, ContextTags, inject} from '@loopback/context';
-import {Component, CoreBindings} from '@loopback/core';
+import {
+  Component,
+  config,
+  ContextTags,
+  CoreBindings,
+  inject,
+  injectable,
+} from '@loopback/core';
 import {createControllerFactoryForClass, RestApplication} from '@loopback/rest';
 import {ExplorerController} from './rest-explorer.controller';
 import {RestExplorerBindings} from './rest-explorer.keys';
@@ -16,7 +21,7 @@ const swaggerUI = require('swagger-ui-dist');
 /**
  * A component providing a self-hosted API Explorer.
  */
-@bind({tags: {[ContextTags.KEY]: RestExplorerBindings.COMPONENT.key}})
+@injectable({tags: {[ContextTags.KEY]: RestExplorerBindings.COMPONENT.key}})
 export class RestExplorerComponent implements Component {
   constructor(
     @inject(CoreBindings.APPLICATION_INSTANCE)
@@ -24,7 +29,7 @@ export class RestExplorerComponent implements Component {
     @config()
     restExplorerConfig: RestExplorerConfig = {},
   ) {
-    const explorerPath = restExplorerConfig.path || '/explorer';
+    const explorerPath = restExplorerConfig.path ?? '/explorer';
 
     this.registerControllerRoute('get', explorerPath, 'indexRedirect');
     this.registerControllerRoute('get', explorerPath + '/', 'index');

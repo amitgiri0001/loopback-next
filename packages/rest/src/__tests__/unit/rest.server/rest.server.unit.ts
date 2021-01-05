@@ -1,10 +1,9 @@
-// Copyright IBM Corp. 2019. All Rights Reserved.
+// Copyright IBM Corp. 2019,2020. All Rights Reserved.
 // Node module: @loopback/rest
 // This file is licensed under the MIT License.
 // License text available at https://opensource.org/licenses/MIT
 
-import {Binding, Context} from '@loopback/context';
-import {Application} from '@loopback/core';
+import {Application, Context} from '@loopback/core';
 import {anOperationSpec} from '@loopback/openapi-spec-builder';
 import {expect} from '@loopback/testlab';
 import {
@@ -17,25 +16,6 @@ import {
 } from '../../..';
 
 describe('RestServer', () => {
-  describe('"bindElement" binding', () => {
-    it('returns a function for creating new bindings', async () => {
-      const ctx = await givenRequestContext();
-      const bindElement = await ctx.get(RestBindings.BIND_ELEMENT);
-      const binding = bindElement('foo').to('bar');
-      expect(binding).to.be.instanceOf(Binding);
-      expect(ctx.getSync('foo')).to.equal('bar');
-    });
-  });
-
-  describe('"getFromContext" binding', () => {
-    it('returns a function for getting a value from the context', async () => {
-      const ctx = await givenRequestContext();
-      const getFromContext = await ctx.get(RestBindings.GET_FROM_CONTEXT);
-      ctx.bind('foo').to('bar');
-      expect(await getFromContext('foo')).to.equal('bar');
-    });
-  });
-
   describe('"invokeMethod" binding', () => {
     it('returns a function for invoking a route handler', async () => {
       function greet() {
@@ -114,6 +94,22 @@ describe('RestServer', () => {
       expect(server.getSync(RestBindings.PATH)).to.equal(path);
     });
 
+    it('honors gracePeriodForClose', async () => {
+      const app = new Application({
+        rest: {gracePeriodForClose: 1000},
+      });
+      app.component(RestComponent);
+      const server = await app.getServer(RestServer);
+      await server.start();
+      try {
+        expect(server.httpServer?.serverOptions.gracePeriodForClose).to.eql(
+          1000,
+        );
+      } finally {
+        await server.stop();
+      }
+    });
+
     it('honors basePath in config', async () => {
       const app = new Application({
         rest: {port: 0, basePath: '/api'},
@@ -171,8 +167,16 @@ describe('RestServer', () => {
         }
 
         get expressApp() {
+          assertExists(this._expressApp, 'this._expressApp');
           return this._expressApp;
         }
+      }
+
+      function assertExists<T>(
+        val: T,
+        msg?: string,
+      ): asserts val is NonNullable<T> {
+        expect.exists(val, msg);
       }
 
       it('honors expressSettings', () => {

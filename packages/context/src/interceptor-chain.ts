@@ -1,9 +1,9 @@
-// Copyright IBM Corp. 2019. All Rights Reserved.
+// Copyright IBM Corp. 2019,2020. All Rights Reserved.
 // Node module: @loopback/context
 // This file is licensed under the MIT License.
 // License text available at https://opensource.org/licenses/MIT
 
-import * as debugFactory from 'debug';
+import debugFactory from 'debug';
 import {BindingFilter} from './binding-filter';
 import {BindingAddress} from './binding-key';
 import {BindingComparator} from './binding-sorter';
@@ -13,27 +13,55 @@ import {transformValueOrPromise, ValueOrPromise} from './value-promise';
 const debug = debugFactory('loopback:context:interceptor-chain');
 
 /**
+ * Any type except `void`. We use this type to enforce that interceptor functions
+ * always return a value (including undefined or null).
+ */
+export type NonVoid = string | number | boolean | null | undefined | object;
+
+/**
  * The `next` function that can be used to invoke next generic interceptor in
  * the chain
  */
-export type Next = () => ValueOrPromise<InvocationResult>;
+export type Next = () => ValueOrPromise<NonVoid>;
 
 /**
  * An interceptor function to be invoked in a chain for the given context.
  * It serves as the base interface for various types of interceptors, such
  * as method invocation interceptor or request/response processing interceptor.
  *
+ * @remarks
+ * We choose `NonVoid` as the return type to avoid possible bugs that an
+ * interceptor forgets to return the value from `next()`. For example, the code
+ * below will fail to compile.
+ *
+ * ```ts
+ * const myInterceptor: Interceptor = async (ctx, next) {
+ *   // preprocessing
+ *   // ...
+ *
+ *   // There is a subtle bug that the result from `next()` is not further
+ *   // returned back to the upstream interceptors
+ *   const result = await next();
+ *
+ *   // postprocessing
+ *   // ...
+ *   // We must have `return ...` here
+ *   // either return `result` or another value if the interceptor decides to
+ *   // have its own response
+ * }
+ * ```
+ *
  * @typeParam C - `Context` class or a subclass of `Context`
  * @param context - Context object
  * @param next - A function to proceed with downstream interceptors or the
  * target operation
  *
- * @returns The invocation result as a value (sync) or promise (async)
+ * @returns The invocation result as a value (sync) or promise (async).
  */
 export type GenericInterceptor<C extends Context = Context> = (
   context: C,
   next: Next,
-) => ValueOrPromise<InvocationResult>;
+) => ValueOrPromise<NonVoid>;
 
 /**
  * Interceptor function or a binding key that resolves a generic interceptor
@@ -53,8 +81,12 @@ class InterceptorChainState<C extends Context = Context> {
   /**
    * Create a state for the interceptor chain
    * @param interceptors - Interceptor functions or binding keys
+   * @param finalHandler - An optional final handler
    */
-  constructor(private interceptors: GenericInterceptorOrKey<C>[]) {}
+  constructor(
+    public readonly interceptors: GenericInterceptorOrKey<C>[],
+    public readonly finalHandler: Next = () => undefined,
+  ) {}
 
   /**
    * Get the index for the current interceptor
@@ -138,10 +170,22 @@ export class GenericInterceptorChain<C extends Context = Context> {
   /**
    * Invoke the interceptor chain
    */
-  invokeInterceptors(): ValueOrPromise<InvocationResult> {
+  invokeInterceptors(finalHandler?: Next): ValueOrPromise<InvocationResult> {
     // Create a state for each invocation to provide isolation
-    const state = new InterceptorChainState<C>(this.getInterceptors());
+    const state = new InterceptorChainState<C>(
+      this.getInterceptors(),
+      finalHandler,
+    );
     return this.next(state);
+  }
+
+  /**
+   * Use the interceptor chain as an interceptor
+   */
+  asInterceptor(): GenericInterceptor<C> {
+    return (ctx, next) => {
+      return this.invokeInterceptors(next);
+    };
   }
 
   /**
@@ -152,7 +196,7 @@ export class GenericInterceptorChain<C extends Context = Context> {
   ): ValueOrPromise<InvocationResult> {
     if (state.done()) {
       // No more interceptors
-      return undefined;
+      return state.finalHandler();
     }
     // Invoke the next interceptor in the chain
     return this.invokeNextInterceptor(state);
@@ -205,4 +249,20 @@ export function invokeInterceptors<
 ): ValueOrPromise<T | undefined> {
   const chain = new GenericInterceptorChain(context, interceptors);
   return chain.invokeInterceptors();
+}
+
+/**
+ * Compose a list of interceptors as a single interceptor
+ * @param interceptors - A list of interceptor functions or binding keys
+ */
+export function composeInterceptors<C extends Context = Context>(
+  ...interceptors: GenericInterceptorOrKey<C>[]
+): GenericInterceptor<C> {
+  return (ctx, next) => {
+    const interceptor = new GenericInterceptorChain(
+      ctx,
+      interceptors,
+    ).asInterceptor();
+    return interceptor(ctx, next);
+  };
 }

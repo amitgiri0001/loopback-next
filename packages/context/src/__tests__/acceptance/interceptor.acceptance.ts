@@ -1,4 +1,4 @@
-// Copyright IBM Corp. 2019. All Rights Reserved.
+// Copyright IBM Corp. 2019,2020. All Rights Reserved.
 // Node module: @loopback/context
 // This file is licensed under the MIT License.
 // License text available at https://opensource.org/licenses/MIT
@@ -186,8 +186,8 @@ describe('Interceptor', () => {
       }
     }
 
-    // No listeners yet
-    expect(ctx.listenerCount('bind')).to.eql(0);
+    // No invocation context related listeners yet
+    const listenerCount = ctx.listenerCount('bind');
     const controller = new MyController();
 
     // Run the invocation 5 times
@@ -199,7 +199,7 @@ describe('Interceptor', () => {
         'greet',
         ['John'],
       );
-      // New listeners are added to `ctx`
+      // New listeners are added to `ctx` by the invocation context
       expect(ctx.listenerCount('bind')).to.be.greaterThan(count);
 
       // Wait until the invocation finishes
@@ -208,7 +208,7 @@ describe('Interceptor', () => {
 
     // Listeners added by invocation context are gone now
     // There is one left for ctx.observers
-    expect(ctx.listenerCount('bind')).to.eql(1);
+    expect(ctx.listenerCount('bind')).to.eql(listenerCount + 1);
   });
 
   it('invokes static interceptors', async () => {
@@ -417,6 +417,33 @@ describe('Interceptor', () => {
           skipInterceptors: true,
         });
       }).to.throw(/skipInterceptors is not allowed/);
+    });
+
+    it('can set source information', async () => {
+      const controller = givenController();
+      ctx.bind('name').to('Jane');
+      const source = {
+        type: 'path',
+        value: 'rest',
+        toString: () => 'path:rest',
+      };
+      const msg = await invokeMethodWithInterceptors(
+        ctx,
+        controller,
+        'greetWithDI',
+        // No name is passed in here as it will be provided by the injection
+        [],
+        {
+          source,
+          skipParameterInjection: false,
+        },
+      );
+      // `Jane` is bound to `name` in the current context
+      expect(msg).to.equal('Hello, Jane');
+      expect(events).to.eql([
+        'log: [path:rest] before-greetWithDI',
+        'log: [path:rest] after-greetWithDI',
+      ]);
     });
 
     function givenController() {
@@ -662,10 +689,7 @@ describe('Interceptor', () => {
         events.push('globalLog: after-' + invocationCtx.methodName);
         return result;
       };
-      ctx
-        .bind('globalLog')
-        .to(globalLog)
-        .apply(asGlobalInterceptor());
+      ctx.bind('globalLog').to(globalLog).apply(asGlobalInterceptor());
     }
   });
 
@@ -682,9 +706,10 @@ describe('Interceptor', () => {
   };
 
   const log: Interceptor = async (invocationCtx, next) => {
-    events.push('log: before-' + invocationCtx.methodName);
+    const source = invocationCtx.source ? `[${invocationCtx.source}] ` : '';
+    events.push(`log: ${source}before-${invocationCtx.methodName}`);
     const result = await next();
-    events.push('log: after-' + invocationCtx.methodName);
+    events.push(`log: ${source}after-${invocationCtx.methodName}`);
     return result;
   };
 

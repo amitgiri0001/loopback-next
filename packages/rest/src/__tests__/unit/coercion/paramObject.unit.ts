@@ -1,22 +1,24 @@
-// Copyright IBM Corp. 2019. All Rights Reserved.
+// Copyright IBM Corp. 2019,2020. All Rights Reserved.
 // Node module: @loopback/rest
 // This file is licensed under the MIT License.
 // License text available at https://opensource.org/licenses/MIT
 
 import {ParameterObject} from '@loopback/openapi-v3';
-import * as qs from 'qs';
+import qs from 'qs';
 import {RestHttpErrors} from '../../..';
 import {test} from './utils';
 
 const OPTIONAL_ANY_OBJECT: ParameterObject = {
   in: 'query',
   name: 'aparameter',
-  schema: {
-    type: 'object',
-    additionalProperties: true,
+  content: {
+    'application/json': {
+      schema: {
+        type: 'object',
+        additionalProperties: true,
+      },
+    },
   },
-  style: 'deepObject',
-  explode: true,
 };
 
 const REQUIRED_ANY_OBJECT = {
@@ -24,7 +26,7 @@ const REQUIRED_ANY_OBJECT = {
   required: true,
 };
 
-describe('coerce object param - required', function() {
+describe('coerce object param - required', function () {
   context('valid values', () => {
     // Use JSON-encoded style, qs.stringify() omits empty objects
     test(REQUIRED_ANY_OBJECT, '{}', {});
@@ -33,6 +35,15 @@ describe('coerce object param - required', function() {
     test(REQUIRED_ANY_OBJECT, {key: 'undefined'}, {key: 'undefined'});
     test(REQUIRED_ANY_OBJECT, {key: 'null'}, {key: 'null'});
     test(REQUIRED_ANY_OBJECT, {key: 'text'}, {key: 'text'});
+  });
+
+  context('valid string values', () => {
+    // simple object
+    test(REQUIRED_ANY_OBJECT, '{"key": "text"}', {key: 'text'});
+    // nested objects
+    test(REQUIRED_ANY_OBJECT, '{"include": [{ "relation" : "todoList" }]}', {
+      include: [{relation: 'todoList'}],
+    });
   });
 
   context('empty values trigger ERROR_BAD_REQUEST', () => {
@@ -80,7 +91,7 @@ describe('coerce object param - required', function() {
   }
 });
 
-describe('coerce object param - optional', function() {
+describe('coerce object param - optional', function () {
   context('valid values', () => {
     // Use JSON-encoded style, qs.stringify() omits empty objects
     test(OPTIONAL_ANY_OBJECT, '{}', {});
@@ -88,6 +99,15 @@ describe('coerce object param - optional', function() {
     test(OPTIONAL_ANY_OBJECT, undefined, undefined);
     test(OPTIONAL_ANY_OBJECT, '', undefined);
     test(OPTIONAL_ANY_OBJECT, 'null', null);
+  });
+
+  context('valid string values', () => {
+    // simple object
+    test(OPTIONAL_ANY_OBJECT, '{"key": "text"}', {key: 'text'});
+    // nested objects
+    test(OPTIONAL_ANY_OBJECT, '{"include": [{ "relation" : "todoList" }]}', {
+      include: [{relation: 'todoList'}],
+    });
   });
 
   context('nested values are not coerced', () => {

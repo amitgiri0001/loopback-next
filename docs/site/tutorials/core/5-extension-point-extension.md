@@ -1,7 +1,7 @@
 ---
 lang: en
 title: 'Extension point and extensions'
-keywords: LoopBack 4.0, LoopBack 4
+keywords: LoopBack 4.0, LoopBack 4, Node.js, TypeScript, OpenAPI
 sidebar: lb4_sidebar
 permalink: /doc/en/lb4/core-tutorial-part5.html
 ---
@@ -49,8 +49,7 @@ context. In our case, we mark `GreetingService` as the extension point that has
 access to a list of greeters which are defined as extensions.
 
 ```ts
-import {Getter} from '@loopback/context';
-import {extensionFilter, CoreTags} from '@loopback/core';
+import {extensionFilter, CoreTags, Getter} from '@loopback/core';
 /**
  * An extension point for greeters that can greet in different languages
  */
@@ -164,7 +163,7 @@ knowing much about one another.
 
 ```ts
 import {Greeter, asGreeter} from '../types';
-import {bind, inject} from '@loopback/context';
+import {injectable, inject} from '@loopback/core';
 /**
  * Options for the Chinese greeter
  */
@@ -175,7 +174,7 @@ export interface ChineseGreeterOptions {
 /**
  * A greeter implementation for Chinese
  */
-@bind(asGreeter)
+@injectable(asGreeter)
 export class ChineseGreeter implements Greeter {
   language = 'zh';
   constructor(
@@ -195,7 +194,7 @@ export class ChineseGreeter implements Greeter {
 ```
 
 Please note we use
-[`@bind`](https://loopback.io/doc/en/lb4/Binding.html#configure-binding-attributes-for-a-class)
+[`@injectable`](https://loopback.io/doc/en/lb4/Binding.html#configure-binding-attributes-for-a-class)
 to customize how the class can be bound. In this case, `asGreeter` is a binding
 template function, which is equivalent as configuring a binding with
 `{extensionFor: 'greeter'}` tag and in the `SINGLETON` scope.
@@ -229,8 +228,7 @@ app
 The process can be automated with a component:
 
 ```ts
-import {createBindingFromClass} from '@loopback/context';
-import {Component} from '@loopback/core';
+import {createBindingFromClass, Component} from '@loopback/core';
 import {GreetingService} from './greeting-service';
 import {GREETING_SERVICE} from './keys';
 /**
@@ -266,10 +264,7 @@ addExtension(app, 'greeters', FrenchGreeter);
 Bind the extension with the binding key to the application , for example:
 
 ```ts
-app
-  .bind('greeters.FrenchGreeter')
-  .toClass(FrenchGreeter)
-  .apply(asGreeter);
+app.bind('greeters.FrenchGreeter').toClass(FrenchGreeter).apply(asGreeter);
 ```
 
 ### Method 3

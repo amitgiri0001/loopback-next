@@ -1,4 +1,4 @@
-// Copyright IBM Corp. 2019. All Rights Reserved.
+// Copyright IBM Corp. 2019,2020. All Rights Reserved.
 // Node module: @loopback/example-context
 // This file is licensed under the MIT License.
 // License text available at https://opensource.org/licenses/MIT
@@ -17,7 +17,8 @@ import {
 /**
  * A custom configuration resolver that looks up env variables first
  */
-class EnvConfigResolver extends DefaultConfigurationResolver
+class EnvConfigResolver
+  extends DefaultConfigurationResolver
   implements ConfigurationResolver {
   constructor(@inject.context() public readonly context: Context) {
     super(context);

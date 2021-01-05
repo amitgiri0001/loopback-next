@@ -1,4 +1,4 @@
-// Copyright IBM Corp. 2018. All Rights Reserved.
+// Copyright IBM Corp. 2018,2020. All Rights Reserved.
 // Node module: @loopback/boot
 // This file is licensed under the MIT License.
 // License text available at https://opensource.org/licenses/MIT
@@ -7,12 +7,14 @@ import {
   BINDING_METADATA_KEY,
   config,
   Constructor,
+  CoreBindings,
+  hasInjections,
   inject,
+  isDynamicValueProviderClass,
   MetadataInspector,
-} from '@loopback/context';
-import {CoreBindings} from '@loopback/core';
+} from '@loopback/core';
 import {ApplicationWithServices} from '@loopback/service-proxy';
-import * as debugFactory from 'debug';
+import debugFactory from 'debug';
 import {BootBindings} from '../keys';
 import {ArtifactOptions, booter} from '../types';
 import {BaseArtifactBooter} from './base-artifact.booter';
@@ -21,7 +23,7 @@ const debug = debugFactory('loopback:boot:service-booter');
 
 /**
  * A class that extends BaseArtifactBooter to boot the 'Service' artifact type.
- * Discovered DataSources are bound using `app.controller()`.
+ * Discovered services are bound using `app.service()`.
  *
  * Supported phases: configure, discover, load
  *
@@ -81,10 +83,17 @@ function isBindableClass(cls: Constructor<unknown>) {
   if (MetadataInspector.getClassMetadata(BINDING_METADATA_KEY, cls)) {
     return true;
   }
+  if (hasInjections(cls)) {
+    return true;
+  }
   if (isServiceProvider(cls)) {
     debug('Provider class found: %s', cls.name);
     return true;
   }
-  debug('Skip class not decorated with @bind: %s', cls.name);
+  if (isDynamicValueProviderClass(cls)) {
+    debug('Dynamic value provider class found: %s', cls.name);
+    return true;
+  }
+  debug('Skip class not decorated with @injectable: %s', cls.name);
   return false;
 }

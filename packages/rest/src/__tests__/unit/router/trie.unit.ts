@@ -3,8 +3,8 @@
 // This file is licensed under the MIT License.
 // License text available at https://opensource.org/licenses/MIT
 
-import {Trie} from '../../..';
 import {expect} from '@loopback/testlab';
+import {Trie} from '../../..';
 
 interface Route {
   path: string;
@@ -12,6 +12,7 @@ interface Route {
 }
 
 describe('Trie', () => {
+  const pattern = /^([^\/#\?]+?)[\/#\?]?$/i;
   it('creates nodes', () => {
     const trie = givenTrie();
     const getOrders = givenRoute('get', '/orders');
@@ -53,7 +54,7 @@ describe('Trie', () => {
                   key: '{id}',
                   value: getOrderById,
                   names: ['id'],
-                  regexp: /^([^\/]+?)(?:\/)?$/i,
+                  regexp: pattern,
                   children: {},
                 },
               },
@@ -89,7 +90,7 @@ describe('Trie', () => {
         key: '{id}',
         value: {verb: 'get', path: '/orders/{id}'},
         names: ['id'],
-        regexp: /^([^\/]+?)(?:\/)?$/i,
+        regexp: pattern,
       },
     ]);
   });
@@ -104,7 +105,7 @@ describe('Trie', () => {
         key: '{id}',
         value: {verb: 'get', path: '/orders/{id}'},
         names: ['id'],
-        regexp: /^([^\/]+?)(?:\/)?$/i,
+        regexp: pattern,
         children: {},
       },
     ]);
@@ -142,7 +143,7 @@ describe('Trie', () => {
     const resolved = trie.match(route);
     expect(resolved).not.is.undefined();
     expect(resolved!.node).to.containEql({value});
-    params = params || {};
+    params = params ?? {};
     expect(resolved!.params).to.eql(params);
   }
 

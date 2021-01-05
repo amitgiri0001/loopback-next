@@ -1,4 +1,4 @@
-// Copyright IBM Corp. 2019. All Rights Reserved.
+// Copyright IBM Corp. 2019,2020. All Rights Reserved.
 // Node module: @loopback/service-proxy
 // This file is licensed under the MIT License.
 // License text available at https://opensource.org/licenses/MIT
@@ -12,7 +12,7 @@ import {MockConnector} from '../mock-service.connector';
 describe('service-proxy', () => {
   let ds: juggler.DataSource;
 
-  before(function() {
+  before(function () {
     ds = new juggler.DataSource({
       name: 'mock',
       connector: MockConnector,

@@ -1,30 +1,23 @@
-// Copyright IBM Corp. 2018,2019. All Rights Reserved.
+// Copyright IBM Corp. 2018,2020. All Rights Reserved.
 // Node module: @loopback/rest
 // This file is licensed under the MIT License.
 // License text available at https://opensource.org/licenses/MIT
 
-import {Binding, BoundValue} from '@loopback/context';
+import {HandlerContext, Request, Response} from '@loopback/express';
 import {ReferenceObject, SchemaObject} from '@loopback/openapi-v3';
-import * as ajv from 'ajv';
+import ajv, {Ajv, FormatDefinition, KeywordDefinition} from 'ajv';
 import {
   Options,
   OptionsJson,
   OptionsText,
   OptionsUrlencoded,
 } from 'body-parser';
-import {Request, Response} from 'express';
 import {ResolvedRoute, RouteEntry} from './router';
 
-export {Request, Response};
-
 /**
- * An object holding HTTP request, response and other data
- * needed to handle an incoming HTTP request.
+ * Re-export types from `./middleware`
  */
-export interface HandlerContext {
-  readonly request: Request;
-  readonly response: Response;
-}
+export * from '@loopback/express';
 
 /**
  * Find a route matching the incoming request.
@@ -33,7 +26,7 @@ export interface HandlerContext {
 export type FindRoute = (request: Request) => ResolvedRoute;
 
 /**
- *
+ * A function to parse OpenAPI operation parameters for a given route
  */
 export type ParseParams = (
   request: Request,
@@ -93,9 +86,48 @@ export type SchemaValidatorCache = WeakMap<
 >;
 
 /**
+ * Options for AJV errors
+ */
+export type AjvErrorOptions = {
+  keepErrors?: boolean;
+  singleError?: boolean;
+};
+
+/**
+ * Factory function for Ajv instances
+ */
+export type AjvFactory = (options?: ajv.Options) => Ajv;
+
+/**
+ * Ajv keyword definition with a name
+ */
+export type AjvKeyword = KeywordDefinition & {name: string};
+
+/**
+ * Ajv format definition with a name
+ */
+export type AjvFormat = FormatDefinition & {name: string};
+
+/**
+ * Options for any value validation using AJV
+ */
+export interface ValueValidationOptions extends ValidationOptions {
+  /**
+   * Where the data comes from. It can be 'body', 'path', 'header',
+   * 'query', 'cookie', etc...
+   */
+  source?: string;
+
+  /**
+   * Parameter name, as provided in `ParameterObject#name` property.
+   */
+  name?: string;
+}
+
+/**
  * Options for request body validation using AJV
  */
-export interface RequestBodyValidationOptions extends ajv.Options {
+export interface ValidationOptions extends ajv.Options {
   /**
    * Custom cache for compiled schemas by AJV. This setting makes it possible
    * to skip the default cache.
@@ -108,10 +140,27 @@ export interface RequestBodyValidationOptions extends ajv.Options {
    */
   ajvKeywords?: true | string[];
   /**
+   * Enable custom error messages in JSON-Schema for AJV validator
+   * from https://github.com/epoberezkin/ajv-errors
+   * - `true`: Enable `ajv-errors`
+   * - `AjvErrorOptions`: Enable `ajv-errors` with options
+   */
+  ajvErrors?: true | AjvErrorOptions;
+  /**
    * A function that transform the `ErrorObject`s reported by AJV.
    * This could be used for error messages customization, localization, etc.
    */
   ajvErrorTransformer?: (errors: ajv.ErrorObject[]) => ajv.ErrorObject[];
+
+  /**
+   * A factory to create Ajv instance
+   */
+  ajvFactory?: (options: ajv.Options) => Ajv;
+
+  /**
+   * An array of keys to be rejected, such as `__proto__`.
+   */
+  prohibitedKeys?: string[];
 }
 
 /* eslint-disable @typescript-eslint/no-explicit-any */
@@ -145,7 +194,7 @@ export interface RequestBodyParserOptions extends Options {
    * This setting is global for all request body parsers and it cannot be
    * overridden inside parser specific properties such as `json` or `text`.
    */
-  validation?: RequestBodyValidationOptions;
+  validation?: ValidationOptions;
   /**
    * Common options for all parsers
    */
@@ -162,5 +211,31 @@ export type OperationArgs = any[];
  */
 export type OperationRetval = any;
 
-export type GetFromContext = (key: string) => Promise<BoundValue>;
-export type BindElement = (key: string) => Binding;
+/**
+ * user profile to add in session
+ */
+export interface SessionUserProfile {
+  provider: string;
+  token: string;
+  email: string;
+  [attribute: string]: any;
+}
+
+/**
+ * interface to set variables in user session
+ */
+export interface Session {
+  profile: SessionUserProfile;
+  [key: string]: any;
+}
+
+/**
+ * extending express request type with a session field
+ */
+export interface RequestWithSession extends Request {
+  session: Session;
+}
+
+// For backwards compatibility
+// TODO(SEMVER-MAJOR)
+export type RequestBodyValidationOptions = ValidationOptions;

@@ -1,17 +1,17 @@
-// Copyright IBM Corp. 2019. All Rights Reserved.
+// Copyright IBM Corp. 2019,2020. All Rights Reserved.
 // Node module: @loopback/tsdocs
 // This file is licensed under the MIT License.
 // License text available at https://opensource.org/licenses/MIT
 
 import {IConfigFile} from '@microsoft/api-extractor';
-import * as fs from 'fs-extra';
-import * as path from 'path';
+import fs from 'fs-extra';
+import path from 'path';
 
 const Project = require('@lerna/project');
 
 /**
  * TypeScript definition for
- * {@link https://github.com/lerna/lerna/blob/master/core/package/index.js | Lerna Package)
+ * {@link https://github.com/lerna/lerna/blob/master/core/package/index.js | Lerna Package}
  */
 export interface LernaPackage {
   /**
@@ -139,6 +139,11 @@ export interface ApiDocsOptions {
    * A flag to generate default package documentation
    */
   generateDefaultPackageDoc?: boolean;
+
+  /**
+   * Package metadata
+   */
+  lernaPackages?: Record<string, LernaPackage>;
 }
 
 /**
@@ -165,6 +170,10 @@ export interface ExtractorOptions extends ApiDocsOptions {
    * A flag to control if `apiReport` should be enabled
    */
   apiReportEnabled?: boolean;
+  /**
+   * A flag to control if errors should be ignored
+   */
+  ignoreErrors?: boolean;
 }
 
 /**

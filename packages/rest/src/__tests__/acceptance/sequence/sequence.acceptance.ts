@@ -1,10 +1,9 @@
-// Copyright IBM Corp. 2019. All Rights Reserved.
+// Copyright IBM Corp. 2019,2020. All Rights Reserved.
 // Node module: @loopback/rest
 // This file is licensed under the MIT License.
 // License text available at https://opensource.org/licenses/MIT
 
-import {inject} from '@loopback/context';
-import {Application} from '@loopback/core';
+import {inject, Application} from '@loopback/core';
 import {anOpenApiSpec} from '@loopback/openapi-spec-builder';
 import {api} from '@loopback/openapi-v3';
 import {Client, createClientForHandler} from '@loopback/testlab';
@@ -38,18 +37,14 @@ describe('Sequence', () => {
   let server: RestServer;
   beforeEach(givenAppWithController);
   it('provides a default sequence', async () => {
-    await whenIRequest()
-      .get('/name')
-      .expect('SequenceApp');
+    await whenIRequest().get('/name').expect('SequenceApp');
   });
 
   it('allows users to define a custom sequence as a function', () => {
     server.handler(({response}, sequence) => {
       sequence.send(response, 'hello world');
     });
-    return whenIRequest()
-      .get('/')
-      .expect('hello world');
+    return whenIRequest().get('/').expect('hello world');
   });
 
   it('allows users to define a custom sequence as a class', async () => {
@@ -63,9 +58,7 @@ describe('Sequence', () => {
     // bind user defined sequence
     server.sequence(MySequence);
 
-    await whenIRequest()
-      .get('/')
-      .expect('hello world');
+    await whenIRequest().get('/').expect('hello world');
   });
 
   it('allows users to bind a custom sequence class', () => {
@@ -89,9 +82,7 @@ describe('Sequence', () => {
 
     server.sequence(MySequence);
 
-    return whenIRequest()
-      .get('/name')
-      .expect('MySequence SequenceApp');
+    return whenIRequest().get('/name').expect('MySequence SequenceApp');
   });
 
   it('allows users to bind a custom sequence class via app.sequence()', async () => {
@@ -106,9 +97,7 @@ describe('Sequence', () => {
     const restApp = new RestApplication();
     restApp.sequence(MySequence);
 
-    await whenIRequest(restApp)
-      .get('/name')
-      .expect('MySequence was invoked.');
+    await whenIRequest(restApp).get('/name').expect('MySequence was invoked.');
   });
 
   it('user-defined Send', () => {
@@ -118,9 +107,7 @@ describe('Sequence', () => {
     };
     server.bind(SequenceActions.SEND).to(send);
 
-    return whenIRequest()
-      .get('/name')
-      .expect('CUSTOM FORMAT: SequenceApp');
+    return whenIRequest().get('/name').expect('CUSTOM FORMAT: SequenceApp');
   });
 
   it('user-defined Reject', () => {
@@ -130,9 +117,7 @@ describe('Sequence', () => {
     };
     server.bind(SequenceActions.REJECT).to(reject);
 
-    return whenIRequest()
-      .get('/unknown-url')
-      .expect(418);
+    return whenIRequest().get('/unknown-url').expect(418);
   });
 
   it('makes ctx available in a custom sequence handler function', () => {
@@ -141,9 +126,7 @@ describe('Sequence', () => {
       sequence.send(context.response, context.getSync('test'));
     });
 
-    return whenIRequest()
-      .get('/')
-      .expect('hello world');
+    return whenIRequest().get('/').expect('hello world');
   });
 
   it('makes ctx available in a custom sequence class', () => {
@@ -167,9 +150,26 @@ describe('Sequence', () => {
     server.sequence(MySequence);
     app.bind('test').to('hello world');
 
+    return whenIRequest().get('/').expect('hello world');
+  });
+
+  it('allows CORS middleware to produce an http response', () => {
+    server.sequence(DefaultSequence);
+    app.bind('test').to('hello world');
+
+    // Response from `CORS`
     return whenIRequest()
-      .get('/')
-      .expect('hello world');
+      .options('/')
+      .expect(204)
+      .expect('access-control-allow-origin', '*');
+  });
+
+  it('allows OpenAPI middleware to produce an http response', () => {
+    server.sequence(DefaultSequence);
+    app.bind('test').to('hello world');
+
+    // Response from `OpenAPI`
+    return whenIRequest().get('/openapi.json').expect(200);
   });
 
   async function givenAppWithController() {

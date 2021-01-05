@@ -3,6 +3,299 @@
 All notable changes to this project will be documented in this file.
 See [Conventional Commits](https://conventionalcommits.org) for commit guidelines.
 
+## [3.0.5](https://github.com/strongloop/loopback-next/compare/@loopback/metadata@3.0.4...@loopback/metadata@3.0.5) (2020-12-07)
+
+**Note:** Version bump only for package @loopback/metadata
+
+
+
+
+
+## [3.0.4](https://github.com/strongloop/loopback-next/compare/@loopback/metadata@3.0.3...@loopback/metadata@3.0.4) (2020-11-18)
+
+**Note:** Version bump only for package @loopback/metadata
+
+
+
+
+
+## [3.0.3](https://github.com/strongloop/loopback-next/compare/@loopback/metadata@3.0.2...@loopback/metadata@3.0.3) (2020-11-05)
+
+
+### Bug Fixes
+
+* change doc message ([8aab137](https://github.com/strongloop/loopback-next/commit/8aab137f7be1ddb84f196768917e8e893453bf0e))
+* getDesignTypeForProperty ([953aa86](https://github.com/strongloop/loopback-next/commit/953aa8656930dacb5e5c30803f85225dd8dcdf58))
+
+
+
+
+
+## [3.0.2](https://github.com/strongloop/loopback-next/compare/@loopback/metadata@3.0.1...@loopback/metadata@3.0.2) (2020-10-07)
+
+**Note:** Version bump only for package @loopback/metadata
+
+
+
+
+
+## [3.0.1](https://github.com/strongloop/loopback-next/compare/@loopback/metadata@3.0.0...@loopback/metadata@3.0.1) (2020-09-17)
+
+**Note:** Version bump only for package @loopback/metadata
+
+
+
+
+
+# [3.0.0](https://github.com/strongloop/loopback-next/compare/@loopback/metadata@2.2.6...@loopback/metadata@3.0.0) (2020-09-15)
+
+
+### Features
+
+* **metadata:** improve handling of missing design-time type metadata ([4816cae](https://github.com/strongloop/loopback-next/commit/4816caee73fe8f4b99b246bc8544f90037791b6f))
+
+
+### BREAKING CHANGES
+
+* **metadata:** If you are consuming `@loopback/metadata` directly,
+then you may need to update your code to handle the case when
+design-time type metadata is not available. (The compiler will tell you
+what places to fix.)
+
+Regular LoopBack users should not be affected as long as they update
+all LB packages together.
+
+Signed-off-by: Miroslav Bajtoš <mbajtoss@gmail.com>
+
+
+
+
+
+## [2.2.6](https://github.com/strongloop/loopback-next/compare/@loopback/metadata@2.2.5...@loopback/metadata@2.2.6) (2020-08-27)
+
+**Note:** Version bump only for package @loopback/metadata
+
+
+
+
+
+## [2.2.5](https://github.com/strongloop/loopback-next/compare/@loopback/metadata@2.2.4...@loopback/metadata@2.2.5) (2020-08-19)
+
+**Note:** Version bump only for package @loopback/metadata
+
+
+
+
+
+## [2.2.4](https://github.com/strongloop/loopback-next/compare/@loopback/metadata@2.2.3...@loopback/metadata@2.2.4) (2020-08-05)
+
+**Note:** Version bump only for package @loopback/metadata
+
+
+
+
+
+## [2.2.3](https://github.com/strongloop/loopback-next/compare/@loopback/metadata@2.2.2...@loopback/metadata@2.2.3) (2020-07-20)
+
+**Note:** Version bump only for package @loopback/metadata
+
+
+
+
+
+## [2.2.2](https://github.com/strongloop/loopback-next/compare/@loopback/metadata@2.2.1...@loopback/metadata@2.2.2) (2020-06-30)
+
+**Note:** Version bump only for package @loopback/metadata
+
+
+
+
+
+## [2.2.1](https://github.com/strongloop/loopback-next/compare/@loopback/metadata@2.2.0...@loopback/metadata@2.2.1) (2020-06-23)
+
+
+### Bug Fixes
+
+* set node version to >=10.16 to support events.once ([e39da1c](https://github.com/strongloop/loopback-next/commit/e39da1ca47728eafaf83c10ce35b09b03b6a4edc))
+
+
+
+
+
+# [2.2.0](https://github.com/strongloop/loopback-next/compare/@loopback/metadata@2.1.6...@loopback/metadata@2.2.0) (2020-06-11)
+
+
+### Features
+
+* **context:** improve error reporting with more contextual information ([2a30484](https://github.com/strongloop/loopback-next/commit/2a30484f90b08803f14669524f8eb64c35031da9))
+
+
+
+
+
+## [2.1.6](https://github.com/strongloop/loopback-next/compare/@loopback/metadata@2.1.5...@loopback/metadata@2.1.6) (2020-05-28)
+
+**Note:** Version bump only for package @loopback/metadata
+
+
+
+
+
+## [2.1.5](https://github.com/strongloop/loopback-next/compare/@loopback/metadata@2.1.4...@loopback/metadata@2.1.5) (2020-05-20)
+
+**Note:** Version bump only for package @loopback/metadata
+
+
+
+
+
+## [2.1.4](https://github.com/strongloop/loopback-next/compare/@loopback/metadata@2.1.3...@loopback/metadata@2.1.4) (2020-05-19)
+
+**Note:** Version bump only for package @loopback/metadata
+
+
+
+
+
+## [2.1.3](https://github.com/strongloop/loopback-next/compare/@loopback/metadata@2.1.2...@loopback/metadata@2.1.3) (2020-05-07)
+
+**Note:** Version bump only for package @loopback/metadata
+
+
+
+
+
+## [2.1.2](https://github.com/strongloop/loopback-next/compare/@loopback/metadata@2.1.1...@loopback/metadata@2.1.2) (2020-04-29)
+
+**Note:** Version bump only for package @loopback/metadata
+
+
+
+
+
+## [2.1.1](https://github.com/strongloop/loopback-next/compare/@loopback/metadata@2.1.0...@loopback/metadata@2.1.1) (2020-04-23)
+
+**Note:** Version bump only for package @loopback/metadata
+
+
+
+
+
+# [2.1.0](https://github.com/strongloop/loopback-next/compare/@loopback/metadata@2.0.4...@loopback/metadata@2.1.0) (2020-04-22)
+
+
+### Features
+
+* update package.json and .travis.yml for builds ([cb2b8e6](https://github.com/strongloop/loopback-next/commit/cb2b8e6a18616dda7783c0193091039d4e608131))
+
+
+
+
+
+## [2.0.4](https://github.com/strongloop/loopback-next/compare/@loopback/metadata@2.0.3...@loopback/metadata@2.0.4) (2020-04-11)
+
+**Note:** Version bump only for package @loopback/metadata
+
+
+
+
+
+## [2.0.3](https://github.com/strongloop/loopback-next/compare/@loopback/metadata@2.0.2...@loopback/metadata@2.0.3) (2020-04-08)
+
+**Note:** Version bump only for package @loopback/metadata
+
+
+
+
+
+## [2.0.2](https://github.com/strongloop/loopback-next/compare/@loopback/metadata@2.0.1...@loopback/metadata@2.0.2) (2020-03-24)
+
+**Note:** Version bump only for package @loopback/metadata
+
+
+
+
+
+## [2.0.1](https://github.com/strongloop/loopback-next/compare/@loopback/metadata@2.0.0...@loopback/metadata@2.0.1) (2020-03-17)
+
+**Note:** Version bump only for package @loopback/metadata
+
+
+
+
+
+# [2.0.0](https://github.com/strongloop/loopback-next/compare/@loopback/metadata@1.4.1...@loopback/metadata@2.0.0) (2020-03-05)
+
+
+### chore
+
+* remove support for Node.js v8.x ([4281d9d](https://github.com/strongloop/loopback-next/commit/4281d9df50f0715d32879e1442a90b643ec8f542))
+
+
+### Features
+
+* add `tslib` as dependency ([a6e0b4c](https://github.com/strongloop/loopback-next/commit/a6e0b4ce7b862764167cefedee14c1115b25e0a4)), closes [#4676](https://github.com/strongloop/loopback-next/issues/4676)
+
+
+### BREAKING CHANGES
+
+* Node.js v8.x is now end of life. Please upgrade to version
+10 and above. See https://nodejs.org/en/about/releases.
+
+
+
+
+
+## [1.4.1](https://github.com/strongloop/loopback-next/compare/@loopback/metadata@1.4.0...@loopback/metadata@1.4.1) (2020-02-05)
+
+**Note:** Version bump only for package @loopback/metadata
+
+
+
+
+
+# [1.4.0](https://github.com/strongloop/loopback-next/compare/@loopback/metadata@1.3.10...@loopback/metadata@1.4.0) (2020-01-27)
+
+
+### Bug Fixes
+
+* clarify the decorator application order ([ab0dc3d](https://github.com/strongloop/loopback-next/commit/ab0dc3d9f1dedb6b61ccf5b4d63854a4f9dfa814))
+* ensure tests follow parameter patterns ([d9d8154](https://github.com/strongloop/loopback-next/commit/d9d815403b8b7c39aa71494f46b352c646324673))
+* makes multi-decorator behavior more predictable ([0e00068](https://github.com/strongloop/loopback-next/commit/0e00068ccee12e004a2684afcf8bec5d651a9a20))
+
+
+### Features
+
+* adds MultiMethodDecoratorFactory ([bf6c787](https://github.com/strongloop/loopback-next/commit/bf6c7872bb8ce492b43ab8f57a641dcbb341e96e))
+
+
+
+
+
+## [1.3.10](https://github.com/strongloop/loopback-next/compare/@loopback/metadata@1.3.9...@loopback/metadata@1.3.10) (2020-01-07)
+
+**Note:** Version bump only for package @loopback/metadata
+
+
+
+
+
+## [1.3.9](https://github.com/strongloop/loopback-next/compare/@loopback/metadata@1.3.8...@loopback/metadata@1.3.9) (2019-12-09)
+
+**Note:** Version bump only for package @loopback/metadata
+
+
+
+
+
+## [1.3.8](https://github.com/strongloop/loopback-next/compare/@loopback/metadata@1.3.7...@loopback/metadata@1.3.8) (2019-11-25)
+
+**Note:** Version bump only for package @loopback/metadata
+
+
+
+
+
 ## [1.3.7](https://github.com/strongloop/loopback-next/compare/@loopback/metadata@1.3.6...@loopback/metadata@1.3.7) (2019-11-12)
 
 **Note:** Version bump only for package @loopback/metadata

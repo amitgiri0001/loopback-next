@@ -1,4 +1,4 @@
-// Copyright IBM Corp. 2019. All Rights Reserved.
+// Copyright IBM Corp. 2019,2020. All Rights Reserved.
 // Node module: @loopback/rest-crud
 // This file is licensed under the MIT License.
 // License text available at https://opensource.org/licenses/MIT
@@ -10,6 +10,7 @@ import {
   Entity,
   EntityCrudRepository,
   Filter,
+  FilterExcludingWhere,
   Where,
 } from '@loopback/repository';
 import {
@@ -19,7 +20,6 @@ import {
   getFilterSchemaFor,
   getJsonSchema,
   getModelSchemaRef,
-  getWhereSchemaFor,
   JsonSchemaOptions,
   jsonToSchemaObject,
   MediaTypeObject,
@@ -64,6 +64,7 @@ export interface CrudRestController<
   T extends Entity,
   IdType,
   IdName extends keyof T,
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   Relations extends object = {}
 > {
   /**
@@ -105,7 +106,7 @@ export interface CrudRestControllerOptions {
 /**
  * Create (define) a CRUD Controller class for the given model.
  *
- * Example usage:
+ * @example
  *
  * ```ts
  * const ProductController = defineCrudRestController<
@@ -172,7 +173,7 @@ export function defineCrudRestController<
       }),
     })
     async find(
-      @param.query.object('filter', getFilterSchemaFor(modelCtor))
+      @param.filter(modelCtor)
       filter?: Filter<T>,
     ): Promise<(T & Relations)[]> {
       return this.repository.find(filter);
@@ -185,8 +186,11 @@ export function defineCrudRestController<
     })
     async findById(
       @param(idPathParam) id: IdType,
-      @param.query.object('filter', getFilterSchemaFor(modelCtor))
-      filter?: Filter<T>,
+      @param.query.object(
+        'filter',
+        getFilterSchemaFor(modelCtor, {exclude: 'where'}),
+      )
+      filter?: FilterExcludingWhere<T>,
     ): Promise<T & Relations> {
       return this.repository.findById(id, filter);
     }
@@ -195,7 +199,7 @@ export function defineCrudRestController<
       ...response(200, `${modelName} count`, {schema: CountSchema}),
     })
     async count(
-      @param.query.object('where', getWhereSchemaFor(modelCtor))
+      @param.where(modelCtor)
       where?: Where<T>,
     ): Promise<Count> {
       return this.repository.count(where);
@@ -208,7 +212,7 @@ export function defineCrudRestController<
     })
     async updateAll(
       @body(modelCtor, {partial: true}) data: Partial<T>,
-      @param.query.object('where', getWhereSchemaFor(modelCtor))
+      @param.where(modelCtor)
       where?: Where<T>,
     ): Promise<Count> {
       return this.repository.updateAll(
@@ -275,7 +279,7 @@ function getIdSchema<T extends Entity>(
   const modelSchema = jsonToSchemaObject(
     getJsonSchema(modelCtor),
   ) as SchemaObject;
-  return (modelSchema.properties || {})[idProp] as SchemaObject;
+  return (modelSchema.properties ?? {})[idProp] as SchemaObject;
 }
 
 // Temporary implementation of a short-hand version of `@requestBody`

@@ -1,12 +1,12 @@
-// Copyright IBM Corp. 2018. All Rights Reserved.
+// Copyright IBM Corp. 2018,2020. All Rights Reserved.
 // Node module: @loopback/repository
 // This file is licensed under the MIT License.
 // License text available at https://opensource.org/licenses/MIT
 
-import {Connector} from './connector';
-import {Entity, EntityData} from '../model';
+import {Filter} from '@loopback/filter';
 import {Class, Options} from '../common-types';
-import {Filter} from '../query';
+import {Entity, EntityData} from '../model';
+import {Connector} from './connector';
 
 /**
  * Key/Value operations for connector implementations

@@ -6,6 +6,11 @@ info:
   license:
     name: Apache 2.0
     url: https://www.apache.org/licenses/LICENSE-2.0.html
+servers:
+  - url:
+    description: null url for testing
+  - url: https://localhost:3000
+    description: Local laptop testing
 tags:
   - name: Customer
     description: Customer resource
@@ -74,7 +79,7 @@ paths:
       tags:
         - Customer
       description: Returns a customer based on a single ID
-      x-implementation: "return {id: id, 'first-name': 'John', last-name: 'Smith'};"
+      x-implementation: "return {id: customerId, 'first-name': 'John', 'last-name': 'Smith'};"
       operationId: find customer by id
       parameters:
         - name: customer-id
@@ -112,6 +117,7 @@ components:
           type: string
         zipCode:
           type: string
+      additionalProperties: true
     USAddress:
       $ref: '#/components/schemas/Address'
     Customer:

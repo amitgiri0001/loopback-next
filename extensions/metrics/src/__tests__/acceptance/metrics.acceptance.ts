@@ -1,16 +1,21 @@
-// Copyright IBM Corp. 2019. All Rights Reserved.
-// Node module: @loopback/extension-metrics
+// Copyright IBM Corp. 2019,2020. All Rights Reserved.
+// Node module: @loopback/metrics
 // This file is licensed under the MIT License.
 // License text available at https://opensource.org/licenses/MIT
 
-import {RestApplication, RestServerConfig} from '@loopback/rest';
+import {CoreBindings, GLOBAL_INTERCEPTOR_NAMESPACE} from '@loopback/core';
+import {RestApplication, RestServer, RestServerConfig} from '@loopback/rest';
 import {
   Client,
   createRestAppClient,
   expect,
   givenHttpServerConfig,
+  validateApiSpec,
 } from '@loopback/testlab';
 import {MetricsBindings, MetricsComponent, MetricsOptions} from '../..';
+import {metricsControllerFactory} from '../../controllers';
+import {MetricsInterceptor} from '../../interceptors';
+import {MetricsObserver, MetricsPushObserver} from '../../observers';
 
 describe('Metrics (acceptance)', () => {
   let app: RestApplication;
@@ -37,6 +42,39 @@ describe('Metrics (acceptance)', () => {
       expect(res.text).to.match(/# TYPE/);
       expect(res.text).to.match(/# HELP/);
     });
+
+    it('hides the metrics endpoints from the openapi spec', async () => {
+      const server = await app.getServer(RestServer);
+      const spec = await server.getApiSpec();
+      expect(spec.paths).to.be.empty();
+      await validateApiSpec(spec);
+    });
+
+    it('adds MetricsObserver, MetricsInterceptor and MetricsController to the application', () => {
+      expect(
+        app.isBound(
+          `${CoreBindings.LIFE_CYCLE_OBSERVERS}.${MetricsObserver.name}`,
+        ),
+      ).to.be.true();
+      expect(
+        app.isBound(
+          `${GLOBAL_INTERCEPTOR_NAMESPACE}.${MetricsInterceptor.name}`,
+        ),
+      ).to.be.true();
+      expect(
+        app.isBound(
+          `${CoreBindings.CONTROLLERS}.${metricsControllerFactory().name}`,
+        ),
+      ).to.be.true();
+    });
+
+    it('does not add MetricsPushObserver to the application', () => {
+      expect(
+        app.isBound(
+          `${CoreBindings.LIFE_CYCLE_OBSERVERS}.${MetricsPushObserver.name}`,
+        ),
+      ).to.be.false();
+    });
   });
 
   context('with custom defaultMetrics', () => {
@@ -47,10 +85,7 @@ describe('Metrics (acceptance)', () => {
           prefix: 'myapp_',
         },
       });
-      await request
-        .get('/metrics')
-        .expect(200)
-        .expect('content-type', /text/);
+      await request.get('/metrics').expect(200).expect('content-type', /text/);
     });
   });
 
@@ -69,13 +104,38 @@ describe('Metrics (acceptance)', () => {
     });
   });
 
+  context('with endpoint disabled', () => {
+    beforeEach(async () => {
+      await givenAppWithCustomConfig({
+        endpoint: {
+          disabled: true,
+        },
+      });
+    });
+
+    it('does not expose /metrics', async () => {
+      await request.get('/metrics').expect(404);
+    });
+
+    it('does not add MetricsController to the application', () => {
+      expect(
+        app.isBound(
+          `${CoreBindings.CONTROLLERS}.${metricsControllerFactory().name}`,
+        ),
+      ).to.be.false();
+    });
+  });
+
   context('with defaultMetrics disabled', () => {
-    it('does not emit default metrics', async () => {
+    beforeEach(async () => {
       await givenAppWithCustomConfig({
         defaultMetrics: {
           disabled: true,
         },
       });
+    });
+
+    it('does not emit default metrics', async () => {
       const res = await request
         .get('/metrics')
         .expect(200)
@@ -83,6 +143,29 @@ describe('Metrics (acceptance)', () => {
       expect(res.text).to.not.match(
         /# TYPE process_cpu_user_seconds_total counter/,
       );
+    });
+
+    it('does not add MetricsObserver to the application', () => {
+      expect(
+        app.isBound(
+          `${CoreBindings.LIFE_CYCLE_OBSERVERS}.${MetricsObserver.name}`,
+        ),
+      ).to.be.false();
+    });
+  });
+
+  context('with openApiSpec enabled', () => {
+    beforeEach(async () => {
+      await givenAppWithCustomConfig({
+        openApiSpec: true,
+      });
+    });
+
+    it('adds the metrics endpoint to the openapi spec', async () => {
+      const server = await app.getServer(RestServer);
+      const spec = await server.getApiSpec();
+      expect(spec.paths).to.have.properties('/metrics');
+      await validateApiSpec(spec);
     });
   });
 

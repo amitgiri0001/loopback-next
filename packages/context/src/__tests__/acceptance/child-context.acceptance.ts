@@ -1,4 +1,4 @@
-// Copyright IBM Corp. 2019. All Rights Reserved.
+// Copyright IBM Corp. 2019,2020. All Rights Reserved.
 // Node module: @loopback/context
 // This file is licensed under the MIT License.
 // License text available at https://opensource.org/licenses/MIT
@@ -32,18 +32,9 @@ describe('Context bindings - contexts inheritance', () => {
   });
 
   it('includes parent bindings when searching via findByTag()', () => {
-    parentCtx
-      .bind('foo')
-      .to('parent:foo')
-      .tag('a-tag');
-    parentCtx
-      .bind('bar')
-      .to('parent:bar')
-      .tag('a-tag');
-    childCtx
-      .bind('foo')
-      .to('child:foo')
-      .tag('a-tag');
+    parentCtx.bind('foo').to('parent:foo').tag('a-tag');
+    parentCtx.bind('bar').to('parent:bar').tag('a-tag');
+    childCtx.bind('foo').to('child:foo').tag('a-tag');
 
     const found = childCtx.findByTag('a-tag').map(b => b.getValue(childCtx));
     expect(found).to.deepEqual(['child:foo', 'parent:bar']);

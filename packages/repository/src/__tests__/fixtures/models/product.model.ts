@@ -1,4 +1,4 @@
-// Copyright IBM Corp. 2019. All Rights Reserved.
+// Copyright IBM Corp. 2019,2020. All Rights Reserved.
 // Node module: @loopback/repository
 // This file is licensed under the MIT License.
 // License text available at https://opensource.org/licenses/MIT
@@ -19,6 +19,11 @@ export class Product extends Entity {
 
   @property({type: 'string'})
   slug: string;
+
+  @property({
+    type: 'date',
+  })
+  createdAt: Date;
 
   constructor(data?: Partial<Product>) {
     super(data);

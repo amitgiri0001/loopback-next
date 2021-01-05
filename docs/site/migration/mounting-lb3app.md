@@ -1,10 +1,15 @@
 ---
 lang: en
 title: 'Mounting a LoopBack 3 application'
-keywords: LoopBack 4.0, LoopBack 4, LoopBack 3, Migration
+keywords:
+  LoopBack 4.0, LoopBack 4, Node.js, TypeScript, OpenAPI, LoopBack 3, Migration
 sidebar: lb4_sidebar
 permalink: /doc/en/lb4/migration-mounting-lb3app.html
 ---
+
+{% include tip.html content="
+Missing instructions for your LoopBack 3 use case? Please report a [Migration docs issue](https://github.com/strongloop/loopback-next/issues/new?labels=question,Migration,Docs&template=Migration_docs.md) on GitHub to let us know.
+" %}
 
 Migrating from LoopBack version 3 to version 4 is a big task because so many
 things have changed between the versions. To make this process easier, we

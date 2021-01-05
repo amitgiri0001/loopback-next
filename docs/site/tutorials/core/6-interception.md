@@ -1,7 +1,7 @@
 ---
 lang: en
 title: 'Interception'
-keywords: LoopBack 4.0, LoopBack 4
+keywords: LoopBack 4.0, LoopBack 4, Node.js, TypeScript, OpenAPI
 sidebar: lb4_sidebar
 permalink: /doc/en/lb4/core-tutorial-part6.html
 ---
@@ -19,7 +19,7 @@ See more details in the
 In the
 [Greeter Application](https://github.com/strongloop/loopback-next/tree/master/examples/greeting-app),
 the
-CachingService](https://github.com/strongloop/loopback-next/blob/master/examples/greeting-app/src/caching-service.ts)
+[CachingService](https://github.com/strongloop/loopback-next/blob/master/examples/greeting-app/src/caching-service.ts)
 is being used for REST level caching, which is a common requirement for REST
 APIs. It uses the HTTP path URL as part of the caching key. If there are values
 matching the caching keys, the corresponding value in the cache will be used.

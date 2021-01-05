@@ -1,10 +1,10 @@
-// Copyright IBM Corp. 2018. All Rights Reserved.
+// Copyright IBM Corp. 2018,2020. All Rights Reserved.
 // Node module: @loopback/benchmark
 // This file is licensed under the MIT License.
 // License text available at https://opensource.org/licenses/MIT
 
-import * as assert from 'assert';
-const autocannon = require('autocannon');
+import assert from 'assert';
+import autocannon from 'autocannon';
 
 export interface EndpointStats {
   requestsPerSecond: number;
@@ -17,14 +17,19 @@ export class Autocannon {
   async execute(
     title: string,
     urlPath: string,
-    options?: object,
+    options: Omit<autocannon.Options, 'url'> = {},
   ): Promise<EndpointStats> {
-    const defaults = {
+    const config = {
       url: this.buildUrl(urlPath),
       duration: this.duration,
       title,
+      ...options,
+      headers: {
+        'content-type': 'application/json',
+        ...options.headers,
+      },
     };
-    const config = Object.assign(defaults, options);
+
     const data = await autocannon(config);
     assert.equal(
       data.non2xx,

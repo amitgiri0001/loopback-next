@@ -1,6 +1,6 @@
 {
   "name": "@loopback/sandbox-example",
-  "version": "1.0.9",
+  "version": "2.0.5",
   "description": "Sample project for sandbox",
   "main": "index.js",
   "private": true,
@@ -8,13 +8,14 @@
     "test": "echo \"This is an example for sandbox\""
   },
   "engines": {
-    "node": ">=8.9"
+    "node": "^10.16 || 12 || 14"
   },
   "author": "IBM Corp.",
   "copyright.owner": "IBM Corp.",
   "license": "MIT",
   "repository": {
     "type": "git",
-    "url": "https://github.com/strongloop/loopback-next.git"
+    "url": "https://github.com/strongloop/loopback-next.git",
+    "directory": "sandbox/example"
   }
 }

@@ -1,4 +1,4 @@
-// Copyright IBM Corp. 2018,2019. All Rights Reserved.
+// Copyright IBM Corp. 2018,2020. All Rights Reserved.
 // Node module: @loopback/cli
 // This file is licensed under the MIT License.
 // License text available at https://opensource.org/licenses/MIT
@@ -21,6 +21,8 @@ const props = {
 };
 const {expect} = require('@loopback/testlab');
 
+const {assertFilesToMatchSnapshot} = require('../../snapshots');
+
 const tests = require('../lib/project-generator')(
   generator,
   props,
@@ -37,60 +39,16 @@ describe('app-generator specific files', () => {
     return helpers.run(generator).withPrompts(props);
   });
   it('generates all the proper files', () => {
-    assert.file('src/application.ts');
-    assert.fileContent(
+    assertFilesToMatchSnapshot(
+      {},
+      'README.md',
       'src/application.ts',
-      /class MyAppApplication extends BootMixin\(/,
-    );
-    assert.fileContent(
-      'src/application.ts',
-      /ServiceMixin\(RepositoryMixin\(RestApplication\)\)/,
-    );
-    assert.fileContent('src/application.ts', /constructor\(/);
-    assert.fileContent('src/application.ts', /this.projectRoot = __dirname/);
-
-    assert.file('index.js');
-    assert.fileContent('index.js', /openApiSpec: {/);
-    assert.fileContent('index.js', /setServersFromRequest: true/);
-
-    assert.file('src/index.ts');
-    assert.fileContent('src/index.ts', /new MyAppApplication/);
-    assert.fileContent('src/index.ts', /await app.start\(\);/);
-
-    assert.file('src/controllers/ping.controller.ts');
-    assert.fileContent(
+      'src/sequence.ts',
+      'src/index.ts',
       'src/controllers/ping.controller.ts',
-      /export class PingController/,
-    );
-    assert.fileContent('src/controllers/ping.controller.ts', /@inject/);
-    assert.fileContent(
-      'src/controllers/ping.controller.ts',
-      /@get\('\/ping'\, \{/,
-    );
-    assert.fileContent('src/controllers/ping.controller.ts', /ping\(\)/);
-    assert.fileContent(
-      'src/controllers/ping.controller.ts',
-      /\'\@loopback\/rest\'/,
-    );
-    assert.fileContent(
       'src/__tests__/acceptance/ping.controller.acceptance.ts',
-      /describe\('PingController'/,
-    );
-    assert.fileContent(
       'src/__tests__/acceptance/home-page.acceptance.ts',
-      /describe\('HomePage'/,
-    );
-    assert.fileContent(
       'src/__tests__/acceptance/test-helper.ts',
-      /export async function setupApplication/,
-    );
-    assert.fileContent(
-      'src/__tests__/acceptance/test-helper.ts',
-      'process.env.HOST',
-    );
-    assert.fileContent(
-      'src/__tests__/acceptance/test-helper.ts',
-      '+process.env.PORT',
     );
     assert.jsonFileContent('.yo-rc.json', {
       '@loopback/cli': {
@@ -100,23 +58,20 @@ describe('app-generator specific files', () => {
   });
 
   it('generates database migration script', () => {
-    assert.fileContent(
-      'src/migrate.ts',
-      /import {MyAppApplication} from '\.\/application'/,
-    );
+    assertFilesToMatchSnapshot({}, 'src/migrate.ts');
+  });
 
+  it('generates openapi spec script', () => {
+    assertFilesToMatchSnapshot({}, 'src/openapi-spec.ts');
     assert.fileContent(
-      'src/migrate.ts',
-      /const app = new MyAppApplication\(\);/,
+      'package.json',
+      /"openapi-spec": "node \.\/dist\/openapi-spec"/,
     );
-
-    assert.fileContent('src/migrate.ts', /export async function migrate/);
+    assert.fileContent('package.json', /"preopenapi-spec": "npm run build"/);
   });
 
   it('generates docker files', () => {
-    assert.fileContent('Dockerfile', /FROM node:10-slim/);
-    assert.fileContent('.dockerignore', /node_modules/);
-    assert.fileContent('.dockerignore', '*.tsbuildinfo');
+    assertFilesToMatchSnapshot({}, 'Dockerfile', '.dockerignore');
 
     assert.fileContent('package.json', /"docker:build": "docker build/);
     assert.fileContent('package.json', /"docker:run": "docker run/);
@@ -125,17 +80,22 @@ describe('app-generator specific files', () => {
   it('creates npm script "clean"', () => {
     assert.fileContent(
       'package.json',
-      '"clean": "lb-clean dist *.tsbuildinfo"',
+      '"clean": "lb-clean dist *.tsbuildinfo .eslintcache"',
     );
   });
 
   it('creates npm script "migrate-db"', async () => {
     const pkg = JSON.parse(await readFile('package.json'));
     expect(pkg.scripts).to.have.property('migrate', 'node ./dist/migrate');
+    expect(pkg.scripts).to.have.property('premigrate', 'npm run build');
   });
 
   it('creates .gitignore', () => {
     assert.fileContent('.gitignore', /^\*\.tsbuildinfo$/m);
+  });
+
+  it('creates .mocharc.json', () => {
+    assertFilesToMatchSnapshot({}, '.mocharc.json');
   });
 });
 
@@ -163,22 +123,31 @@ describe('app-generator with --applicationName', () => {
       .withPrompts(props);
   });
   it('generates all the proper files', () => {
-    assert.file('src/application.ts');
-    assert.fileContent('src/application.ts', /class MyApp extends BootMixin\(/);
+    assertFilesToMatchSnapshot({}, 'src/application.ts');
   });
   it('generates the application with RepositoryMixin', () => {
-    assert.file('src/application.ts');
-    assert.fileContent(
-      'src/application.ts',
-      /RepositoryMixin\(RestApplication\)/,
-    );
+    assertFilesToMatchSnapshot({}, 'src/application.ts');
+  });
+});
+
+describe('app-generator with --apiconnect', () => {
+  before(() => {
+    return helpers
+      .run(generator)
+      .withOptions({apiconnect: true})
+      .withPrompts(props);
+  });
+  it('adds imports for ApiConnectComponent', () => {
+    assertFilesToMatchSnapshot({}, 'src/application.ts');
+    assert.fileContent('package.json', '"@loopback/apiconnect"');
   });
 });
 
 // The test takes about 1 min to install dependencies
 function testFormat() {
-  before(function() {
-    // eslint-disable-next-line no-invalid-this
+  before(createAppAndInstallDeps);
+  /** @this {Mocha.Context} */
+  function createAppAndInstallDeps() {
     this.timeout(90 * 1000);
     return helpers
       .run(generator)
@@ -189,13 +158,14 @@ function testFormat() {
         skipInstall: false,
         // Disable npm log and progress bar
         npmInstall: {silent: true, progress: false},
+        yarnInstall: {silent: true},
         // Disable npm stdio
         spawn: {
           stdio: 'ignore',
         },
       })
       .withPrompts(props);
-  });
+  }
   it('generates all the proper files', () => {
     assert.file('src/application.ts');
     assert.fileContent('src/application.ts', /class MyApp extends BootMixin\(/);
@@ -217,7 +187,7 @@ process.env.CI && !process.env.DEBUG
 
 /** For testing if the generator handles default values properly */
 describe('app-generator with default values', () => {
-  const rootDir = path.join(__dirname, '../../../..');
+  const rootDir = path.join(__dirname, '../../../../../');
   const defaultValProjPath = path.join(rootDir, 'sandbox/default-value-app');
   const sandbox = path.join(rootDir, 'sandbox');
   const pathToDefValApp = path.join(defaultValProjPath, 'default-value-app');
@@ -252,18 +222,61 @@ describe('app-generator with default values', () => {
   });
 });
 
+/** For testing if the app names with numbers are untouched */
+describe('app-generator with numbers in app name', () => {
+  const rootDir = path.join(__dirname, '../../../../../');
+  const defaultValProjPath = path.join(rootDir, 'sandbox/lb4-example');
+  const sandbox = path.join(rootDir, 'sandbox');
+  const pathToDefValApp = path.join(defaultValProjPath, 'lb4-example');
+  const cwd = process.cwd();
+  const defaultValProps = {
+    name: 'lb4-example',
+    description: 'An app to test out default values',
+    outdir: '',
+  };
+
+  before(async () => {
+    // lb4-example should not exist at this point
+    assert.equal(fs.existsSync(defaultValProjPath), false);
+    assert.equal(fs.existsSync(pathToDefValApp), false);
+    return (
+      helpers
+        .run(generator)
+        .inDir(defaultValProjPath)
+        // Mark it private to prevent accidental npm publication
+        .withOptions({private: true})
+        .withPrompts(defaultValProps)
+    );
+  });
+
+  it('scaffold a new app for lb4-example', async () => {
+    // lb4-example should be created at this point
+    assert.equal(fs.existsSync(pathToDefValApp), true);
+  });
+
+  after(() => {
+    process.chdir(sandbox);
+    build.clean(['node', 'run-clean', defaultValProjPath]);
+    process.chdir(cwd);
+  });
+});
+
 /** For testing the support of tilde path as the input of project path.
- * Use differnt paths to test out the support of `~` when the test runs outside of home dir.
+ * Use different paths to test out the support of `~` when the test runs outside of home dir.
  */
 describe('app-generator with tilde project path', () => {
-  const rootDir = path.join(__dirname, '../../../..');
+  const rootDir = path.join(__dirname, '../../../../../');
   // tildify the path:
   let sandbox = path.join(rootDir, 'sandbox/tilde-path-app');
   let pathWithTilde = tildify(sandbox);
   const cwd = process.cwd();
 
   // If the test runs outside $home directory
-  if (process.env.CI && !process.env.DEBUG && tildify(sandbox) === sandbox) {
+  const runsOutsideRoot =
+    process.env.CI && !process.env.DEBUG && tildify(sandbox) === sandbox
+      ? true
+      : false;
+  if (runsOutsideRoot) {
     sandbox = path.join(os.homedir(), '.lb4sandbox/tilde-path-app');
     pathWithTilde = '~/.lb4sandbox/tilde-path-app';
   }
@@ -273,9 +286,10 @@ describe('app-generator with tilde project path', () => {
     outdir: pathWithTilde,
   };
 
-  before(async function() {
+  before(givenScaffoldedApp);
+  /** @this {Mocha.Context} */
+  async function givenScaffoldedApp() {
     // Increase the timeout to accommodate slow CI build machines
-    // eslint-disable-next-line no-invalid-this
     this.timeout(30 * 1000);
     // check it with full path. tilde-path-app should not exist at this point
     assert.equal(fs.existsSync(sandbox), false);
@@ -285,18 +299,26 @@ describe('app-generator with tilde project path', () => {
       // Mark it private to prevent accidental npm publication
       .withOptions({private: true})
       .withPrompts(tildePathProps);
-  });
+  }
+
   it('scaffold a new application for tilde-path-app', async () => {
     // tilde-path-app should be created at this point
     assert.equal(fs.existsSync(sandbox), true);
   });
-  after(function() {
+
+  after(cleanup);
+  /** @this {Mocha.Context} */
+  function cleanup() {
     // Increase the timeout to accommodate slow CI build machines
-    // eslint-disable-next-line no-invalid-this
     this.timeout(30 * 1000);
 
-    process.chdir(sandbox);
+    // Handle special case - Skipping... not inside the project root directory.
+    if (runsOutsideRoot) {
+      process.chdir(sandbox);
+    } else {
+      process.chdir(rootDir);
+    }
     build.clean(['node', 'run-clean', sandbox]);
     process.chdir(cwd);
-  });
+  }
 });

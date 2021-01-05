@@ -1,10 +1,11 @@
-// Copyright IBM Corp. 2018. All Rights Reserved.
+// Copyright IBM Corp. 2019,2020. All Rights Reserved.
 // Node module: @loopback/benchmark
 // This file is licensed under the MIT License.
 // License text available at https://opensource.org/licenses/MIT
 
 import {expect} from '@loopback/testlab';
-import * as request from 'request-promise-native';
+import {Options} from 'autocannon';
+import axios, {AxiosRequestConfig, Method} from 'axios';
 import {Benchmark} from '..';
 import {Autocannon, EndpointStats} from '../autocannon';
 
@@ -15,10 +16,9 @@ const DUMMY_STATS: EndpointStats = {
   requestsPerSecond: 1000,
 };
 
-describe('Benchmark (SLOW)', function() {
-  // Unfortunately, the todo app requires one second to start
-  // eslint-disable-next-line no-invalid-this
-  this.timeout(5000);
+describe('Benchmark (SLOW)', function (this: Mocha.Suite) {
+  // Unfortunately, the todo app requires one second to start (or more on CI)
+  this.timeout(15000);
   it('works', async () => {
     const bench = new Benchmark();
     bench.cannonFactory = url => new AutocannonStub(url);
@@ -37,16 +37,15 @@ describe('Benchmark (SLOW)', function() {
     async execute(
       title: string,
       urlPath: string,
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      options?: any,
+      options?: Omit<Options, 'url'>,
     ): Promise<EndpointStats> {
       if (!options) options = {};
 
-      const requestOptions: request.OptionsWithUrl = {
+      const requestOptions: AxiosRequestConfig = {
         url: this.buildUrl(urlPath),
-        method: options.method || 'GET',
-        json: true,
-        body: options.body ? JSON.parse(options.body) : undefined,
+        method: (options.method ?? 'GET') as Method,
+        responseType: 'json',
+        data: options.body ? JSON.parse(options.body as string) : undefined,
       };
 
       debug(
@@ -56,7 +55,7 @@ describe('Benchmark (SLOW)', function() {
       );
 
       // Verify that the server is implementing the requested URL
-      await request(requestOptions);
+      await axios(requestOptions);
 
       return DUMMY_STATS;
     }

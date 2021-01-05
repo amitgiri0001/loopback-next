@@ -1,7 +1,9 @@
 ---
 title: Submitting a pull request to LoopBack 4
 lang: en
-keywords: contributing, LoopBack community, pull request, PR, loopback
+keywords:
+  LoopBack 4.0, LoopBack 4, Node.js, TypeScript, OpenAPI, Contributing, LoopBack
+  community, Pull request, PR
 sidebar: lb4_sidebar
 permalink: /doc/en/lb4/submitting_a_pr.html
 ---
@@ -29,6 +31,9 @@ request for LoopBack 4.
 
 ### 1. Commits to local repository
 
+You need to sign off each commit with DCO. See
+[details to sign off](https://loopback.io/doc/en/contrib/code-contrib.html#signing-off-commits-using-dco).
+
 Our commit messages are formatted according to
 [Conventional Commits](https://conventionalcommits.org/).
 
@@ -53,22 +58,14 @@ npm run lint:fix && npm test
 
 {% include note.html content="<b>npm run lint:fix</b> might reformat the source code and fix style issues. Be sure to add such changes to your commit." %}
 
-### 3. After creating PR, sign the CLA and fill out checklist
-
-After creating the pull request, make sure the Contributor License Agreement
-(CLA) has been signed for the `loopback-next` repository.
+### 3. After creating PR, fill out checklist
 
 The pull request has a checklist that must be filled out appropriately.
 
 ![submit_pr_template_1.png](./imgs/submit_pr_template_1.png)
 
-Of particular importance are the
-`'Read and sign the CLA (Contributor License Agreement)'` link and the
-`'npm test passes on your machine'` checkbox.
-
-Click on the
-[Read and sign the CLA (Contributor License Agreement)](https://cla.strongloop.com/agreements/strongloop/loopback-next)
-link, and sign it. This is done once per repository.
+Of particular importance are the `'How to sign off your commits with DCO'` link
+and the `'npm test passes on your machine'` checkbox.
 
 ### 4. Check CI status
 
@@ -205,6 +202,10 @@ git add  { relative path to file from root directory }
 When you are pleased with your staged changes, it is time to create a `commit`
 and give it a message.
 
+You need to sign off each commit with DCO. To sign off, you can use the `-s`
+flag or adding `Signed-off-By: Name<Email>` in the commit message. See
+[details to sign off](https://loopback.io/doc/en/contrib/code-contrib.html#signing-off-commits-using-dco).
+
 Our commit messages are formatted according to
 [Conventional Commits](https://conventionalcommits.org/).
 
@@ -214,7 +215,7 @@ guidelines to correctly format your commit messages.
 
 To help with abiding by the rules of commit messages, please use the
 `commitizen` tool mentioned in the documentation above. This means will we use
-`git cz` instead of `git commit`. Install `commitizen` by running
+`git cz -s` instead of `git commit -s`. Install `commitizen` by running
 `npm install -g commitizen`.
 
 In my case, I want the commit message to look like this:
@@ -229,7 +230,7 @@ This tutorial shows contributors step-by-step instructions on how to submit a pu
 To start `commitizen`, run:
 
 ```
-git cz
+git cz -s
 ```
 
 Follow the prompts for the various fields.
@@ -249,6 +250,8 @@ affects open issues : N
 
 The interactive `commitizen` prompts complete and the commit is created with a
 properly formatted message.
+
+{% include tip.html content="If you signed the commit but still get an error saying <b>`message must be signed off`</b>, you can add <b>`--no-verify`</b> in the <b>`git commit`</b> command. If you have to sign off existing commits in a PR with the <b>`git rebase`</b> command, make sure to use <b>`HUSKY_SKIP_HOOKS=1 git rebase -i ...`</b> to skip commit hooks as the signed-off-by rule may block you." %}
 
 ### 5. Push commits to the remote feature branch
 
@@ -352,30 +355,18 @@ the purpose of the pull request.
 
 There is `checklist` that must be appropriately filled out.
 
-Of particular importance are the
-`'Read and sign the CLA (Contributor License Agreement)'` link and the
-`'npm test passes on your machine'` checkbox. They are a `pre-condition` to your
-pull request being approved.
+Of particular importance are the `'How to sign off your commits with DCO'` link
+and the `'npm test passes on your machine'` checkbox. They are a `pre-condition`
+to your pull request being approved.
 
 Press the `Create pull request` button.
 
 The pull request is created.
 
-![submit_pr_create_pr_3.png](./imgs/submit_pr_create_pr_3.png)
-
 Some continuous integration (CI) jobs commence; ensure they complete
 successfully.
 
-### 8. Agree to the contributor license agreement (CLA)
-
-You must agree to the contributor license agreement (CLA) before the pull
-request can be `approved` and `merged` by the maintainers.
-
-In the checklist of your pull request, click on the
-[Read and sign the CLA (Contributor License Agreement)](https://cla.strongloop.com/agreements/strongloop/loopback-next)
-link, and sign it. This is done once per repository.
-
-### 9. PR review process
+### 8. PR review process
 
 Once your PR is created, the appropriate reviewer(s) will be notified. This is
 determined by the configuration settings in `/loopback-next/CODEOWNERS`.
@@ -391,7 +382,7 @@ request.
 
 ![submit_pr_pr_review_1.png](./imgs/submit_pr_pr_review_1.png)
 
-### 10. Final rebase and squashing of commits
+### 9. Final rebase and squashing of commits
 
 Once the pull request is finally approved, repeat the `Rebase` section;if
 necessary.
@@ -478,7 +469,17 @@ The remote feature branch and the pull request now have one commit.
 
 ![submit_pr_squash_commits_7.png](./imgs/submit_pr_squash_commits_7.png)
 
-### 11. Ensure CI jobs complete successfully
+If you find that you have commits in your PR that don't belong to you, run the
+following on your branch:
+
+```sh
+git fetch origin
+git rebase origin/master
+```
+
+Then push your branch again.
+
+### 10. Ensure CI jobs complete successfully
 
 The `post-condition` to your pull request being approved, is that all the
 continuous integration (CI) jobs complete successfully.
@@ -498,7 +499,7 @@ us to the Travis CI build page.
 
 Here you can investigate the status of the job, its sub-jobs, or restart them.
 
-### 12. Maintainer merges the pull request
+### 11. Maintainer merges the pull request
 
 When a project maintainer is satisfied with the pull request, he/she will
 `merge` it into the `master` branch of the `strongloop/loopback-next`
@@ -516,7 +517,7 @@ When a project maintainer is satisfied with the pull request, he/she will
 
 - [Commit Message Format](https://loopback.io/doc/en/lb4/code-contrib-lb4.html#commit-message-guidelines)
 
-- [Agreeing to the CLA](https://loopback.io/doc/en/contrib/code-contrib.html#agreeing-to-the-cla)
+- [Signing off commits using DCO](https://loopback.io/doc/en/contrib/code-contrib.html#signing-off-commits-using-dco)
 
 - [Collaborating with issues and pull requests](https://help.github.com/categories/collaborating-with-issues-and-pull-requests/)
 

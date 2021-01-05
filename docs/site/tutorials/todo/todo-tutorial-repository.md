@@ -1,7 +1,7 @@
 ---
 lang: en
 title: 'Add a Repository'
-keywords: LoopBack 4.0, LoopBack 4
+keywords: LoopBack 4.0, LoopBack 4, Node.js, TypeScript, OpenAPI, Tutorial
 sidebar: lb4_sidebar
 permalink: /doc/en/lb4/todo-tutorial-repository.html
 summary: LoopBack 4 Todo Application Tutorial - Add a Repository
@@ -20,7 +20,7 @@ strong-typed data access (for example, CRUD) operations of a domain model
 against the underlying database or service.
 
 For more information about Repositories, see
-[Repositories](https://loopback.io/doc/en/lb4/Repositories.html).
+[Repositories](../../Repository.md).
 
 ### Create your repository
 
@@ -33,10 +33,10 @@ list of available datasources.
 lb4 repository
 ? Please select the datasource DbDatasource
 ? Select the model(s) you want to generate a repository Todo
+? Please select the repository base class DefaultCrudRepository (Juggler bridge)
+
    create src/repositories/todo.repository.ts
    update src/repositories/index.ts
-? Please select the repository base class DefaultCrudRepository (Legacy juggler
-bridge)
 
 Repository TodoRepository was created in src/repositories/
 ```
@@ -49,6 +49,9 @@ are needed to perform CRUD operations for our to-do model. It leverages the Todo
 model definition and 'db' datasource configuration and retrieves the datasource
 using
 [Dependency Injection](https://loopback.io/doc/en/lb4/Dependency-injection.html).
+
+To view the completed file, see the
+[`Todo` example](https://github.com/strongloop/loopback-next/blob/master/examples/todo/src/repositories/todo.repository.ts).
 
 Now we can expose the `Todo` API through the
 [controller](todo-tutorial-controller.md).

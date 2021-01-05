@@ -1,10 +1,10 @@
-// Copyright IBM Corp. 2019. All Rights Reserved.
+// Copyright IBM Corp. 2019,2020. All Rights Reserved.
 // Node module: @loopback/authentication
 // This file is licensed under the MIT License.
 // License text available at https://opensource.org/licenses/MIT
 
 import {Request} from '@loopback/rest';
-import {UserProfile} from '@loopback/security';
+import {securityId, UserProfile} from '@loopback/security';
 import {AuthenticationStrategy} from '../../../types';
 
 class AuthenticationError extends Error {
@@ -15,7 +15,7 @@ class AuthenticationError extends Error {
  * Test fixture for a mock asynchronous authentication strategy
  */
 export class MockStrategy implements AuthenticationStrategy {
-  name: 'MockStrategy';
+  name = 'MockStrategy';
   // user to return for successful authentication
   private mockUser: UserProfile;
 
@@ -27,7 +27,7 @@ export class MockStrategy implements AuthenticationStrategy {
     return this.mockUser;
   }
 
-  async authenticate(req: Request): Promise<UserProfile> {
+  async authenticate(req: Request): Promise<UserProfile | undefined> {
     return this.verify(req);
   }
   /**
@@ -39,21 +39,26 @@ export class MockStrategy implements AuthenticationStrategy {
    * pass req.query.testState = 'error' to mock unexpected error
    */
   async verify(request: Request) {
-    if (
-      request.headers &&
-      request.headers.testState &&
-      request.headers.testState === 'fail'
-    ) {
+    if (request.headers?.testState === 'fail') {
       const err = new AuthenticationError('authorization failed');
       err.statusCode = 401;
       throw err;
-    } else if (
-      request.headers &&
-      request.headers.testState &&
-      request.headers.testState === 'error'
-    ) {
+    } else if (request.headers?.testState === 'empty') {
+      return;
+    } else if (request.headers?.testState === 'error') {
       throw new Error('unexpected error');
     }
     return this.returnMockUser();
+  }
+}
+
+export class MockStrategy2 implements AuthenticationStrategy {
+  name = 'MockStrategy2';
+
+  async authenticate(request: Request): Promise<UserProfile | undefined> {
+    if (request.headers?.testState2 === 'fail') {
+      throw new AuthenticationError();
+    }
+    return {[securityId]: 'mock-id'};
   }
 }

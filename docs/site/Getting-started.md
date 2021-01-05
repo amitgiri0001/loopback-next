@@ -1,7 +1,7 @@
 ---
 lang: en
 title: 'Getting started'
-keywords: LoopBack 4.0, LoopBack 4
+keywords: LoopBack 4.0, LoopBack 4, Node.js, TypeScript, OpenAPI
 sidebar: lb4_sidebar
 permalink: /doc/en/lb4/Getting-started.html
 summary: Write and run a LoopBack 4 "Hello World" project in TypeScript.
@@ -9,7 +9,7 @@ summary: Write and run a LoopBack 4 "Hello World" project in TypeScript.
 
 ## Prerequisites
 
-Install [Node.js](https://nodejs.org/en/download/) (version 8.9 or higher) if it
+Install [Node.js](https://nodejs.org/en/download/) (version 10 or higher) if it
 is not already installed on your machine.
 
 ## Install LoopBack 4 CLI
@@ -67,7 +67,7 @@ In a browser, visit <http://127.0.0.1:3000/ping>.
 ## Adding your own controller
 
 Now that we have a basic project created, it's time to add our own
-[controller](Controllers.md). Let's add a simple "Hello World" controller as
+[controller](Controller.md). Let's add a simple "Hello World" controller as
 follows:
 
 ```sh

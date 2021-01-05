@@ -1,14 +1,16 @@
 {
   "name": "@loopback/context",
-  "version": "1.23.5",
-  "description": "LoopBack's container for Inversion of Control",
+  "version": "3.13.2",
+  "description": "Facilities to manage artifacts and their dependencies in your Node.js applications. The module exposes TypeScript/JavaScript APIs and decorators to register artifacts, declare dependencies, and resolve artifacts by keys. It also serves as an IoC container to support dependency injection",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
   "engines": {
-    "node": ">=8.9"
+    "node": "^10.16 || 12 || 14"
   },
   "scripts": {
     "acceptance": "lb-mocha \"dist/__tests__/acceptance/**/*.js\"",
     "build": "lb-tsc",
-    "clean": "lb-clean loopback-context*.tgz dist tsconfig.build.tsbuildinfo package",
+    "clean": "lb-clean loopback-context*.tgz dist *.tsbuildinfo package",
     "pretest": "npm run build",
     "test": "lb-mocha \"dist/__tests__/**/*.js\"",
     "unit": "lb-mocha \"dist/__tests__/unit/**/*.js\"",
@@ -17,21 +19,26 @@
   "author": "IBM Corp.",
   "copyright.owner": "IBM Corp.",
   "license": "MIT",
+  "publishConfig": {
+    "access": "public"
+  },
   "dependencies": {
-    "@loopback/metadata": "^1.3.7",
-    "debug": "^4.1.1",
-    "p-event": "^4.1.0",
-    "uuid": "^3.3.3"
+    "@loopback/metadata": "^3.0.5",
+    "@types/debug": "^4.1.5",
+    "debug": "^4.3.1",
+    "hyperid": "^2.1.0",
+    "p-event": "^4.2.0",
+    "tslib": "^2.0.3",
+    "uuid": "^8.3.2"
   },
   "devDependencies": {
-    "@loopback/build": "^2.0.16",
-    "@loopback/eslint-config": "^4.1.4",
-    "@loopback/testlab": "^1.9.4",
-    "@types/bluebird": "^3.5.29",
-    "@types/debug": "^4.1.5",
-    "@types/node": "^10.17.5",
-    "@types/uuid": "^3.4.6",
-    "bluebird": "^3.7.1"
+    "@loopback/build": "^6.2.8",
+    "@loopback/eslint-config": "^10.0.4",
+    "@loopback/testlab": "^3.2.10",
+    "@types/bluebird": "^3.5.33",
+    "@types/node": "^10.17.35",
+    "@types/uuid": "^8.3.0",
+    "bluebird": "^3.7.2"
   },
   "keywords": [
     "LoopBack",
@@ -44,8 +51,6 @@
   ],
   "files": [
     "README.md",
-    "index.js",
-    "index.d.ts",
     "dist",
     "src",
     "!*/__tests__"

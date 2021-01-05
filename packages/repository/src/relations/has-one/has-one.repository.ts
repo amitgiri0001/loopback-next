@@ -1,13 +1,13 @@
-// Copyright IBM Corp. 2018,2019. All Rights Reserved.
+// Copyright IBM Corp. 2018,2020. All Rights Reserved.
 // Node module: @loopback/repository
 // This file is licensed under the MIT License.
 // License text available at https://opensource.org/licenses/MIT
 
-import {Getter} from '@loopback/context';
+import {Getter} from '@loopback/core';
+import {Filter} from '@loopback/filter';
 import {Count, DataObject, Options} from '../../common-types';
 import {EntityNotFoundError} from '../../errors';
 import {Entity} from '../../model';
-import {Filter} from '../../query';
 import {
   constrainDataObject,
   constrainFilter,
@@ -34,7 +34,8 @@ export interface HasOneRepository<Target extends Entity> {
    * Find the only target model instance that belongs to the declaring model.
    * @param filter - Query filter without a Where condition
    * @param options - Options for the operations
-   * @returns A promise of the target object or null if not found.
+   * @returns A promise resolved with the target object or rejected
+   * with an EntityNotFoundError when target model instance was not found.
    */
   get(
     filter?: Pick<Filter<Target>, Exclude<keyof Filter<Target>, 'where'>>,

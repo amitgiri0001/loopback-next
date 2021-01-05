@@ -1,16 +1,18 @@
-// Copyright IBM Corp. 2019. All Rights Reserved.
+// Copyright IBM Corp. 2019,2020. All Rights Reserved.
 // Node module: @loopback/tsdocs
 // This file is licensed under the MIT License.
 // License text available at https://opensource.org/licenses/MIT
 
-import * as debugFactory from 'debug';
-import * as fs from 'fs-extra';
-import * as path from 'path';
+import debugFactory from 'debug';
+import fs from 'fs-extra';
+import path from 'path';
 import {
   ApiDocsOptions,
   DEFAULT_APIDOCS_EXTRACTION_PATH,
   DEFAULT_APIDOCS_GENERATION_PATH,
   getPackagesWithTsDocs,
+  getUnscopedPackageName,
+  LernaPackage,
 } from './helper';
 
 const debug = debugFactory('loopback:tsdocs');
@@ -35,6 +37,14 @@ export async function updateApiDocs(options: ApiDocsOptions = {}) {
 
   /* istanbul ignore if  */
   if (!packages.length) return;
+
+  const packagesByName: Record<string, LernaPackage> = {};
+
+  for (const pkg of packages) {
+    packagesByName[getUnscopedPackageName(pkg.name)] = pkg;
+  }
+
+  options.lernaPackages = packagesByName;
 
   const found = await addJekyllMetadata(packages[0].rootPath, options);
   if (found) {
@@ -76,6 +86,21 @@ async function addJekyllMetadata(
     const docFile = path.join(apiDocsRoot, f);
     let doc = await fs.readFile(docFile, 'utf-8');
 
+    const pkgName = name.split('.')[0];
+    // Calculate the relative uri for the package
+    let relativeUri = `packages/${pkgName}`;
+    const pkg = options.lernaPackages?.[pkgName];
+    if (pkg != null) {
+      relativeUri = path
+        .relative(pkg.rootPath, pkg.location)
+        .split(path.sep) // On Windows, the relative path has `\`
+        .join('/');
+    }
+    const pkgUrl =
+      f === 'index.md'
+        ? 'https://github.com/strongloop/loopback-next'
+        : `https://github.com/strongloop/loopback-next/tree/master/${relativeUri}`;
+
     if (isPackage && options.generateDefaultPackageDoc) {
       const modelFile = path.join(
         path.join(
@@ -93,7 +118,7 @@ async function addJekyllMetadata(
       const model = await fs.readJson(modelFile, {encoding: 'utf-8'});
       debug('Package %s', name, model);
       if (model.kind === 'Package' && !model.docComment) {
-        const pkgDoc = `[${model.name}](https://github.com/strongloop/loopback-next/tree/master/packages/${name})`;
+        const pkgDoc = `[${model.name}](${pkgUrl})`;
         doc = doc.replace(
           `## ${name} package`,
           `## ${name} package\n\n${pkgDoc}`,
@@ -104,8 +129,9 @@ async function addJekyllMetadata(
     doc = `---
 lang: en
 title: 'API docs: ${name}'
-keywords: LoopBack 4.0, LoopBack 4
+keywords: LoopBack 4.0, LoopBack 4, Node.js, TypeScript, OpenAPI
 sidebar: lb4_sidebar
+editurl: ${pkgUrl}
 permalink: /doc/en/lb4/apidocs.${name}.html
 ---
 

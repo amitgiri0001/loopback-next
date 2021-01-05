@@ -1,7 +1,7 @@
 ---
 lang: en
 title: 'Add TodoList Model'
-keywords: LoopBack 4.0, LoopBack 4
+keywords: LoopBack 4.0, LoopBack 4, Node.js, TypeScript, OpenAPI, Tutorial
 sidebar: lb4_sidebar
 permalink: /doc/en/lb4/todo-list-tutorial-model.html
 summary: LoopBack 4 TodoList Application Tutorial - Add TodoList Model
@@ -31,7 +31,7 @@ for us as follows:
 ```sh
 $ lb4 model
 ? Model class name: TodoList
-? Please select the model base class Entity
+? Please select the model base class Entity (A persisted model with an ID)
 ? Allow additional (free-form) properties? No
 Model TodoList will be created in src/models/todo-list.model.ts
 
@@ -41,14 +41,16 @@ Enter an empty property name when done
 ? Enter the property name: id
 ? Property type: number
 ? Is id the ID property? Yes
-? Is id generated automatically? Yes
+? Is id generated automatically? No
+? Is it required?: No
+? Default value [leave blank for none]:
 
 Let's add another property to TodoList
 Enter an empty property name when done
 
 ? Enter the property name: title
 ? Property type: string
-? Required?: Yes
+? Is it required?: Yes
 ? Default value [leave blank for none]:
 
 Let's add another property to TodoList
@@ -56,7 +58,7 @@ Enter an empty property name when done
 
 ? Enter the property name: color
 ? Property type: string
-? Required?: No
+? Is it required?: No
 ? Default value [leave blank for none]:
 
 Let's add another property to TodoList
@@ -69,11 +71,15 @@ Enter an empty property name when done
 Model TodoList was created in src/models/
 ```
 
+To view the completed file, see the
+[`TodoList` example](https://github.com/strongloop/loopback-next/blob/master/examples/todo-list/src/models/todo-list.model.ts).
+
 Once the models have been completely configured, it's time to move on to adding
 a [repository](todo-list-tutorial-repository.md) for `TodoList`.
 
 ### Navigation
 
-Introduction: [TodoList Tutorial](todo-list-tutorial.md)
+Introduction:
+[TodoList Tutorial](https://loopback.io/doc/en/lb4/todo-list-tutorial.html)
 
 Next step: [Add TodoList repository](todo-list-tutorial-repository.md)

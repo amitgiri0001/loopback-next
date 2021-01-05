@@ -1,9 +1,9 @@
-// Copyright IBM Corp. 2018,2019. All Rights Reserved.
+// Copyright IBM Corp. 2018,2020. All Rights Reserved.
 // Node module: @loopback/repository
 // This file is licensed under the MIT License.
 // License text available at https://opensource.org/licenses/MIT
 
-import {PropertyDecoratorFactory} from '@loopback/context';
+import {PropertyDecoratorFactory} from '@loopback/core';
 import {buildModelDefinition} from '../decorators';
 import {Model, RelationDefinitionMap} from '../model';
 import {RelationType} from './relation.types';
@@ -33,7 +33,7 @@ export function getModelRelations(
 ): RelationDefinitionMap {
   // Build model definitions if `@model` is missing
   const modelDef = buildModelDefinition(modelCtor);
-  return (modelDef && modelDef.relations) || {};
+  return modelDef?.relations || {};
 }
 
 //

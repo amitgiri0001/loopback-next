@@ -1,4 +1,4 @@
-// Copyright IBM Corp. 2019. All Rights Reserved.
+// Copyright IBM Corp. 2019,2020. All Rights Reserved.
 // Node module: @loopback/cli
 // This file is licensed under the MIT License.
 // License text available at https://opensource.org/licenses/MIT
@@ -8,6 +8,7 @@
 const path = require('path');
 const assert = require('yeoman-assert');
 const testlab = require('@loopback/testlab');
+const {expectFileToMatchSnapshot} = require('../../snapshots');
 const expect = testlab.expect;
 const TestSandbox = testlab.TestSandbox;
 const generator = path.join(__dirname, '../../../generators/relation');
@@ -16,16 +17,14 @@ const SANDBOX_FILES4 = require('../../fixtures/relation').SANDBOX_FILES4;
 const testUtils = require('../../test-utils');
 
 // Test Sandbox
-const SANDBOX_PATH = path.resolve(__dirname, '..', '.sandbox');
 const CONTROLLER_PATH = 'src/controllers';
-const sandbox = new TestSandbox(SANDBOX_PATH);
+const sandbox = new TestSandbox(path.resolve(__dirname, '../.sandbox'));
 
 // In this test suite, we test scenarios that apply to all relation types
 // See `relation-{type}.integration.ts` files for test cases specific
 // to different relation types.
 
-describe('lb4 relation', function() {
-  // eslint-disable-next-line no-invalid-this
+describe('lb4 relation', /** @this {Mocha.Suite} */ function () {
   this.timeout(30000);
 
   beforeEach('reset sandbox', async () => {
@@ -37,8 +36,8 @@ describe('lb4 relation', function() {
       return expect(
         testUtils
           .executeGenerator(generator)
-          .inDir(SANDBOX_PATH, () =>
-            testUtils.givenLBProject(SANDBOX_PATH, {
+          .inDir(sandbox.path, () =>
+            testUtils.givenLBProject(sandbox.path, {
               additionalFiles: SANDBOX_FILES,
             }),
           )
@@ -53,8 +52,8 @@ describe('lb4 relation', function() {
       return expect(
         testUtils
           .executeGenerator(generator)
-          .inDir(SANDBOX_PATH, () =>
-            testUtils.givenLBProject(SANDBOX_PATH, {
+          .inDir(sandbox.path, () =>
+            testUtils.givenLBProject(sandbox.path, {
               additionalFiles: SANDBOX_FILES,
             }),
           )
@@ -68,8 +67,8 @@ describe('lb4 relation', function() {
       return expect(
         testUtils
           .executeGenerator(generator)
-          .inDir(SANDBOX_PATH, () =>
-            testUtils.givenLBProject(SANDBOX_PATH, {
+          .inDir(sandbox.path, () =>
+            testUtils.givenLBProject(sandbox.path, {
               additionalFiles: SANDBOX_FILES,
             }),
           )
@@ -85,8 +84,8 @@ describe('lb4 relation', function() {
       return expect(
         testUtils
           .executeGenerator(generator)
-          .inDir(SANDBOX_PATH, () =>
-            testUtils.givenLBProject(SANDBOX_PATH, {
+          .inDir(sandbox.path, () =>
+            testUtils.givenLBProject(sandbox.path, {
               additionalFiles: SANDBOX_FILES,
             }),
           )
@@ -100,8 +99,8 @@ describe('lb4 relation', function() {
       return expect(
         testUtils
           .executeGenerator(generator)
-          .inDir(SANDBOX_PATH, () =>
-            testUtils.givenLBProject(SANDBOX_PATH, {
+          .inDir(sandbox.path, () =>
+            testUtils.givenLBProject(sandbox.path, {
               additionalFiles: SANDBOX_FILES,
             }),
           )
@@ -120,8 +119,8 @@ describe('lb4 relation', function() {
       return expect(
         testUtils
           .executeGenerator(generator)
-          .inDir(SANDBOX_PATH, () =>
-            testUtils.givenLBProject(SANDBOX_PATH, {
+          .inDir(sandbox.path, () =>
+            testUtils.givenLBProject(sandbox.path, {
               additionalFiles: SANDBOX_FILES,
             }),
           )
@@ -140,14 +139,14 @@ describe('lb4 relation', function() {
 
       await testUtils
         .executeGenerator(generator)
-        .inDir(SANDBOX_PATH, () =>
-          testUtils.givenLBProject(SANDBOX_PATH, {
+        .inDir(sandbox.path, () =>
+          testUtils.givenLBProject(sandbox.path, {
             additionalFiles: SANDBOX_FILES,
           }),
         )
         .withPrompts(prompt);
       const expectedControllerIndexFile = path.join(
-        SANDBOX_PATH,
+        sandbox.path,
         CONTROLLER_PATH,
         'index.ts',
       );
@@ -169,14 +168,14 @@ describe('lb4 relation', function() {
 
       await testUtils
         .executeGenerator(generator)
-        .inDir(SANDBOX_PATH, () =>
-          testUtils.givenLBProject(SANDBOX_PATH, {
+        .inDir(sandbox.path, () =>
+          testUtils.givenLBProject(sandbox.path, {
             additionalFiles: SANDBOX_FILES4,
           }),
         )
         .withPrompts(prompt);
       const expectedControllerIndexFile = path.join(
-        SANDBOX_PATH,
+        sandbox.path,
         CONTROLLER_PATH,
         'index.ts',
       );
@@ -185,6 +184,9 @@ describe('lb4 relation', function() {
         expectedControllerIndexFile,
         "export * from './order-customer.controller';\n",
       );
+
+      assert.file(expectedControllerIndexFile);
+      expectFileToMatchSnapshot(expectedControllerIndexFile);
     });
   });
 });

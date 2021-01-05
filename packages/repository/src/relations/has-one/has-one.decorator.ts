@@ -1,4 +1,4 @@
-// Copyright IBM Corp. 2018,2019. All Rights Reserved.
+// Copyright IBM Corp. 2018,2020. All Rights Reserved.
 // Node module: @loopback/repository
 // This file is licensed under the MIT License.
 // License text available at https://opensource.org/licenses/MIT
@@ -18,7 +18,7 @@ export function hasOne<T extends Entity>(
   targetResolver: EntityResolver<T>,
   definition?: Partial<HasOneDefinition>,
 ) {
-  return function(decoratedTarget: object, key: string) {
+  return function (decoratedTarget: object, key: string) {
     // property.array(targetResolver)(decoratedTarget, key);
 
     const meta: HasOneDefinition = Object.assign(

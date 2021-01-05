@@ -1,9 +1,11 @@
-// Copyright IBM Corp. 2019. All Rights Reserved.
+// Copyright IBM Corp. 2019,2020. All Rights Reserved.
 // Node module: @loopback/repository-json-schema
 // This file is licensed under the MIT License.
 // License text available at https://opensource.org/licenses/MIT
 
 import {
+  Entity,
+  hasMany,
   Model,
   model,
   property,
@@ -15,6 +17,7 @@ import {expect} from '@loopback/testlab';
 import {
   buildModelCacheKey,
   getNavigationalPropertyForRelation,
+  JsonSchema,
   metaToJsonProperty,
   modelToJsonSchema,
   stringTypeToWrapper,
@@ -48,8 +51,12 @@ describe('build-schema', () => {
         expect(stringTypeToWrapper('date')).to.eql(Date);
       });
 
-      it('returns Object for "object"', () => {
+      it('returns  for "object"', () => {
         expect(stringTypeToWrapper('object')).to.eql(Object);
+      });
+
+      it('returns AnyType for "any"', () => {
+        expect(stringTypeToWrapper('any')).to.eql(Object);
       });
     });
 
@@ -64,12 +71,6 @@ describe('build-schema', () => {
   });
 
   describe('metaToJsonSchema', () => {
-    it('errors out if "itemType" is an array', () => {
-      expect(() => metaToJsonProperty({type: Array, itemType: []})).to.throw(
-        /itemType as an array is not supported/,
-      );
-    });
-
     it('converts Boolean', () => {
       expect(metaToJsonProperty({type: Boolean})).to.eql({
         type: 'boolean',
@@ -176,6 +177,10 @@ describe('build-schema', () => {
       });
     });
 
+    it('converts type any', () => {
+      expect(metaToJsonProperty({type: 'any'})).to.eql({});
+    });
+
     it('keeps description on property', () => {
       expect(metaToJsonProperty({type: String, description: 'test'})).to.eql({
         type: 'string',
@@ -205,6 +210,39 @@ describe('build-schema', () => {
   });
 
   describe('modelToJsonSchema', () => {
+    it('allows jsonSchema in model definition', () => {
+      @model({
+        jsonSchema: {
+          title: 'report-state',
+          required: ['color'],
+        } as JsonSchema,
+      })
+      class ReportState extends Model {
+        @property({
+          type: 'string',
+        })
+        benchmarkId?: string;
+
+        @property({
+          type: 'string',
+        })
+        color: string;
+
+        constructor(data?: Partial<ReportState>) {
+          super(data);
+        }
+      }
+      const schema = modelToJsonSchema(ReportState, {});
+      expect(schema.properties).to.containEql({
+        benchmarkId: {type: 'string'},
+        color: {type: 'string'},
+      });
+      expect(schema.required).to.eql(['color']);
+      expect(schema.title).to.eql('report-state');
+      // No circular references in definitions
+      expect(schema.definitions).to.be.undefined();
+    });
+
     it('allows recursive model definition', () => {
       @model()
       class ReportState extends Model {
@@ -236,6 +274,239 @@ describe('build-schema', () => {
       });
       // No circular references in definitions
       expect(schema.definitions).to.be.undefined();
+    });
+
+    it('relation model definition does not inherit title from source model', () => {
+      @model()
+      class Child extends Entity {
+        @property({
+          type: 'string',
+        })
+        name?: string;
+      }
+      @model()
+      class Parent extends Entity {
+        @hasMany(() => Child)
+        children: Child[];
+
+        @property({
+          type: 'string',
+        })
+        benchmarkId?: string;
+
+        @property({
+          type: 'string',
+        })
+        color?: string;
+
+        constructor(data?: Partial<Parent>) {
+          super(data);
+        }
+      }
+      const schema = modelToJsonSchema(Parent, {
+        title: 'ParentWithItsChildren',
+        includeRelations: true,
+      });
+      expect(schema.properties).to.containEql({
+        children: {
+          type: 'array',
+          // The reference here should be `ChildWithRelations`,
+          // instead of `ParentWithItsChildren`
+          items: {$ref: '#/definitions/ChildWithRelations'},
+        },
+        benchmarkId: {type: 'string'},
+        color: {type: 'string'},
+      });
+      // The recursive calls should NOT inherit
+      // `title` from the previous call's `options`.
+      // So the `title` here is `ChildWithRelations`
+      // instead of `ParentWithItsChildren`.
+      expect(schema.definitions).to.containEql({
+        ChildWithRelations: {
+          title: 'ChildWithRelations',
+          type: 'object',
+          description:
+            '(tsType: ChildWithRelations, schemaOptions: { includeRelations: true })',
+          properties: {name: {type: 'string'}},
+          additionalProperties: false,
+        },
+      });
+    });
+
+    it('property definition does not inherit title from model', () => {
+      @model()
+      class Child extends Entity {
+        @property({
+          type: 'string',
+        })
+        name?: string;
+      }
+      @model()
+      class Parent extends Entity {
+        @property.array(Child)
+        children: Child[];
+
+        @property({
+          type: 'string',
+        })
+        benchmarkId?: string;
+
+        @property({
+          type: 'string',
+        })
+        color?: string;
+
+        constructor(data?: Partial<Parent>) {
+          super(data);
+        }
+      }
+      const schema = modelToJsonSchema(Parent, {
+        title: 'ParentWithPropertyChildren',
+      });
+      expect(schema.properties).to.containEql({
+        children: {
+          type: 'array',
+          // The reference here should be `Child`,
+          // instead of `ParentWithPropertyChildren`
+          items: {$ref: '#/definitions/Child'},
+        },
+        benchmarkId: {type: 'string'},
+        color: {type: 'string'},
+      });
+      // The recursive calls should NOT inherit
+      // `title` from the previous call's `options`.
+      // So the `title` here is `Child`
+      // instead of `ParentWithPropertyChildren`.
+      expect(schema.definitions).to.containEql({
+        Child: {
+          title: 'Child',
+          type: 'object',
+          properties: {name: {type: 'string'}},
+          additionalProperties: false,
+        },
+      });
+    });
+
+    it('allows model inheritance', () => {
+      @model()
+      class User {
+        @property({id: true})
+        id: string;
+
+        @property({
+          type: 'string',
+          required: true,
+        })
+        name: string;
+      }
+
+      @model()
+      class NewUser extends User {
+        @property({
+          type: 'string',
+          required: true,
+        })
+        password: string;
+      }
+
+      const userSchema = modelToJsonSchema(User, {});
+      expect(userSchema).to.eql({
+        title: 'User',
+        type: 'object',
+        properties: {id: {type: 'string'}, name: {type: 'string'}},
+        required: ['name'],
+        additionalProperties: false,
+      });
+      const newUserSchema = modelToJsonSchema(NewUser, {});
+      expect(newUserSchema).to.eql({
+        title: 'NewUser',
+        type: 'object',
+        properties: {
+          id: {type: 'string'},
+          name: {type: 'string'},
+          password: {type: 'string'},
+        },
+        required: ['name', 'password'],
+        additionalProperties: false,
+      });
+    });
+
+    it('allows nesting models', () => {
+      @model()
+      class Address {
+        @property()
+        street: string;
+
+        @property()
+        city: string;
+
+        @property()
+        state: string;
+      }
+
+      @model()
+      class Email {
+        @property()
+        label: string;
+
+        @property()
+        id: string;
+      }
+
+      @model()
+      class User {
+        @property({id: true})
+        id: string;
+
+        @property({
+          type: 'string',
+          required: true,
+        })
+        name: string;
+
+        @property({
+          type: Address,
+        })
+        address?: Address;
+
+        @property.array(Email)
+        emails: Email[];
+      }
+
+      const userSchema = modelToJsonSchema(User, {});
+      expect(userSchema).to.eql({
+        title: 'User',
+        type: 'object',
+        properties: {
+          id: {type: 'string'},
+          name: {type: 'string'},
+          address: {$ref: '#/definitions/Address'},
+          emails: {type: 'array', items: {$ref: '#/definitions/Email'}},
+        },
+        required: ['name'],
+        definitions: {
+          Address: {
+            title: 'Address',
+            type: 'object',
+            properties: {
+              street: {type: 'string'},
+              city: {type: 'string'},
+              state: {type: 'string'},
+            },
+            additionalProperties: false,
+          },
+          Email: {
+            title: 'Email',
+            type: 'object',
+            properties: {
+              label: {type: 'string'},
+              id: {type: 'string'},
+            },
+            additionalProperties: false,
+          },
+        },
+        additionalProperties: false,
+      });
     });
   });
 

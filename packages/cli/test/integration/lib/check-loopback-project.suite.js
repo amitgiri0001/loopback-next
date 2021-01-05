@@ -1,4 +1,4 @@
-// Copyright IBM Corp. 2019. All Rights Reserved.
+// Copyright IBM Corp. 2019,2020. All Rights Reserved.
 // Node module: @loopback/cli
 // This file is licensed under the MIT License.
 // License text available at https://opensource.org/licenses/MIT
@@ -70,6 +70,26 @@ module.exports = function suiteCheckLoopBackProject(generator) {
     testCheckLoopBack(
       'throws an error if "@loopback/core" is not a dependency',
       {dependencies: {}},
+      /No `@loopback\/core` package found/,
+    );
+
+    testCheckLoopBack(
+      'throws an error if "@loopback/core" is only a dev dependency',
+      {
+        devDependencies: {
+          '@loopback/core': coreVer,
+        },
+      },
+      /No `@loopback\/core` package found/,
+    );
+
+    testCheckLoopBack(
+      'throws an error if "@loopback/core" is only a peer dependency',
+      {
+        peerDependencies: {
+          '@loopback/core': coreVer,
+        },
+      },
       /No `@loopback\/core` package found/,
     );
 
@@ -196,6 +216,50 @@ module.exports = function suiteCheckLoopBackProject(generator) {
       await gen.checkLoopBackProject();
     });
 
+    testCheckLoopBack(
+      'passes if "@loopback/core" is a dependency',
+      {
+        dependencies: {
+          '@loopback/core': coreVer,
+        },
+      },
+      [],
+      {command: 'update'},
+    );
+
+    testCheckLoopBack(
+      'passes if "@loopback/context" is a dependency',
+      {
+        dependencies: {
+          '@loopback/context': contextVer,
+        },
+      },
+      [],
+      {command: 'update'},
+    );
+
+    testCheckLoopBack(
+      'passes if "@loopback/core" is a dev dependency',
+      {
+        devDependencies: {
+          '@loopback/core': coreVer,
+        },
+      },
+      [],
+      {command: 'update'},
+    );
+
+    testCheckLoopBack(
+      'passes if "@loopback/core" is a peer dependency',
+      {
+        peerDependencies: {
+          '@loopback/core': coreVer,
+        },
+      },
+      [],
+      {command: 'update'},
+    );
+
     function testCheckLoopBack(
       testName,
       obj,
@@ -204,7 +268,7 @@ module.exports = function suiteCheckLoopBackProject(generator) {
     ) {
       it(testName, async () => {
         let logs = [];
-        gen.log = function(...args) {
+        gen.log = function (...args) {
           logs = logs.concat(args);
         };
         gen.command = options.command;

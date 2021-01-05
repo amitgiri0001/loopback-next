@@ -1,9 +1,9 @@
-// Copyright IBM Corp. 2018,2019. All Rights Reserved.
+// Copyright IBM Corp. 2018,2020. All Rights Reserved.
 // Node module: @loopback/repository
 // This file is licensed under the MIT License.
 // License text available at https://opensource.org/licenses/MIT
 
-import * as debugFactory from 'debug';
+import debugFactory from 'debug';
 import {DataObject} from '../../common-types';
 import {Entity} from '../../model';
 import {EntityCrudRepository} from '../../repositories/repository';
@@ -55,7 +55,7 @@ export function createHasManyRepositoryFactory<
 ): HasManyRepositoryFactory<Target, ForeignKeyType> {
   const meta = resolveHasManyMetadata(relationMetadata);
   debug('Resolved HasMany relation metadata: %o', meta);
-  const result: HasManyRepositoryFactory<Target, ForeignKeyType> = function(
+  const result: HasManyRepositoryFactory<Target, ForeignKeyType> = function (
     fkValue: ForeignKeyType,
   ) {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any

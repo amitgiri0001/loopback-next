@@ -3,7 +3,7 @@
 // This file is licensed under the MIT License.
 // License text available at https://opensource.org/licenses/MIT
 
-import {Getter} from '@loopback/context';
+import {Getter} from '@loopback/core';
 import {
   HasManyRepositoryFactory,
   juggler,
@@ -15,12 +15,13 @@ import {CrudRepositoryCtor} from '../../../..';
 
 // create the ShipmentRepo by calling this func so that it can be extended from CrudRepositoryCtor
 export function createShipmentRepo(repoClass: CrudRepositoryCtor) {
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   return class ShipmentRepository extends repoClass<
     Shipment,
     typeof Shipment.prototype.id,
     ShipmentRelations
   > {
-    public readonly orders: HasManyRepositoryFactory<
+    public readonly shipmentOrders: HasManyRepositoryFactory<
       Order,
       typeof Shipment.prototype.id
     >;
@@ -30,11 +31,11 @@ export function createShipmentRepo(repoClass: CrudRepositoryCtor) {
       orderRepositoryGetter: Getter<typeof repoClass.prototype>,
     ) {
       super(Shipment, db);
-      const ordersMeta = this.entityClass.definition.relations[
+      const shipmentOrdersMeta = this.entityClass.definition.relations[
         'shipmentOrders'
       ];
-      this.orders = createHasManyRepositoryFactory(
-        ordersMeta as HasManyDefinition,
+      this.shipmentOrders = createHasManyRepositoryFactory(
+        shipmentOrdersMeta as HasManyDefinition,
         orderRepositoryGetter,
       );
     }

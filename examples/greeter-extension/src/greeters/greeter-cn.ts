@@ -3,7 +3,7 @@
 // This file is licensed under the MIT License.
 // License text available at https://opensource.org/licenses/MIT
 
-import {bind, config} from '@loopback/context';
+import {config, injectable} from '@loopback/core';
 import {asGreeter, Greeter} from '../types';
 
 /**
@@ -17,7 +17,7 @@ export interface ChineseGreeterOptions {
 /**
  * A greeter implementation for Chinese.
  */
-@bind(asGreeter)
+@injectable(asGreeter)
 export class ChineseGreeter implements Greeter {
   language = 'zh';
 
@@ -30,7 +30,7 @@ export class ChineseGreeter implements Greeter {
   ) {}
 
   greet(name: string) {
-    if (this.options && this.options.nameFirst === false) {
+    if (this.options?.nameFirst === false) {
       return `你好，${name}！`;
     }
     return `${name}，你好！`;

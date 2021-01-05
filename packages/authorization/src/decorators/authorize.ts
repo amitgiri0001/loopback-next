@@ -1,4 +1,4 @@
-// Copyright IBM Corp. 2019. All Rights Reserved.
+// Copyright IBM Corp. 2018,2020. All Rights Reserved.
 // Node module: @loopback/authorization
 // This file is licensed under the MIT License.
 // License text available at https://opensource.org/licenses/MIT
@@ -11,7 +11,7 @@ import {
   MetadataInspector,
   MetadataMap,
   MethodDecoratorFactory,
-} from '@loopback/context';
+} from '@loopback/core';
 import {
   AUTHENTICATED,
   AuthorizationMetadata,
@@ -30,13 +30,9 @@ export const AUTHORIZATION_CLASS_KEY = MetadataAccessor.create<
   ClassDecorator
 >('authorization:class');
 
-class AuthorizeClassDecoratorFactory extends ClassDecoratorFactory<
-  AuthorizationMetadata
-> {}
+class AuthorizeClassDecoratorFactory extends ClassDecoratorFactory<AuthorizationMetadata> {}
 
-export class AuthorizeMethodDecoratorFactory extends MethodDecoratorFactory<
-  AuthorizationMetadata
-> {
+export class AuthorizeMethodDecoratorFactory extends MethodDecoratorFactory<AuthorizationMetadata> {
   protected mergeWithOwn(
     ownMetadata: MetadataMap<AuthorizationMetadata>,
     target: Object,
@@ -78,7 +74,7 @@ export class AuthorizeMethodDecoratorFactory extends MethodDecoratorFactory<
 
   private merge<T>(src?: T[], target?: T[]): T[] {
     const list: T[] = [];
-    const set = new Set<T>(src || []);
+    const set = new Set<T>(src ?? []);
     if (target) {
       for (const i of target) {
         set.add(i);

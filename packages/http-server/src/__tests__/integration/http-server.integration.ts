@@ -1,4 +1,4 @@
-// Copyright IBM Corp. 2019. All Rights Reserved.
+// Copyright IBM Corp. 2019,2020. All Rights Reserved.
 // Node module: @loopback/http-server
 // This file is licensed under the MIT License.
 // License text available at https://opensource.org/licenses/MIT
@@ -11,11 +11,13 @@ import {
   skipOnTravis,
   supertest,
 } from '@loopback/testlab';
-import * as fs from 'fs';
-import {IncomingMessage, Server, ServerResponse} from 'http';
-import * as os from 'os';
-import * as path from 'path';
+import {EventEmitter, once} from 'events';
+import fs from 'fs';
+import {Agent, IncomingMessage, Server, ServerResponse} from 'http';
+import os from 'os';
+import path from 'path';
 import {HttpOptions, HttpServer, HttpsOptions} from '../../';
+import {HttpServerOptions} from '../../http-server';
 
 describe('HttpServer (integration)', () => {
   let server: HttpServer | undefined;
@@ -36,12 +38,12 @@ describe('HttpServer (integration)', () => {
     const serverOptions = givenHttpServerConfig();
     server = new HttpServer(dummyRequestHandler, serverOptions);
     await server.start();
-    await supertest(server.url)
-      .get('/')
-      .expect(200);
+    await supertest(server.url).get('/').expect(200);
   });
 
-  it('stops server', async () => {
+  it('stops server', async function (this: Mocha.Context) {
+    // This test takes a bit longer to finish on windows.
+    this.timeout(3000);
     const serverOptions = givenHttpServerConfig();
     server = new HttpServer(dummyRequestHandler, serverOptions);
     await server.start();
@@ -49,11 +51,83 @@ describe('HttpServer (integration)', () => {
     await expect(httpGetAsync(server.url)).to.be.rejectedWith(/ECONNREFUSED/);
   });
 
+  it('stops server with grace period and inflight request', async function (this: Mocha.Context) {
+    // This test takes a bit longer to finish on windows.
+    this.timeout(3000);
+    const serverOptions = givenHttpServerConfig() as HttpServerOptions;
+    serverOptions.gracePeriodForClose = 1000;
+    const {emitter, deferredRequestHandler} = createDeferredRequestHandler();
+    server = new HttpServer(deferredRequestHandler, serverOptions);
+    await server.start();
+    const agent = new Agent({keepAlive: true});
+    // Send a request with keep-alive
+    const req = httpGetAsync(server.url, agent);
+    // Wait until the request is accepted by the server
+    await once(server.server, 'request');
+    // Stop the server
+    const stop = server.stop();
+    // Now notify the request to finish in next cycle with setImmediate
+    setImmediate(() => {
+      emitter.emit('finish');
+    });
+    // The in-flight task can finish before the grace period
+    await req;
+    // Wait until the server is stopped
+    await stop;
+    // No more new connections are accepted
+    await expect(httpGetAsync(server.url)).to.be.rejectedWith(/ECONNREFUSED/);
+  });
+
+  it('stops server with shorter grace period and inflight request', async function (this: Mocha.Context) {
+    // This test takes a bit longer to finish on windows.
+    this.timeout(3000);
+    const serverOptions = givenHttpServerConfig() as HttpServerOptions;
+    serverOptions.gracePeriodForClose = 10;
+    const {deferredRequestHandler} = createDeferredRequestHandler();
+    server = new HttpServer(deferredRequestHandler, serverOptions);
+    await server.start();
+    const agent = new Agent({keepAlive: true});
+    // Send a request with keep-alive
+    const req = httpGetAsync(server.url, agent);
+    // Wait until the request is accepted by the server
+    await once(server.server, 'request');
+    // Set up error handler for expected rejection before the event is emitted
+    const socketPromise = expect(req).to.be.rejectedWith(/socket hang up/);
+    // Stop the server
+    await server.stop();
+    // No more new connections are accepted
+    await expect(httpGetAsync(server.url)).to.be.rejectedWith(/ECONNREFUSED/);
+    // We never send `finish` to the pending request
+    // The inflight request is aborted as it takes longer than the grace period
+    await socketPromise;
+  });
+
+  it('applies server properties', async () => {
+    server = new HttpServer(dummyRequestHandler, {
+      keepAliveTimeout: 101,
+      headersTimeout: 102,
+      maxConnections: 103,
+      maxHeadersCount: 104,
+      timeout: 105,
+    });
+    expect(server.server)
+      .to.have.property('keepAliveTimeout')
+      .which.is.equal(101);
+    expect(server.server)
+      .to.have.property('headersTimeout')
+      .which.is.equal(102);
+    expect(server.server)
+      .to.have.property('maxConnections')
+      .which.is.equal(103);
+    expect(server.server)
+      .to.have.property('maxHeadersCount')
+      .which.is.equal(104);
+    expect(server.server).to.have.property('timeout').which.is.equal(105);
+  });
+
   it('exports original port', async () => {
     server = new HttpServer(dummyRequestHandler, {port: 0});
-    expect(server)
-      .to.have.property('port')
-      .which.is.equal(0);
+    expect(server).to.have.property('port').which.is.equal(0);
   });
 
   it('exports reported port', async () => {
@@ -79,17 +153,13 @@ describe('HttpServer (integration)', () => {
 
   it('exports original host', async () => {
     server = new HttpServer(dummyRequestHandler);
-    expect(server)
-      .to.have.property('host')
-      .which.is.equal(undefined);
+    expect(server).to.have.property('host').which.is.equal(undefined);
   });
 
   it('exports reported host', async () => {
     server = new HttpServer(dummyRequestHandler);
     await server.start();
-    expect(server)
-      .to.have.property('host')
-      .which.is.a.String();
+    expect(server).to.have.property('host').which.is.a.String();
   });
 
   it('exports protocol', async () => {
@@ -113,9 +183,7 @@ describe('HttpServer (integration)', () => {
   it('exports address', async () => {
     server = new HttpServer(dummyRequestHandler);
     await server.start();
-    expect(server)
-      .to.have.property('address')
-      .which.is.an.Object();
+    expect(server).to.have.property('address').which.is.an.Object();
   });
 
   it('exports server before start', async () => {
@@ -131,9 +199,7 @@ describe('HttpServer (integration)', () => {
   it('resets address when server is stopped', async () => {
     server = new HttpServer(dummyRequestHandler);
     await server.start();
-    expect(server)
-      .to.have.property('address')
-      .which.is.an.Object();
+    expect(server).to.have.property('address').which.is.an.Object();
     await server.stop();
     expect(server.address).to.be.undefined();
   });
@@ -223,9 +289,7 @@ describe('HttpServer (integration)', () => {
     expect(server.host).to.be.undefined();
     expect(server.port).to.eql(0);
     expect(server.url).to.eql('http+unix://' + encodeURIComponent(socketPath));
-    await supertest(server.url)
-      .get('/')
-      .expect(200);
+    await supertest(server.url).get('/').expect(200);
   });
 
   it('supports HTTP over Windows named pipe', async () => {
@@ -262,6 +326,21 @@ describe('HttpServer (integration)', () => {
     res: ServerResponse,
   ): void {
     res.end();
+  }
+
+  /**
+   * Create a request handler to simulate long-running requests. The request
+   * is only processed once the emitter receives `finish` signal.
+   */
+  function createDeferredRequestHandler() {
+    const emitter = new EventEmitter();
+    function deferredRequestHandler(
+      req: IncomingMessage,
+      res: ServerResponse,
+    ): void {
+      emitter.on('finish', () => res.end());
+    }
+    return {emitter, deferredRequestHandler};
   }
 
   async function stopServer() {

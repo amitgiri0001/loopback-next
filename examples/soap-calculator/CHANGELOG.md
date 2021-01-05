@@ -3,6 +3,302 @@
 All notable changes to this project will be documented in this file.
 See [Conventional Commits](https://conventionalcommits.org) for commit guidelines.
 
+## [2.4.8](https://github.com/strongloop/loopback-next/compare/@loopback/example-soap-calculator@2.4.7...@loopback/example-soap-calculator@2.4.8) (2020-12-07)
+
+**Note:** Version bump only for package @loopback/example-soap-calculator
+
+
+
+
+
+## [2.4.7](https://github.com/strongloop/loopback-next/compare/@loopback/example-soap-calculator@2.4.6...@loopback/example-soap-calculator@2.4.7) (2020-11-18)
+
+**Note:** Version bump only for package @loopback/example-soap-calculator
+
+
+
+
+
+## [2.4.6](https://github.com/strongloop/loopback-next/compare/@loopback/example-soap-calculator@2.4.5...@loopback/example-soap-calculator@2.4.6) (2020-11-05)
+
+
+### Bug Fixes
+
+* **cli:** update affected example projects ([a4386e9](https://github.com/strongloop/loopback-next/commit/a4386e921713739417de5d4795950209d2f14e22)), closes [#3259](https://github.com/strongloop/loopback-next/issues/3259)
+
+
+
+
+
+## [2.4.5](https://github.com/strongloop/loopback-next/compare/@loopback/example-soap-calculator@2.4.4...@loopback/example-soap-calculator@2.4.5) (2020-10-07)
+
+**Note:** Version bump only for package @loopback/example-soap-calculator
+
+
+
+
+
+## [2.4.4](https://github.com/strongloop/loopback-next/compare/@loopback/example-soap-calculator@2.4.3...@loopback/example-soap-calculator@2.4.4) (2020-09-17)
+
+**Note:** Version bump only for package @loopback/example-soap-calculator
+
+
+
+
+
+## [2.4.3](https://github.com/strongloop/loopback-next/compare/@loopback/example-soap-calculator@2.4.2...@loopback/example-soap-calculator@2.4.3) (2020-09-15)
+
+**Note:** Version bump only for package @loopback/example-soap-calculator
+
+
+
+
+
+## [2.4.2](https://github.com/strongloop/loopback-next/compare/@loopback/example-soap-calculator@2.4.1...@loopback/example-soap-calculator@2.4.2) (2020-08-27)
+
+**Note:** Version bump only for package @loopback/example-soap-calculator
+
+
+
+
+
+## [2.4.1](https://github.com/strongloop/loopback-next/compare/@loopback/example-soap-calculator@2.4.0...@loopback/example-soap-calculator@2.4.1) (2020-08-19)
+
+**Note:** Version bump only for package @loopback/example-soap-calculator
+
+
+
+
+
+# [2.4.0](https://github.com/strongloop/loopback-next/compare/@loopback/example-soap-calculator@2.3.2...@loopback/example-soap-calculator@2.4.0) (2020-08-05)
+
+
+### Features
+
+* switch to middleware based sequence for examples ([b664a41](https://github.com/strongloop/loopback-next/commit/b664a4195a81c7cd4a4f71e4f7cacb9edb21347b))
+
+
+
+
+
+## [2.3.2](https://github.com/strongloop/loopback-next/compare/@loopback/example-soap-calculator@2.3.1...@loopback/example-soap-calculator@2.3.2) (2020-07-20)
+
+**Note:** Version bump only for package @loopback/example-soap-calculator
+
+
+
+
+
+## [2.3.1](https://github.com/strongloop/loopback-next/compare/@loopback/example-soap-calculator@2.3.0...@loopback/example-soap-calculator@2.3.1) (2020-06-30)
+
+**Note:** Version bump only for package @loopback/example-soap-calculator
+
+
+
+
+
+# [2.3.0](https://github.com/strongloop/loopback-next/compare/@loopback/example-soap-calculator@2.2.3...@loopback/example-soap-calculator@2.3.0) (2020-06-23)
+
+
+### Features
+
+* update sequence.ts to invoke middleware ([e2ff6b2](https://github.com/strongloop/loopback-next/commit/e2ff6b22367e919926d0f41f6d939d988c654c00))
+
+
+
+
+
+## [2.2.3](https://github.com/strongloop/loopback-next/compare/@loopback/example-soap-calculator@2.2.2...@loopback/example-soap-calculator@2.2.3) (2020-06-11)
+
+**Note:** Version bump only for package @loopback/example-soap-calculator
+
+
+
+
+
+## [2.2.2](https://github.com/strongloop/loopback-next/compare/@loopback/example-soap-calculator@2.2.1...@loopback/example-soap-calculator@2.2.2) (2020-05-28)
+
+**Note:** Version bump only for package @loopback/example-soap-calculator
+
+
+
+
+
+## [2.2.1](https://github.com/strongloop/loopback-next/compare/@loopback/example-soap-calculator@2.2.0...@loopback/example-soap-calculator@2.2.1) (2020-05-20)
+
+**Note:** Version bump only for package @loopback/example-soap-calculator
+
+
+
+
+
+# [2.2.0](https://github.com/strongloop/loopback-next/compare/@loopback/example-soap-calculator@2.1.1...@loopback/example-soap-calculator@2.2.0) (2020-05-19)
+
+
+### Features
+
+* upgrade to TypeScript 3.9.x ([3300e45](https://github.com/strongloop/loopback-next/commit/3300e4569ab8410bb1285f7a54d326e9d976476d))
+
+
+
+
+
+## [2.1.1](https://github.com/strongloop/loopback-next/compare/@loopback/example-soap-calculator@2.1.0...@loopback/example-soap-calculator@2.1.1) (2020-05-07)
+
+**Note:** Version bump only for package @loopback/example-soap-calculator
+
+
+
+
+
+# [2.1.0](https://github.com/strongloop/loopback-next/compare/@loopback/example-soap-calculator@2.0.6...@loopback/example-soap-calculator@2.1.0) (2020-04-29)
+
+
+### Features
+
+* move datasource config from JSON to TS files ([6105456](https://github.com/strongloop/loopback-next/commit/6105456deb6d7acadc3e46867558311dce2d005c))
+
+
+
+
+
+## [2.0.6](https://github.com/strongloop/loopback-next/compare/@loopback/example-soap-calculator@2.0.5...@loopback/example-soap-calculator@2.0.6) (2020-04-23)
+
+**Note:** Version bump only for package @loopback/example-soap-calculator
+
+
+
+
+
+## [2.0.5](https://github.com/strongloop/loopback-next/compare/@loopback/example-soap-calculator@2.0.4...@loopback/example-soap-calculator@2.0.5) (2020-04-22)
+
+**Note:** Version bump only for package @loopback/example-soap-calculator
+
+
+
+
+
+## [2.0.4](https://github.com/strongloop/loopback-next/compare/@loopback/example-soap-calculator@2.0.3...@loopback/example-soap-calculator@2.0.4) (2020-04-11)
+
+**Note:** Version bump only for package @loopback/example-soap-calculator
+
+
+
+
+
+## [2.0.3](https://github.com/strongloop/loopback-next/compare/@loopback/example-soap-calculator@2.0.2...@loopback/example-soap-calculator@2.0.3) (2020-04-08)
+
+**Note:** Version bump only for package @loopback/example-soap-calculator
+
+
+
+
+
+## [2.0.2](https://github.com/strongloop/loopback-next/compare/@loopback/example-soap-calculator@2.0.1...@loopback/example-soap-calculator@2.0.2) (2020-03-24)
+
+
+### Bug Fixes
+
+* update package locks ([cd2f6fa](https://github.com/strongloop/loopback-next/commit/cd2f6fa7a732afe4a16f4ccf8316ff3142959fe8))
+
+
+
+
+
+## [2.0.1](https://github.com/strongloop/loopback-next/compare/@loopback/example-soap-calculator@2.0.0...@loopback/example-soap-calculator@2.0.1) (2020-03-17)
+
+**Note:** Version bump only for package @loopback/example-soap-calculator
+
+
+
+
+
+# [2.0.0](https://github.com/strongloop/loopback-next/compare/@loopback/example-soap-calculator@1.7.7...@loopback/example-soap-calculator@2.0.0) (2020-03-05)
+
+
+### Bug Fixes
+
+* remove ref for v4.loopback.io ([78f20c0](https://github.com/strongloop/loopback-next/commit/78f20c0ed4db5f3ce0d7b676449ba3b22526319e))
+
+
+### chore
+
+* remove support for Node.js v8.x ([4281d9d](https://github.com/strongloop/loopback-next/commit/4281d9df50f0715d32879e1442a90b643ec8f542))
+
+
+### Features
+
+* add `tslib` as dependency ([a6e0b4c](https://github.com/strongloop/loopback-next/commit/a6e0b4ce7b862764167cefedee14c1115b25e0a4)), closes [#4676](https://github.com/strongloop/loopback-next/issues/4676)
+
+
+### BREAKING CHANGES
+
+* Node.js v8.x is now end of life. Please upgrade to version
+10 and above. See https://nodejs.org/en/about/releases.
+
+
+
+
+
+## [1.7.7](https://github.com/strongloop/loopback-next/compare/@loopback/example-soap-calculator@1.7.6...@loopback/example-soap-calculator@1.7.7) (2020-02-06)
+
+**Note:** Version bump only for package @loopback/example-soap-calculator
+
+
+
+
+
+## [1.7.6](https://github.com/strongloop/loopback-next/compare/@loopback/example-soap-calculator@1.7.5...@loopback/example-soap-calculator@1.7.6) (2020-02-05)
+
+
+### Bug Fixes
+
+* update clean script for examples to be compatible with `lb4 example` ([d9f5741](https://github.com/strongloop/loopback-next/commit/d9f574160f6edbf73a8f728cd3695ca69297148a))
+
+
+
+
+
+## [1.7.5](https://github.com/strongloop/loopback-next/compare/@loopback/example-soap-calculator@1.7.4...@loopback/example-soap-calculator@1.7.5) (2020-01-27)
+
+**Note:** Version bump only for package @loopback/example-soap-calculator
+
+
+
+
+
+## [1.7.4](https://github.com/strongloop/loopback-next/compare/@loopback/example-soap-calculator@1.7.3...@loopback/example-soap-calculator@1.7.4) (2020-01-07)
+
+**Note:** Version bump only for package @loopback/example-soap-calculator
+
+
+
+
+
+## [1.7.3](https://github.com/strongloop/loopback-next/compare/@loopback/example-soap-calculator@1.7.2...@loopback/example-soap-calculator@1.7.3) (2020-01-07)
+
+**Note:** Version bump only for package @loopback/example-soap-calculator
+
+
+
+
+
+## [1.7.2](https://github.com/strongloop/loopback-next/compare/@loopback/example-soap-calculator@1.7.1...@loopback/example-soap-calculator@1.7.2) (2019-12-09)
+
+**Note:** Version bump only for package @loopback/example-soap-calculator
+
+
+
+
+
+## [1.7.1](https://github.com/strongloop/loopback-next/compare/@loopback/example-soap-calculator@1.7.0...@loopback/example-soap-calculator@1.7.1) (2019-11-25)
+
+**Note:** Version bump only for package @loopback/example-soap-calculator
+
+
+
+
+
 # [1.7.0](https://github.com/strongloop/loopback-next/compare/@loopback/example-soap-calculator@1.6.19...@loopback/example-soap-calculator@1.7.0) (2019-11-12)
 
 

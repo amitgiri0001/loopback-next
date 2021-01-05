@@ -1,4 +1,4 @@
-// Copyright IBM Corp. 2019. All Rights Reserved.
+// Copyright IBM Corp. 2019,2020. All Rights Reserved.
 // Node module: @loopback/cli
 // This file is licensed under the MIT License.
 // License text available at https://opensource.org/licenses/MIT
@@ -13,6 +13,7 @@ const utils = require('../../lib/utils');
 const CONTROLLER_TEMPLATE_PATH_HAS_MANY =
   'controller-relation-template-has-many.ts.ejs';
 
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
 module.exports = class HasManyRelationGenerator extends BaseRelationGenerator {
   constructor(args, opts) {
     super(args, opts);
@@ -44,9 +45,8 @@ module.exports = class HasManyRelationGenerator extends BaseRelationGenerator {
     this.artifactInfo.targetModelRequestBody = utils.camelCase(
       this.artifactInfo.targetModelName,
     );
-    this.artifactInfo.relationPropertyName = utils.pluralize(
-      utils.camelCase(options.destinationModel),
-    );
+    this.artifactInfo.relationPropertyName = options.relationName;
+
     this.artifactInfo.sourceModelPrimaryKey = options.sourceModelPrimaryKey;
     this.artifactInfo.sourceModelPrimaryKeyType =
       options.sourceModelPrimaryKeyType;
@@ -74,6 +74,8 @@ module.exports = class HasManyRelationGenerator extends BaseRelationGenerator {
   }
 
   async generateModels(options) {
+    // for repo to generate relation name
+    this.artifactInfo.relationName = options.relationName;
     const modelDir = this.artifactInfo.modelDir;
     const sourceModel = options.sourceModel;
 
@@ -166,7 +168,7 @@ module.exports = class HasManyRelationGenerator extends BaseRelationGenerator {
   }
 
   _getRepositoryRelationPropertyName() {
-    return utils.pluralize(utils.camelCase(this.artifactInfo.dstModelClass));
+    return this.artifactInfo.relationName;
   }
 
   _getRepositoryRelationPropertyType() {

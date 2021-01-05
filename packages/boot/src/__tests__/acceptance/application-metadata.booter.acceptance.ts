@@ -1,22 +1,18 @@
-// Copyright IBM Corp. 2019. All Rights Reserved.
+// Copyright IBM Corp. 2019,2020. All Rights Reserved.
 // Node module: @loopback/boot
 // This file is licensed under the MIT License.
 // License text available at https://opensource.org/licenses/MIT
 
-import {givenHttpServerConfig, TestSandbox, expect} from '@loopback/testlab';
+import {CoreBindings} from '@loopback/core';
+import {expect, givenHttpServerConfig, TestSandbox} from '@loopback/testlab';
 import {resolve} from 'path';
 import {BooterApp} from '../fixtures/application';
-import {CoreBindings} from '@loopback/core';
 
 describe('application metadata booter acceptance tests', () => {
   let app: BooterApp;
-  const SANDBOX_PATH = resolve(__dirname, '../../.sandbox');
-  const sandbox = new TestSandbox(SANDBOX_PATH);
-
+  const sandbox = new TestSandbox(resolve(__dirname, '../../.sandbox'));
   beforeEach('reset sandbox', () => sandbox.reset());
   beforeEach(getApp);
-
-  afterEach(stopApp);
 
   it('binds content of package.json to application metadata', async () => {
     await app.boot();
@@ -29,20 +25,24 @@ describe('application metadata booter acceptance tests', () => {
   });
 
   async function getApp() {
-    await sandbox.copyFile(resolve(__dirname, '../fixtures/package.json'));
-    await sandbox.copyFile(resolve(__dirname, '../fixtures/application.js'));
+    // Add the following files
+    // - package.json
+    // - dist/application.js
 
-    const MyApp = require(resolve(SANDBOX_PATH, 'application.js')).BooterApp;
+    await sandbox.copyFile(
+      resolve(__dirname, '../fixtures/application.js'),
+      'dist/application.js',
+      // Adjust the relative path for `import`
+      content => content.replace('../..', '../../..'),
+    );
+
+    await sandbox.copyFile(resolve(__dirname, '../fixtures/package.json'));
+
+    const MyApp = require(resolve(sandbox.path, 'dist/application.js'))
+      .BooterApp;
+
     app = new MyApp({
       rest: givenHttpServerConfig(),
     });
-  }
-
-  async function stopApp() {
-    try {
-      await app.stop();
-    } catch (err) {
-      console.log(`Stopping the app threw an error: ${err}`);
-    }
   }
 });

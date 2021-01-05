@@ -1,15 +1,22 @@
-// Copyright IBM Corp. 2018. All Rights Reserved.
+// Copyright IBM Corp. 2018,2020. All Rights Reserved.
 // Node module: @loopback/example-todo
 // This file is licensed under the MIT License.
 // License text available at https://opensource.org/licenses/MIT
 
 import {inject} from '@loopback/core';
-import {Filter, repository} from '@loopback/repository';
+import {
+  Count,
+  CountSchema,
+  Filter,
+  FilterExcludingWhere,
+  repository,
+  Where,
+} from '@loopback/repository';
 import {
   del,
   get,
-  getFilterSchemaFor,
   getModelSchemaRef,
+  HttpErrors,
   param,
   patch,
   post,
@@ -18,12 +25,13 @@ import {
 } from '@loopback/rest';
 import {Todo} from '../models';
 import {TodoRepository} from '../repositories';
-import {GeocoderService} from '../services';
+import {Geocoder} from '../services';
 
 export class TodoController {
   constructor(
-    @repository(TodoRepository) protected todoRepo: TodoRepository,
-    @inject('services.GeocoderService') protected geoService: GeocoderService,
+    @repository(TodoRepository)
+    public todoRepository: TodoRepository,
+    @inject('services.Geocoder') protected geoService: Geocoder,
   ) {}
 
   @post('/todos', {
@@ -34,41 +42,56 @@ export class TodoController {
       },
     },
   })
-  async createTodo(
+  async create(
     @requestBody({
       content: {
         'application/json': {
-          schema: getModelSchemaRef(Todo, {title: 'NewTodo', exclude: ['id']}),
+          schema: getModelSchemaRef(Todo, {
+            title: 'NewTodo',
+            exclude: ['id'],
+          }),
         },
       },
     })
     todo: Omit<Todo, 'id'>,
   ): Promise<Todo> {
     if (todo.remindAtAddress) {
-      // TODO(bajtos) handle "address not found"
       const geo = await this.geoService.geocode(todo.remindAtAddress);
+
+      // ignoring because if the service is down, the following section will
+      // not be covered
+      /* istanbul ignore next */
+      if (!geo[0]) {
+        // address not found
+        throw new HttpErrors.BadRequest(
+          `Address not found: ${todo.remindAtAddress}`,
+        );
+      }
       // Encode the coordinates as "lat,lng" (Google Maps API format). See also
       // https://stackoverflow.com/q/7309121/69868
       // https://gis.stackexchange.com/q/7379
-      // eslint-disable-next-line require-atomic-updates
       todo.remindAtGeo = `${geo[0].y},${geo[0].x}`;
     }
-    return this.todoRepo.create(todo);
+    return this.todoRepository.create(todo);
   }
 
   @get('/todos/{id}', {
     responses: {
       '200': {
         description: 'Todo model instance',
-        content: {'application/json': {schema: getModelSchemaRef(Todo)}},
+        content: {
+          'application/json': {
+            schema: getModelSchemaRef(Todo, {includeRelations: true}),
+          },
+        },
       },
     },
   })
-  async findTodoById(
+  async findById(
     @param.path.number('id') id: number,
-    @param.query.boolean('items') items?: boolean,
+    @param.filter(Todo, {exclude: 'where'}) filter?: FilterExcludingWhere<Todo>,
   ): Promise<Todo> {
-    return this.todoRepo.findById(id);
+    return this.todoRepository.findById(id, filter);
   }
 
   @get('/todos', {
@@ -77,17 +100,17 @@ export class TodoController {
         description: 'Array of Todo model instances',
         content: {
           'application/json': {
-            schema: {type: 'array', items: getModelSchemaRef(Todo)},
+            schema: {
+              type: 'array',
+              items: getModelSchemaRef(Todo, {includeRelations: true}),
+            },
           },
         },
       },
     },
   })
-  async findTodos(
-    @param.query.object('filter', getFilterSchemaFor(Todo))
-    filter?: Filter<Todo>,
-  ): Promise<Todo[]> {
-    return this.todoRepo.find(filter);
+  async find(@param.filter(Todo) filter?: Filter<Todo>): Promise<Todo[]> {
+    return this.todoRepository.find(filter);
   }
 
   @put('/todos/{id}', {
@@ -97,11 +120,11 @@ export class TodoController {
       },
     },
   })
-  async replaceTodo(
+  async replaceById(
     @param.path.number('id') id: number,
     @requestBody() todo: Todo,
   ): Promise<void> {
-    await this.todoRepo.replaceById(id, todo);
+    await this.todoRepository.replaceById(id, todo);
   }
 
   @patch('/todos/{id}', {
@@ -111,7 +134,7 @@ export class TodoController {
       },
     },
   })
-  async updateTodo(
+  async updateById(
     @param.path.number('id') id: number,
     @requestBody({
       content: {
@@ -120,9 +143,9 @@ export class TodoController {
         },
       },
     })
-    todo: Partial<Todo>,
+    todo: Todo,
   ): Promise<void> {
-    await this.todoRepo.updateById(id, todo);
+    await this.todoRepository.updateById(id, todo);
   }
 
   @del('/todos/{id}', {
@@ -132,7 +155,41 @@ export class TodoController {
       },
     },
   })
-  async deleteTodo(@param.path.number('id') id: number): Promise<void> {
-    await this.todoRepo.deleteById(id);
+  async deleteById(@param.path.number('id') id: number): Promise<void> {
+    await this.todoRepository.deleteById(id);
+  }
+
+  @get('/todos/count', {
+    responses: {
+      '200': {
+        description: 'Todo model count',
+        content: {'application/json': {schema: CountSchema}},
+      },
+    },
+  })
+  async count(@param.where(Todo) where?: Where<Todo>): Promise<Count> {
+    return this.todoRepository.count(where);
+  }
+
+  @patch('/todos', {
+    responses: {
+      '200': {
+        description: 'Todo PATCH success count',
+        content: {'application/json': {schema: CountSchema}},
+      },
+    },
+  })
+  async updateAll(
+    @requestBody({
+      content: {
+        'application/json': {
+          schema: getModelSchemaRef(Todo, {partial: true}),
+        },
+      },
+    })
+    todo: Todo,
+    @param.where(Todo) where?: Where<Todo>,
+  ): Promise<Count> {
+    return this.todoRepository.updateAll(todo, where);
   }
 }

@@ -1,10 +1,15 @@
 ---
 lang: en
 title: 'Migration guide'
-keywords: LoopBack 4.0, LoopBack 4, LoopBack 3, Migration
+keywords:
+  LoopBack 4.0, LoopBack 4, Node.js, TypeScript, OpenAPI, LoopBack 3, Migration
 sidebar: lb4_sidebar
 permalink: /doc/en/lb4/migration-overview.html
 ---
+
+{% include tip.html content="
+Missing instructions for your LoopBack 3 use case? Please report a [Migration docs issue](https://github.com/strongloop/loopback-next/issues/new?labels=question,Migration,Docs&template=Migration_docs.md) on GitHub to let us know.
+" %}
 
 As mentioned elsewhere in the documentation, we wrote LoopBack 4 from the ground
 up and therefore the migration requires more effort than in previous major
@@ -34,7 +39,7 @@ We are recommending the following incremental approach:
 
 4. Before you can define new models (or import existing ones), you need
    datasources to attach them to. Follow the steps in
-   [Migrating datasources](datasources.md) to bring them over to LoopBack 4.
+   [Migrating datasources](DataSource.md) to bring them over to LoopBack 4.
 
 5. With this setup in place, it's time to migrate models. In theory, you can
    migrate models one-by-one, but in practice you will need to migrate related
@@ -50,10 +55,11 @@ require migration:
    Learn how to convert your boot scripts to lifecycle observers in
    [Migrating boot scripts](boot-scripts.md).
 
-2. To make your application secure, LoopBack 3 offers several ways how to
-   implement authentication and authorization. Check out
+2. To make your application secure, LoopBack 3 offers several ways to implement
+   authentication and authorization. Check out
    [Authentication & authorization](auth/overview.md) for an overview and links
-   to further resources.
+   to further resources on how to migrate to LoopBack 4
+   authentication/authorization.
 
 3. LoopBack version 4 has its own CLI tool `lb4` (see
    [Command-line interface](../Command-line-interface.md)). We preserved many of

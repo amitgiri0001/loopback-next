@@ -1,33 +1,47 @@
 ---
 lang: en
 title: 'OpenAPI generator'
-keywords: LoopBack 4.0, LoopBack 4, OpenAPI, Swagger
+keywords:
+  LoopBack 4.0, LoopBack 4, Node.js, TypeScript, OpenAPI, OpenAPI, Swagger
 sidebar: lb4_sidebar
 permalink: /doc/en/lb4/OpenAPI-generator.html
 ---
 
 {% include content/generator-create-app.html lang=page.lang %}
 
-### Synopsis
+## Synopsis
 
-Generates artifacts from an OpenAPI spec into a LoopBack application.
+Generates models and types from an OpenAPI spec for a LoopBack application. It
+supports both server and client sides. Controllers are generated for the server
+side while service proxies and datasources with
+[`loopback-connector-openapi`](https://loopback.io/doc/en/lb4/OpenAPI-connector.html)
+are created for the client side.
+
+This command allows us to generate skeleton implementations of an OpenAPI spec
+and/or strongly-typed service proxies to access the endpoint conforming to the
+spec.
 
 ```sh
 lb4 openapi [<url>] [options]
 ```
 
-### Options
+## Options
 
 - `--url`: URL or file path of the OpenAPI spec.
 - `--validate`: Validate the OpenAPI spec. Default: `false`.
 - `--promote-anonymous-schemas`: Promote anonymous schemas as models classes.
   Default: `false`.
+- `--client`: Generate client-side service proxies for the OpenAPI spec Default:
+  `false`.
+- `--datasource`: A valid datasource name
+- `--positional`: A flag to control if service methods use positional parameters
+  or an object with named properties. Default: `true`.
 
-### Arguments
+## Arguments
 
 `<url>`: URL or file path of the OpenAPI spec. Type: String. Required: false.
 
-### Supported OpenAPI spec versions
+## Supported OpenAPI spec versions
 
 - [2.0 (a.k.a. Swagger)](https://github.com/OAI/OpenAPI-Specification/blob/master/versions/2.0.md)
 - [3.0.x (OpenAPI 3.0)](https://github.com/OAI/OpenAPI-Specification/blob/master/versions/3.0.1.md)
@@ -35,21 +49,30 @@ lb4 openapi [<url>] [options]
 Please note Swagger 2.0 specs are converted to OpenAPI 3.0 internally using
 [swagger2openapi](https://www.npmjs.com/package/swagger2openapi).
 
-### Interactive Prompts
+## Interactive Prompts
 
 The tool will prompt you for:
 
+- **Please select the datasource** You can select an existing datasource with
+  `openapi` connector when `--client` is specified.
 - **URL or file path of the OpenAPI spec** If the url or file path is supplied
   from the command line, the prompt is skipped.
 - **Select controllers to be generated** You can select what controllers will be
   generated based on OpenAPI tags.
+- **DataSource name: openapi** Provide the datasource name for the OpenAPI
+  service if `--client` is specified. If a datasource is selected, the prompt is
+  skipped.
 
-### Generated artifacts
+## Generated artifacts
 
-The command generates the following artifacts:
+### Models and types
 
-1.  For each schema under `components.schemas`, a model class or type
-    declaration is generated as `src/models/<model-or-type-name>.model.ts`.
+The command generates the following model classes and TypeScript types:
+
+**1. Schemas**
+
+For each schema under `components.schemas`, a model class or type declaration is
+generated as `src/models/<model-or-type-name>.model.ts`.
 
 Simple types, array types, composite types (allOf/anyOf/oneOf) are mapped to
 TypeScript type declarations. Object types are mapped to TypeScript classes.
@@ -137,9 +160,11 @@ import {NewPet} from './new-pet.model.ts';
 export type Pet = NewPet & {id: number};
 ```
 
-2. Anonymous schemas of object/array types are generated as inline TypeScript
-   type literals or separate model classes/types depending on
-   `--promote-anonymous-schemas` flag (default to `false`).
+**2. Anonymous schemas**
+
+Anonymous schemas of object/array types are generated as inline TypeScript type
+literals or separate model classes/types depending on
+`--promote-anonymous-schemas` flag (default to `false`).
 
 For example, the following OpenAPI spec snippet uses anonymous schemas for
 request and response body objects.
@@ -275,10 +300,14 @@ export type PerformSearchResponseBody = {
 }[];
 ```
 
-3. The generator groups operations (`paths.<path>.<verb>`) by tags. If no tag is
-   present, it defaults to `OpenApi`. For each tag, a controller class is
-   generated as `src/controllers/<tag-name>.controller.ts` to hold all
-   operations with the same tag.
+**3. Operations**
+
+The generator groups operations (`paths.<path>.<verb>`) by tags. If no tag is
+present, it defaults to `OpenApi`. For each tag, a controller class is generated
+as `src/controllers/<tag-name>.controller.ts` to hold all operations with the
+same tag.
+
+### Server-side controllers
 
 Controller class names are derived from tag names. The `x-controller-name`
 property of an operation can be used to customize the controller name. Method
@@ -370,7 +399,127 @@ export class AccountController {
 }
 ```
 
-### OpenAPI Examples
+### Client-side datasource and service proxies
+
+If `--client` is specified, a datasource is generated to configure the
+connection to the endpoint that exposes an OpenAPI spec.
+
+{% include code-caption.html content="src/datasources/test2.datasource.ts"
+%}
+
+```ts
+import {inject, lifeCycleObserver, LifeCycleObserver} from '@loopback/core';
+import {juggler} from '@loopback/repository';
+
+const config = {
+  name: 'test2',
+  connector: 'openapi',
+  spec: 'customer.yaml',
+  validate: false,
+  positional: true,
+};
+
+// Observe application's life cycle to disconnect the datasource when
+// application is stopped. This allows the application to be shut down
+// gracefully. The `stop()` method is inherited from `juggler.DataSource`.
+// Learn more at https://loopback.io/doc/en/lb4/Life-cycle.html
+@lifeCycleObserver('datasource')
+export class Test2DataSource
+  extends juggler.DataSource
+  implements LifeCycleObserver {
+  static dataSourceName = 'test2';
+  static readonly defaultConfig = config;
+
+  constructor(
+    @inject('datasources.config.test2', {optional: true})
+    dsConfig: object = config,
+  ) {
+    super(dsConfig);
+  }
+}
+```
+
+For each tag, a service interface and proxy are generated to provide
+strongly-typed access to the endpoints.
+
+{% include code-caption.html content="src/services/customer.service.ts"
+%}
+
+````ts
+import {getService} from '@loopback/service-proxy';
+import {inject, Provider} from '@loopback/core';
+import {Test2DataSource} from '../datasources';
+
+import {Customer} from '../models/customer.model';
+
+/**
+ * The service interface is generated from OpenAPI spec with operations tagged
+ * by Customer
+ * Customer resource
+ */
+export interface CustomerService {
+  /**
+   * Returns all customers (\/* customers *\/)
+   *
+   * @param _if if condition
+   * @param limit maximum number of results to return
+   * @param accessToken Access token (\/* access_token *\/)
+   * @returns customer response
+   */
+  getCustomers(
+    _if: string[],
+    limit: number,
+    accessToken: string,
+  ): Promise<Customer[]>;
+
+  /**
+   * Creates a new customer
+   *
+   * @param _requestBody Customer to add
+   * @param accessToken Access token (\/* access_token *\/)
+   * @returns customer response
+   */
+  createCustomer(
+    _requestBody: Customer,
+    accessToken: string,
+  ): Promise<Customer>;
+
+  // If `--no-positional` is supplied, we generate an object as the params:
+  /**
+   * ```ts
+   * createCustomer(params: {
+   *   _requestBody: Customer;
+   *   accessToken: string;
+   * }): Promise<Customer>;
+   * ```
+   */
+
+  /**
+   * Returns a customer based on a single ID
+   *
+   * @param customerId ID of customer to fetch
+   * @returns customer response
+   */
+  findCustomerById(customerId: number): Promise<Customer>;
+}
+
+export class CustomerServiceProvider implements Provider<CustomerService> {
+  constructor(
+    // test2 must match the name property in the datasource json file
+    @inject('datasources.test2')
+    protected dataSource: Test2DataSource = new Test2DataSource(),
+  ) {}
+
+  async value(): Promise<CustomerService> {
+    const service = await getService<{apis: Record<string, CustomerService>}>(
+      this.dataSource,
+    );
+    return service.apis['Customer'];
+  }
+}
+````
+
+## OpenAPI Examples
 
 Try out the following specs or your own with `lb4 openapi`:
 

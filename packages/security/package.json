@@ -1,12 +1,11 @@
 {
   "name": "@loopback/security",
-  "version": "0.1.7",
+  "version": "0.3.5",
   "description": "A LoopBack component for security support.",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
   "engines": {
-    "node": ">=8.9"
-  },
-  "publishConfig": {
-    "access": "public"
+    "node": "^10.16 || 12 || 14"
   },
   "scripts": {
     "acceptance": "lb-mocha \"dist/__tests__/acceptance/**/*.js\"",
@@ -18,19 +17,25 @@
     "unit": "lb-mocha \"dist/__tests__/unit/**/*.js\"",
     "verify": "npm pack && tar xf loopback-security*.tgz && tree package && npm run clean"
   },
-  "author": "IBM",
+  "author": "IBM Corp.",
   "copyright.owner": "IBM Corp.",
   "license": "MIT",
+  "publishConfig": {
+    "access": "public"
+  },
+  "peerDependencies": {
+    "@loopback/core": "^2.13.1"
+  },
   "dependencies": {
-    "@loopback/context": "^1.23.5",
-    "@loopback/core": "^1.10.7",
-    "debug": "^4.1.1"
+    "debug": "^4.3.1",
+    "tslib": "^2.0.3"
   },
   "devDependencies": {
-    "@loopback/build": "^2.0.16",
-    "@loopback/testlab": "^1.9.4",
-    "@types/debug": "^4.1.4",
-    "@types/node": "^10.17.5"
+    "@loopback/build": "^6.2.8",
+    "@loopback/core": "^2.13.1",
+    "@loopback/testlab": "^3.2.10",
+    "@types/debug": "^4.1.5",
+    "@types/node": "^10.17.35"
   },
   "keywords": [
     "LoopBack",
@@ -38,8 +43,6 @@
   ],
   "files": [
     "README.md",
-    "index.js",
-    "index.d.ts",
     "dist",
     "src",
     "!*/__tests__"

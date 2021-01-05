@@ -1,31 +1,44 @@
-// Copyright IBM Corp. 2018,2019. All Rights Reserved.
+// Copyright IBM Corp. 2018,2020. All Rights Reserved.
 // Node module: @loopback/repository
 // This file is licensed under the MIT License.
 // License text available at https://opensource.org/licenses/MIT
 
-import {Getter} from '@loopback/context';
-import * as assert from 'assert';
-import * as legacy from 'loopback-datasource-juggler';
+import {Getter} from '@loopback/core';
+import {
+  Filter,
+  FilterExcludingWhere,
+  InclusionFilter,
+  Where,
+} from '@loopback/filter';
+import assert from 'assert';
+import legacy from 'loopback-datasource-juggler';
 import {
   AnyObject,
   Command,
   Count,
   DataObject,
+  DeepPartial,
   NamedParameters,
   Options,
   PositionalParameters,
 } from '../common-types';
 import {EntityNotFoundError} from '../errors';
-import {Entity, Model, PropertyType} from '../model';
-import {Filter, Inclusion, Where} from '../query';
+import {
+  Entity,
+  Model,
+  PropertyType,
+  rejectNavigationalPropertiesInData,
+} from '../model';
 import {
   BelongsToAccessor,
   BelongsToDefinition,
   createBelongsToAccessor,
   createHasManyRepositoryFactory,
+  createHasManyThroughRepositoryFactory,
   createHasOneRepositoryFactory,
   HasManyDefinition,
   HasManyRepositoryFactory,
+  HasManyThroughRepositoryFactory,
   HasOneDefinition,
   HasOneRepositoryFactory,
   includeRelatedModels,
@@ -46,9 +59,9 @@ export namespace juggler {
   export import PersistedModel = legacy.PersistedModel;
   export import KeyValueModel = legacy.KeyValueModel;
   export import PersistedModelClass = legacy.PersistedModelClass;
-  // eslint-disable-next-line no-shadow
+  // eslint-disable-next-line @typescript-eslint/no-shadow
   export import Transaction = legacy.Transaction;
-  // eslint-disable-next-line no-shadow
+  // eslint-disable-next-line @typescript-eslint/no-shadow
   export import IsolationLevel = legacy.IsolationLevel;
 }
 
@@ -109,8 +122,8 @@ export class DefaultCrudRepository<
 
   /**
    * Constructor of DefaultCrudRepository
-   * @param entityClass - Legacy entity class
-   * @param dataSource - Legacy data source
+   * @param entityClass - LoopBack 4 entity class
+   * @param dataSource - Legacy juggler data source
    */
   constructor(
     // entityClass should have type "typeof T", but that's not supported by TSC
@@ -127,11 +140,11 @@ export class DefaultCrudRepository<
       `Entity ${entityClass.name} must have at least one id/pk property.`,
     );
 
-    this.modelClass = this.definePersistedModel(entityClass);
+    this.modelClass = this.ensurePersistedModel(entityClass);
   }
 
   // Create an internal legacy Model attached to the datasource
-  private definePersistedModel(
+  private ensurePersistedModel(
     entityClass: typeof Model,
   ): typeof juggler.PersistedModel {
     const definition = entityClass.definition;
@@ -147,6 +160,21 @@ export class DefaultCrudRepository<
       // The backing persisted model has been already defined.
       return model as typeof juggler.PersistedModel;
     }
+
+    return this.definePersistedModel(entityClass);
+  }
+
+  /**
+   * Creates a legacy persisted model class, attaches it to the datasource and
+   * returns it. This method can be overriden in sub-classes to acess methods
+   * and properties in the generated model class.
+   * @param entityClass - LB4 Entity constructor
+   */
+  protected definePersistedModel(
+    entityClass: typeof Model,
+  ): typeof juggler.PersistedModel {
+    const dataSource = this.dataSource;
+    const definition = entityClass.definition;
 
     // To handle circular reference back to the same model,
     // we create a placeholder model that will be replaced by real one later
@@ -192,7 +220,7 @@ export class DefaultCrudRepository<
   private resolvePropertyType(type: PropertyType): PropertyType {
     const resolved = resolveType(type);
     return isModelClass(resolved)
-      ? this.definePersistedModel(resolved)
+      ? this.ensurePersistedModel(resolved)
       : resolved;
   }
 
@@ -260,6 +288,62 @@ export class DefaultCrudRepository<
       meta as HasManyDefinition,
       targetRepoGetter,
     );
+  }
+
+  /**
+   * Function to create a constrained hasManyThrough relation repository factory
+   *
+   * @example
+   * ```ts
+   * class CustomerRepository extends DefaultCrudRepository<
+   *   Customer,
+   *   typeof Customer.prototype.id,
+   *   CustomerRelations
+   * > {
+   *   public readonly cartItems: HasManyRepositoryFactory<CartItem, typeof Customer.prototype.id>;
+   *
+   *   constructor(
+   *     protected db: juggler.DataSource,
+   *     cartItemRepository: EntityCrudRepository<CartItem, typeof, CartItem.prototype.id>,
+   *     throughRepository: EntityCrudRepository<Through, typeof Through.prototype.id>,
+   *   ) {
+   *     super(Customer, db);
+   *     this.cartItems = this.createHasManyThroughRepositoryFactoryFor(
+   *       'cartItems',
+   *       cartItemRepository,
+   *     );
+   *   }
+   * }
+   * ```
+   *
+   * @param relationName - Name of the relation defined on the source model
+   * @param targetRepo - Target repository instance
+   * @param throughRepo - Through repository instance
+   */
+  protected createHasManyThroughRepositoryFactoryFor<
+    Target extends Entity,
+    TargetID,
+    Through extends Entity,
+    ThroughID,
+    ForeignKeyType
+  >(
+    relationName: string,
+    targetRepoGetter: Getter<EntityCrudRepository<Target, TargetID>>,
+    throughRepoGetter: Getter<EntityCrudRepository<Through, ThroughID>>,
+  ): HasManyThroughRepositoryFactory<
+    Target,
+    TargetID,
+    Through,
+    ForeignKeyType
+  > {
+    const meta = this.entityClass.definition.relations[relationName];
+    return createHasManyThroughRepositoryFactory<
+      Target,
+      TargetID,
+      Through,
+      ThroughID,
+      ForeignKeyType
+    >(meta as HasManyDefinition, targetRepoGetter, throughRepoGetter);
   }
 
   /**
@@ -339,14 +423,18 @@ export class DefaultCrudRepository<
   }
 
   async create(entity: DataObject<T>, options?: Options): Promise<T> {
-    const model = await ensurePromise(this.modelClass.create(entity, options));
+    // perform persist hook
+    const data = await this.entityToData(entity, options);
+    const model = await ensurePromise(this.modelClass.create(data, options));
     return this.toEntity(model);
   }
 
   async createAll(entities: DataObject<T>[], options?: Options): Promise<T[]> {
-    const models = await ensurePromise(
-      this.modelClass.create(entities, options),
+    // perform persist hook
+    const data = await Promise.all(
+      entities.map(e => this.entityToData(e, options)),
     );
+    const models = await ensurePromise(this.modelClass.create(data, options));
     return this.toEntities(models);
   }
 
@@ -364,7 +452,7 @@ export class DefaultCrudRepository<
     filter?: Filter<T>,
     options?: Options,
   ): Promise<(T & Relations)[]> {
-    const include = filter && filter.include;
+    const include = filter?.include;
     const models = await ensurePromise(
       this.modelClass.find(this.normalizeFilter(filter), options),
     );
@@ -381,7 +469,7 @@ export class DefaultCrudRepository<
     );
     if (!model) return null;
     const entity = this.toEntity(model);
-    const include = filter && filter.include;
+    const include = filter?.include;
     const resolved = await this.includeRelatedModels(
       [entity],
       include,
@@ -392,10 +480,10 @@ export class DefaultCrudRepository<
 
   async findById(
     id: ID,
-    filter?: Filter<T>,
+    filter?: FilterExcludingWhere<T>,
     options?: Options,
   ): Promise<T & Relations> {
-    const include = filter && filter.include;
+    const include = filter?.include;
     const model = await ensurePromise(
       this.modelClass.findById(id, this.normalizeFilter(filter), options),
     );
@@ -415,7 +503,9 @@ export class DefaultCrudRepository<
     return this.updateById(entity.getId(), entity, options);
   }
 
-  delete(entity: T, options?: Options): Promise<void> {
+  async delete(entity: T, options?: Options): Promise<void> {
+    // perform persist hook
+    await this.entityToData(entity, options);
     return this.deleteById(entity.getId(), options);
   }
 
@@ -424,9 +514,10 @@ export class DefaultCrudRepository<
     where?: Where<T>,
     options?: Options,
   ): Promise<Count> {
-    where = where || {};
+    where = where ?? {};
+    const persistedData = await this.entityToData(data, options);
     const result = await ensurePromise(
-      this.modelClass.updateAll(where, data, options),
+      this.modelClass.updateAll(where, persistedData, options),
     );
     return {count: result.count};
   }
@@ -436,6 +527,9 @@ export class DefaultCrudRepository<
     data: DataObject<T>,
     options?: Options,
   ): Promise<void> {
+    if (id === undefined) {
+      throw new Error('Invalid Argument: id cannot be undefined');
+    }
     const idProp = this.modelClass.definition.idName();
     const where = {} as Where<T>;
     (where as AnyObject)[idProp] = id;
@@ -451,7 +545,8 @@ export class DefaultCrudRepository<
     options?: Options,
   ): Promise<void> {
     try {
-      await ensurePromise(this.modelClass.replaceById(id, data, options));
+      const payload = await this.entityToData(data, options);
+      await ensurePromise(this.modelClass.replaceById(id, payload, options));
     } catch (err) {
       if (err.statusCode === 404) {
         throw new EntityNotFoundError(this.entityClass, id);
@@ -483,12 +578,95 @@ export class DefaultCrudRepository<
     return ensurePromise(this.modelClass.exists(id, options));
   }
 
-  async execute(
+  /**
+   * Execute a SQL command.
+   *
+   * **WARNING:** In general, it is always better to perform database actions
+   * through repository methods. Directly executing SQL may lead to unexpected
+   * results, corrupted data, security vulnerabilities and other issues.
+   *
+   * @example
+   *
+   * ```ts
+   * // MySQL
+   * const result = await repo.execute(
+   *   'SELECT * FROM Products WHERE size > ?',
+   *   [42]
+   * );
+   *
+   * // PostgreSQL
+   * const result = await repo.execute(
+   *   'SELECT * FROM Products WHERE size > $1',
+   *   [42]
+   * );
+   * ```
+   *
+   * @param command A parameterized SQL command or query.
+   * Check your database documentation for information on which characters to
+   * use as parameter placeholders.
+   * @param parameters List of parameter values to use.
+   * @param options Additional options, for example `transaction`.
+   * @returns A promise which resolves to the command output as returned by the
+   * database driver. The output type (data structure) is database specific and
+   * often depends on the command executed.
+   */
+  execute(
     command: Command,
     parameters: NamedParameters | PositionalParameters,
     options?: Options,
-  ): Promise<AnyObject> {
-    return ensurePromise(this.dataSource.execute(command, parameters, options));
+  ): Promise<AnyObject>;
+
+  /**
+   * Execute a MongoDB command.
+   *
+   * **WARNING:** In general, it is always better to perform database actions
+   * through repository methods. Directly executing MongoDB commands may lead
+   * to unexpected results and other issues.
+   *
+   * @example
+   *
+   * ```ts
+   * const result = await repo.execute('MyCollection', 'aggregate', [
+   *   {$lookup: {
+   *     // ...
+   *   }},
+   *   {$unwind: '$data'},
+   *   {$out: 'tempData'}
+   * ]);
+   * ```
+   *
+   * @param collectionName The name of the collection to execute the command on.
+   * @param command The command name. See
+   * [Collection API docs](http://mongodb.github.io/node-mongodb-native/3.6/api/Collection.html)
+   * for the list of commands supported by the MongoDB client.
+   * @param parameters Command parameters (arguments), as described in MongoDB API
+   * docs for individual collection methods.
+   * @returns A promise which resolves to the command output as returned by the
+   * database driver.
+   */
+  execute(
+    collectionName: string,
+    command: string,
+    ...parameters: PositionalParameters
+  ): Promise<AnyObject>;
+
+  /**
+   * Execute a raw database command using a connector that's not described
+   * by LoopBack's `execute` API yet.
+   *
+   * **WARNING:** In general, it is always better to perform database actions
+   * through repository methods. Directly executing database commands may lead
+   * to unexpected results and other issues.
+   *
+   * @param args Command and parameters, please consult your connector's
+   * documentation to learn about supported commands and their parameters.
+   * @returns A promise which resolves to the command output as returned by the
+   * database driver.
+   */
+  execute(...args: PositionalParameters): Promise<AnyObject>;
+
+  async execute(...args: PositionalParameters): Promise<AnyObject> {
+    return ensurePromise(this.dataSource.execute(...args));
   }
 
   protected toEntity<R extends T>(model: juggler.PersistedModel): R {
@@ -522,10 +700,53 @@ export class DefaultCrudRepository<
    */
   protected async includeRelatedModels(
     entities: T[],
-    include?: Inclusion<T>[],
+    include?: InclusionFilter[],
     options?: Options,
   ): Promise<(T & Relations)[]> {
     return includeRelatedModels<T, Relations>(this, entities, include, options);
+  }
+
+  /**
+   * This function works as a persist hook.
+   * It converts an entity from the CRUD operations' caller
+   * to a persistable data that can will be stored in the
+   * back-end database.
+   *
+   * User can extend `DefaultCrudRepository` then override this
+   * function to execute custom persist hook.
+   * @param entity The entity passed from CRUD operations' caller.
+   * @param options
+   */
+  protected async entityToData<R extends T>(
+    entity: R | DataObject<R>,
+    options = {},
+  ): Promise<legacy.ModelData<legacy.PersistedModel>> {
+    return this.ensurePersistable(entity, options);
+  }
+
+  /** Converts an entity object to a JSON object to check if it contains navigational property.
+   * Throws an error if `entity` contains navigational property.
+   *
+   * @param entity The entity passed from CRUD operations' caller.
+   * @param options
+   */
+  protected ensurePersistable<R extends T>(
+    entity: R | DataObject<R>,
+    options = {},
+  ): legacy.ModelData<legacy.PersistedModel> {
+    // FIXME(bajtos) Ideally, we should call toJSON() to convert R to data object
+    // Unfortunately that breaks replaceById for MongoDB connector, where we
+    // would call replaceId with id *argument* set to ObjectID value but
+    // id *property* set to string value.
+    /*
+    const data: AnyObject =
+      typeof entity.toJSON === 'function' ? entity.toJSON() : {...entity};
+    */
+    const data: DeepPartial<R> = new this.entityClass(entity);
+
+    rejectNavigationalPropertiesInData(this.entityClass, data);
+
+    return data;
   }
 
   /**
@@ -547,15 +768,16 @@ export class DefaultCrudRepository<
  */
 
 export class DefaultTransactionalRepository<
-  T extends Entity,
-  ID,
-  Relations extends object = {}
-> extends DefaultCrudRepository<T, ID, Relations>
+    T extends Entity,
+    ID,
+    Relations extends object = {}
+  >
+  extends DefaultCrudRepository<T, ID, Relations>
   implements TransactionalEntityRepository<T, ID, Relations> {
   async beginTransaction(
     options?: IsolationLevel | Options,
   ): Promise<Transaction> {
-    const dsOptions: juggler.IsolationLevel | Options = options || {};
+    const dsOptions: juggler.IsolationLevel | Options = options ?? {};
     // juggler.Transaction still has the Promise/Callback variants of the
     // Transaction methods
     // so we need it cast it back

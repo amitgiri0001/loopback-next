@@ -1,10 +1,9 @@
-// Copyright IBM Corp. 2018,2019. All Rights Reserved.
+// Copyright IBM Corp. 2018,2020. All Rights Reserved.
 // Node module: @loopback/boot
 // This file is licensed under the MIT License.
 // License text available at https://opensource.org/licenses/MIT
 
-import {config, inject} from '@loopback/context';
-import {CoreBindings} from '@loopback/core';
+import {config, inject, CoreBindings} from '@loopback/core';
 import {
   ApplicationWithRepositories,
   Class,
@@ -16,7 +15,7 @@ import {BaseArtifactBooter} from './base-artifact.booter';
 
 /**
  * A class that extends BaseArtifactBooter to boot the 'DataSource' artifact type.
- * Discovered DataSources are bound using `app.controller()`.
+ * Discovered DataSources are bound using `app.dataSource()`.
  *
  * Supported phases: configure, discover, load
  *

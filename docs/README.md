@@ -5,11 +5,15 @@ This package contains documentation for LoopBack 4. It's published to npm as
 
 ## Documentation site
 
-The `site` directory contains pages for
-http://loopback.io/doc/en/lb4/index.html.
+The `site` directory contains pages for documentation published at
+[loopback.io](http://loopback.io/doc/en/lb4/index.html).
+
+The content is organized along four quadrants as explained in
+[How is our documentation organized](./site/index.md#how-is-our-documentation-organized).
 
 To contribute, please check out
-https://loopback.io/doc/en/contrib/doc-contrib.html.
+[Contributing to LoopBack documentation](https://loopback.io/doc/en/contrib/doc-contrib.html)
+and [Developing Documentation](./site/DEVELOPING.md#documentation).
 
 ## API references
 

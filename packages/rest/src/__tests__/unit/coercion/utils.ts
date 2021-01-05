@@ -9,8 +9,8 @@ import {
   ShotRequestOptions,
   stubExpressContext,
 } from '@loopback/testlab';
-import * as HttpErrors from 'http-errors';
-import * as qs from 'qs';
+import HttpErrors from 'http-errors';
+import qs from 'qs';
 import {format} from 'util';
 import {
   createResolvedRoute,
@@ -122,7 +122,7 @@ export function test<T>(
       expectedResult,
       caller,
       expectError: expectedResult instanceof HttpErrors.HttpError,
-      opts: opts || {},
+      opts: opts ?? {},
     });
   });
 }
@@ -132,7 +132,7 @@ function buildTestName<T>(
   expectedResult: T,
   opts?: TestOptions,
 ): string {
-  if (opts && opts.testName) return opts.testName;
+  if (opts?.testName) return opts.testName;
 
   const inputString = getPrettyString(rawValue);
   if (expectedResult instanceof HttpErrors.HttpError)

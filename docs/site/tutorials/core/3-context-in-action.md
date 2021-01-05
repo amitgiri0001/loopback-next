@@ -1,7 +1,7 @@
 ---
 lang: en
 title: 'Context in action'
-keywords: LoopBack 4.0, LoopBack 4
+keywords: LoopBack 4.0, LoopBack 4, Node.js, TypeScript, OpenAPI
 sidebar: lb4_sidebar
 permalink: /doc/en/lb4/core-tutorial-part3.html
 ---
@@ -25,6 +25,19 @@ In LoopBack 4, we implemented such capabilities in the `@loopback/context`
 module. The hierarchy of contexts becomes the universal knowledge base for the
 whole application to promote visibility, extensibility, and composability.
 
+{% include note.html content="The `@loopback/core` package re-exports all public
+APIs of `@loopback/context`. For consistency, we recommend the usage of
+`@loopback/core` for imports in LoopBack modules and applications unless they
+depend on `@loopback/context` explicitly. The two statements below are
+equivalent:
+
+```ts
+import {inject} from '@loopback/context';
+import {inject} from '@loopback/core';
+```
+
+" %}
+
 Let's walk through some code snippets to illustrate how artifacts are managed
 with `@loopback/context`.
 
@@ -34,7 +47,7 @@ To register artifacts, we first create an instance of `Context` and use `bind`
 to add artifacts to the registry as bindings.
 
 ```ts
-import {Context} from '@loopback/context';
+import {Context} from '@loopback/core';
 import {GreetingController} from './controllers';
 import {CACHING_SERVICE, GREETING_SERVICE} from './keys';
 import {CachingService} from './caching-service';
@@ -117,8 +130,7 @@ There are three binding scopes:
 3. Context - for a given context in the hierarchy, there is only a single
    instance for a given binding key.
 
-For details, see
-https://loopback.io/doc/en/lb4/Binding.html#configure-the-scope.
+For details, see [Configure the scope](../../Binding.md#configure-the-scope).
 
 ## Watching artifacts
 
@@ -128,21 +140,19 @@ also allows the support of dynamic extension points. For the
 after the application has started, more greeters can be added, and there is no
 need to add all the greeters up front.
 
-See the
-[Context documentation page](https://loopback.io/doc/en/lb4/Context.html#context-observers)
-and
+See the [Context documentation page](../../Context.md#context-observers) and
 [example](https://github.com/strongloop/loopback-next/blob/master/examples/context/src/context-observation.ts)
 for more details.
 
 ## Contributing multiple artifacts via components
 
-[Components](https://loopback.io/doc/en/lb4/Components.html) can be considered
-as a collection of binding added to the context. For example, for an
-authentication component, an authentication stategy and an authentication action
-can be added to the component.
+[Components](../../Component.md) can be considered as a collection of binding
+added to the context. For example, for an authentication component, an
+authentication stategy and an authentication action can be added to the
+component.
 
-See
-https://github.com/strongloop/loopback-next/blob/master/examples/greeter-extension/src/component.ts
+See the
+[GreetingComponent](https://github.com/strongloop/loopback-next/blob/master/examples/greeter-extension/src/component.ts)
 as an example.
 
 ```ts

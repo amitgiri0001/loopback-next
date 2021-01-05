@@ -6,7 +6,7 @@
 import {Context} from '@loopback/core';
 import {anOperationSpec} from '@loopback/openapi-spec-builder';
 import {expect} from '@loopback/testlab';
-import {RestBindings, Route} from '../../..';
+import {RestBindings, Route, RouteSource} from '../../..';
 
 describe('HandlerRoute', () => {
   describe('updateBindings()', () => {
@@ -30,5 +30,25 @@ describe('HandlerRoute', () => {
       requestCtx = new Context(appCtx, 'request');
       route.updateBindings(requestCtx);
     }
+  });
+
+  describe('toString', () => {
+    it('implements toString for anonymous handler', () => {
+      const spec = anOperationSpec().build();
+      const route = new Route('get', '/greet', spec, () => {});
+      expect(route.toString()).to.equal('Route - get /greet => () => { }');
+      expect(new RouteSource(route).toString()).to.equal(
+        'Route - get /greet => () => { }',
+      );
+    });
+
+    it('implements toString for named handler', () => {
+      const spec = anOperationSpec().build();
+      const route = new Route('get', '/greet', spec, function process() {});
+      expect(route.toString()).to.equal('Route - get /greet => process');
+      expect(new RouteSource(route).toString()).to.equal(
+        'Route - get /greet => process',
+      );
+    });
   });
 });

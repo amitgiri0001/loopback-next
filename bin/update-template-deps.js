@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-// Copyright IBM Corp. 2017,2018. All Rights Reserved.
+// Copyright IBM Corp. 2018,2020. All Rights Reserved.
 // Node module: loopback-next
 // This file is licensed under the MIT License.
 // License text available at https://opensource.org/licenses/MIT
@@ -11,13 +11,20 @@
 'use strict';
 
 const path = require('path');
-const fs = require('fs');
+const {
+  isDryRun,
+  printJson,
+  writeJsonSync,
+  loadLernaRepo,
+  runMain,
+} = require('../packages/monorepo');
 
-const Project = require('@lerna/project');
-
-async function updateTemplateDeps() {
-  const project = new Project(process.cwd());
-  const packages = await project.getPackages();
+/**
+ * Update `templateDependencies` in `packages/cli/package.json`
+ * @param {*} options - Options
+ */
+async function updateTemplateDeps(options) {
+  const {project, packages} = await loadLernaRepo();
 
   const pkgs = packages
     .filter(pkg => !pkg.private)
@@ -33,8 +40,18 @@ async function updateTemplateDeps() {
 
   const rootPath = project.rootPath;
 
+  // Load eslint related dependencies from `packages/eslint-config/package.json`
+  const eslintDeps = require(path.join(
+    rootPath,
+    'packages/eslint-config/package.json',
+  )).dependencies;
+
   // Load dependencies from `packages/build/package.json`
   const buildDeps = require(path.join(rootPath, 'packages/build/package.json'))
+    .dependencies;
+
+  // Load dependencies from `packages/core/package.json` for `tslib`
+  const coreDeps = require(path.join(rootPath, 'packages/core/package.json'))
     .dependencies;
 
   // Load dependencies from `packages/cli/package.json`
@@ -46,26 +63,26 @@ async function updateTemplateDeps() {
   const currentDeps = cliPkg.config.templateDependencies || {};
 
   // Merge all entries
-  const deps = Object.assign({}, currentDeps, buildDeps, lbModules);
+  const deps = {
+    tslib: coreDeps.tslib,
+    ...currentDeps,
+    ...buildDeps,
+    ...eslintDeps,
+    ...lbModules,
+  };
 
   cliPkg.config.templateDependencies = deps;
 
-  // Convert to JSON
-  const json = JSON.stringify(cliPkg, null, 2);
-
-  if (process.argv[2] === '-f') {
-    // Using `-f` to overwrite packages/cli/lib/dependencies.json
-    fs.writeFileSync(cliPackageJson, json + '\n', {encoding: 'utf-8'});
-    console.log('%s has been updated.', cliPackageJson);
+  if (isDryRun(options)) {
+    // Dry run
+    printJson(cliPkg);
   } else {
-    // Otherwise write to console
-    console.log(json);
+    //Overwrite packages/cli/lib/dependencies.json
+    writeJsonSync(cliPackageJson, cliPkg);
+    console.log('%s has been updated.', cliPackageJson);
   }
 }
 
-if (require.main === module) {
-  updateTemplateDeps().catch(err => {
-    console.error(err);
-    process.exit(1);
-  });
-}
+module.exports = updateTemplateDeps;
+
+runMain(module, updateTemplateDeps);

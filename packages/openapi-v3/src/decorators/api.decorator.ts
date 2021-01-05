@@ -1,9 +1,9 @@
-// Copyright IBM Corp. 2018. All Rights Reserved.
+// Copyright IBM Corp. 2018,2020. All Rights Reserved.
 // Node module: @loopback/openapi-v3
 // This file is licensed under the MIT License.
 // License text available at https://opensource.org/licenses/MIT
 
-import {ClassDecoratorFactory} from '@loopback/context';
+import {ClassDecoratorFactory} from '@loopback/core';
 import {ControllerSpec} from '../controller-spec';
 import {OAI3Keys} from '../keys';
 
@@ -26,10 +26,11 @@ import {OAI3Keys} from '../keys';
  * handled by this controller
  *
  */
-export function api(spec: ControllerSpec) {
+export function api(spec: Partial<ControllerSpec>) {
+  const controllerSpec: ControllerSpec = {paths: {}, ...spec};
   return ClassDecoratorFactory.createDecorator<ControllerSpec>(
     OAI3Keys.CLASS_KEY,
-    spec,
+    controllerSpec,
     {decoratorName: '@api'},
   );
 }

@@ -1,10 +1,15 @@
 ---
 lang: en
 title: 'Migrating model relations'
-keywords: LoopBack 4.0, LoopBack 4, LoopBack 3, Migration
+keywords:
+  LoopBack 4.0, LoopBack 4, Node.js, TypeScript, OpenAPI, LoopBack 3, Migration
 sidebar: lb4_sidebar
 permalink: /doc/en/lb4/migration-models-relations.html
 ---
+
+{% include tip.html content="
+Missing instructions for your LoopBack 3 use case? Please report a [Migration docs issue](https://github.com/strongloop/loopback-next/issues/new?labels=question,Migration,Docs&template=Migration_docs.md) on GitHub to let us know.
+" %}
 
 When you define a relation in a LoopBack 3 model JSON file, the framework will
 create the following artifacts for you automatically:
@@ -61,8 +66,9 @@ The following relations are supported by LoopBack 4 and can be migrated from
 LoopBack 3:
 
 - [HasMany](../../HasMany-relation.md)
-- [HasOne](../../hasOne-relation.md)
+- [HasOne](../../HasOne-relation.md)
 - [BelongsTo](../../BelongsTo-relation.md)
+- [HasManyThrough](../../HasManyThrough-relation.md)
 
 Other relations types are not supported yet, you can subscribe to our progress
 in the high-level tracking issue
@@ -70,8 +76,6 @@ in the high-level tracking issue
 See also issues for individual relation types as mentioned in the tracking
 issue, for example:
 
-- HasManyThrough -
-  [loopback-next#2264](https://github.com/strongloop/loopback-next/issues/2264)
 - HasAndBelongsToMany -
   [loopback-next#2308](https://github.com/strongloop/loopback-next/issues/2308)
 - Polymorphic relations -

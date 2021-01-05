@@ -1,4 +1,4 @@
-// Copyright IBM Corp. 2018,2019. All Rights Reserved.
+// Copyright IBM Corp. 2018,2020. All Rights Reserved.
 // Node module: @loopback/example-todo
 // This file is licensed under the MIT License.
 // License text available at https://opensource.org/licenses/MIT
@@ -10,6 +10,7 @@ export class Todo extends Entity {
   @property({
     type: 'number',
     id: true,
+    generated: false,
   })
   id?: number;
 
@@ -39,6 +40,12 @@ export class Todo extends Entity {
     type: 'string',
   })
   remindAtGeo?: string; // latitude,longitude
+
+  @property({
+    type: 'any',
+  })
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  tag?: any;
 
   constructor(data?: Partial<Todo>) {
     super(data);

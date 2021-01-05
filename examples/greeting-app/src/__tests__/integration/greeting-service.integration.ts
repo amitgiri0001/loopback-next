@@ -1,4 +1,4 @@
-// Copyright IBM Corp. 2019. All Rights Reserved.
+// Copyright IBM Corp. 2019,2020. All Rights Reserved.
 // Node module: @loopback/example-greeting-app
 // This file is licensed under the MIT License.
 // License text available at https://opensource.org/licenses/MIT
@@ -24,7 +24,7 @@ describe('GreetingApplication', () => {
     client = createRestAppClient(app);
   });
 
-  it('gets a greeting in English', async function() {
+  it('gets a greeting in English', async function () {
     const response = await client
       .get('/greet/Raymond')
       .set('Accept-Language', 'en')
@@ -35,7 +35,7 @@ describe('GreetingApplication', () => {
     });
   });
 
-  it('gets a greeting in Chinese', async function() {
+  it('gets a greeting in Chinese', async function () {
     const response = await client
       .get('/greet/Raymond')
       .set('Accept-Language', 'zh')
@@ -46,7 +46,7 @@ describe('GreetingApplication', () => {
     });
   });
 
-  it('gets a greeting from cache', async function() {
+  it('gets a greeting from cache', async function () {
     app.configure(CACHING_SERVICE).to({ttl: 100});
     let response = await client
       .get('/greet/Raymond')

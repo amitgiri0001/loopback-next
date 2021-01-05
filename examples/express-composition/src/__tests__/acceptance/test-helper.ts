@@ -1,4 +1,4 @@
-// Copyright IBM Corp. 2019. All Rights Reserved.
+// Copyright IBM Corp. 2019,2020. All Rights Reserved.
 // Node module: @loopback/example-express-composition
 // This file is licensed under the MIT License.
 // License text available at https://opensource.org/licenses/MIT
@@ -15,7 +15,7 @@ export async function setupExpressApplication(): Promise<AppWithClient> {
 
   const lbApp = server.lbApp;
 
-  const client = supertest('http://127.0.0.1:3000');
+  const client = supertest(server.app);
 
   return {server, client, lbApp};
 }

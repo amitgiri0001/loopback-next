@@ -1,12 +1,12 @@
-// Copyright IBM Corp. 2018. All Rights Reserved.
+// Copyright IBM Corp. 2018,2020. All Rights Reserved.
 // Node module: @loopback/repository
 // This file is licensed under the MIT License.
 // License text available at https://opensource.org/licenses/MIT
 
+import {Filter, FilterBuilder, Where, WhereBuilder} from '@loopback/filter';
 import {cloneDeep} from 'lodash';
 import {AnyObject, DataObject} from '../common-types';
 import {Entity} from '../model';
-import {Filter, FilterBuilder, Where, WhereBuilder} from '../query';
 
 /**
  * A utility function which takes a filter and enforces constraint(s)
@@ -40,6 +40,23 @@ export function constrainWhere<T extends object>(
   const where = cloneDeep(originalWhere);
   const builder = new WhereBuilder<T>(where);
   return builder.impose(constraint).build();
+}
+/**
+ * A utility function which takes a where filter and enforces constraint(s)
+ * on it with OR clause
+ * @param originalWhere - the where filter to apply the constrain(s) to
+ * @param constraint - the constraint which is to be applied on the filter with
+ * or clause
+ * @returns Filter the modified filter with the constraint, otherwise
+ * the original filter
+ */
+export function constrainWhereOr<T extends object>(
+  originalWhere: Where<T> | undefined,
+  constraint: Where<T>[],
+): Where<T> {
+  const where = cloneDeep(originalWhere);
+  const builder = new WhereBuilder<T>(where);
+  return builder.or(constraint).build();
 }
 /**
  * A utility function which takes a model instance data and enforces constraint(s)

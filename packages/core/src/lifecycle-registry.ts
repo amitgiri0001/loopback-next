@@ -1,12 +1,14 @@
-// Copyright IBM Corp. 2018. All Rights Reserved.
+// Copyright IBM Corp. 2018,2020. All Rights Reserved.
 // Node module: @loopback/core
 // This file is licensed under the MIT License.
 // License text available at https://opensource.org/licenses/MIT
 
 import {
   Binding,
+  Context,
   ContextView,
   inject,
+  invokeMethod,
   sortBindingsByPhase,
 } from '@loopback/context';
 import {CoreBindings, CoreTags} from './keys';
@@ -49,6 +51,8 @@ export const DEFAULT_ORDERED_GROUPS = ['server'];
  */
 export class LifeCycleObserverRegistry implements LifeCycleObserver {
   constructor(
+    @inject.context()
+    protected readonly context: Context,
     @inject.view(lifeCycleObserverFilter)
     protected readonly observersView: ContextView<LifeCycleObserver>,
     @inject(CoreBindings.LIFE_CYCLE_OBSERVER_OPTIONS, {optional: true})
@@ -180,7 +184,11 @@ export class LifeCycleObserverRegistry implements LifeCycleObserver {
     event: keyof LifeCycleObserver,
   ) {
     if (typeof observer[event] === 'function') {
-      await observer[event]!();
+      // Supply `undefined` for legacy callback function expected by
+      // DataSource.stop()
+      await invokeMethod(observer, event, this.context, [undefined], {
+        skipInterceptors: true,
+      });
     }
   }
 
@@ -196,6 +204,10 @@ export class LifeCycleObserverRegistry implements LifeCycleObserver {
   ) {
     const observers = await this.observersView.values();
     const bindings = this.observersView.bindings;
+    const found = observers.some(observer =>
+      events.some(e => typeof observer[e] === 'function'),
+    );
+    if (!found) return;
     if (reverse) {
       // Do not reverse the original `groups` in place
       groups = [...groups].reverse();
@@ -216,6 +228,15 @@ export class LifeCycleObserverRegistry implements LifeCycleObserver {
         debug('Finished notification %s of %s', event);
       }
     }
+  }
+
+  /**
+   * Notify all life cycle observers by group of `init`
+   */
+  public async init(): Promise<void> {
+    debug('Initializing the %s...');
+    const groups = this.getObserverGroupsByOrder();
+    await this.notifyGroups(['init'], groups);
   }
 
   /**

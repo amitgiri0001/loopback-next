@@ -1,7 +1,7 @@
 ---
 lang: en
 title: 'Soap Web Service Overview'
-keywords: LoopBack 4.0, LoopBack 4
+keywords: LoopBack 4.0, LoopBack 4, Node.js, TypeScript, OpenAPI, SOAP
 sidebar: lb4_sidebar
 permalink: /doc/en/lb4/soap-calculator-tutorial-web-service-overview.html
 ---
@@ -90,7 +90,8 @@ result: {
 
 ### Navigation
 
-Previous step: [Tutorial overview](soap-calculator-tutorial.md)
+Previous step:
+[Tutorial overview](https://loopback.io/doc/en/lb4/soap-calculator-tutorial.html)
 
 Next step:
 [Create your app scaffolding](soap-calculator-tutorial-scaffolding.md)

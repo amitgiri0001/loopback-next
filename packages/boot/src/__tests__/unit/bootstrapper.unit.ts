@@ -5,7 +5,7 @@
 
 import {Application} from '@loopback/core';
 import {RepositoryMixin} from '@loopback/repository';
-import {expect} from '@loopback/testlab';
+import {expect, sinon} from '@loopback/testlab';
 import {BootBindings, Booter, BootMixin, Bootstrapper} from '../..';
 
 describe('boot-strapper unit tests', () => {
@@ -15,11 +15,15 @@ describe('boot-strapper unit tests', () => {
 
   let app: BootApp;
   let bootstrapper: Bootstrapper;
-  const booterKey = `${BootBindings.BOOTER_PREFIX}.TestBooter`;
-  const anotherBooterKey = `${BootBindings.BOOTER_PREFIX}.AnotherBooter`;
+  const booterKey = `${BootBindings.BOOTERS}.TestBooter`;
+  const anotherBooterKey = `${BootBindings.BOOTERS}.AnotherBooter`;
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  let stub: sinon.SinonStub<[any?, ...any[]], void>;
 
   beforeEach(getApplication);
   beforeEach(getBootStrapper);
+  beforeEach(createStub);
+  afterEach(restoreStub);
 
   it('finds and runs registered booters', async () => {
     const ctx = await bootstrapper.boot();
@@ -60,6 +64,40 @@ describe('boot-strapper unit tests', () => {
     const ctx = await bootstrapper.boot({filter: {phases: ['configure']}});
     const booterInst = await ctx.get<TestBooter>(booterKey);
     expect(booterInst.phasesCalled).to.eql(['TestBooter:configure']);
+  });
+
+  it('sets application states', async () => {
+    const boot = app.boot();
+    expect(app.state).to.eql('booting');
+    await boot;
+    expect(app.state).to.eql('booted');
+    // No-op
+    await app.boot();
+    expect(app.state).to.eql('booted');
+    const start = app.start();
+    expect(app.state).to.equal('initializing');
+    await start;
+    expect(app.state).to.equal('started');
+    const stop = app.stop();
+    expect(app.state).to.equal('stopping');
+    await stop;
+    expect(app.state).to.equal('stopped');
+  });
+
+  it('awaits booted if the application is booting', async () => {
+    const boot = app.boot();
+    expect(app.state).to.eql('booting');
+    const bootAgain = app.boot();
+    await boot;
+    await bootAgain;
+    expect(app.state).to.eql('booted');
+  });
+
+  it('throws error with invalid application states', async () => {
+    await app.start();
+    await expect(app.boot()).to.be.rejectedWith(
+      /Cannot boot the application as it is started\. Valid states are created,booted\./,
+    );
   });
 
   /**
@@ -113,5 +151,13 @@ describe('boot-strapper unit tests', () => {
       if (this.configureCalled) result.push('AnotherBooter:configure');
       return result;
     }
+  }
+
+  function restoreStub() {
+    stub.restore();
+  }
+
+  function createStub() {
+    stub = sinon.stub(process, 'emitWarning');
   }
 });

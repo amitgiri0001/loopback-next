@@ -1,13 +1,13 @@
-// Copyright IBM Corp. 2019. All Rights Reserved.
+// Copyright IBM Corp. 2019,2020. All Rights Reserved.
 // Node module: @loopback/service-proxy
 // This file is licensed under the MIT License.
 // License text available at https://opensource.org/licenses/MIT
 
 import {
   Application,
-  bind,
   BindingScope,
   Component,
+  injectable,
   Provider,
 } from '@loopback/core';
 import {expect} from '@loopback/testlab';
@@ -27,8 +27,19 @@ describe('ServiceMixin', () => {
     await expectGeocoderToBeBound(myApp);
   });
 
+  it('binds service from app.serviceProvider() with options', async () => {
+    const myApp = new AppWithServiceMixin();
+    const binding = myApp.serviceProvider(GeocoderServiceProvider, {
+      name: 'geo',
+      namespace: 'my-services',
+      defaultScope: BindingScope.SINGLETON,
+    });
+    expect(binding.key).to.eql('my-services.geo');
+    expect(binding.scope).to.eql(BindingScope.SINGLETON);
+  });
+
   it('binds singleton service from app.serviceProvider()', async () => {
-    @bind({scope: BindingScope.SINGLETON})
+    @injectable({scope: BindingScope.SINGLETON})
     class SingletonGeocoderServiceProvider extends GeocoderServiceProvider {}
     const myApp = new AppWithServiceMixin();
 

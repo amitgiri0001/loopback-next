@@ -3,8 +3,7 @@
 // This file is licensed under the MIT License.
 // License text available at https://opensource.org/licenses/MIT
 
-import {Context, invokeMethod, Provider} from '@loopback/context';
-import {Application} from '@loopback/core';
+import {Context, invokeMethod, Provider, Application} from '@loopback/core';
 import {SecurityBindings, securityId} from '@loopback/security';
 import {expect} from '@loopback/testlab';
 import {AuthorizationComponent} from '../../authorization-component';
@@ -116,6 +115,19 @@ describe('Authorization', () => {
 
   it('honors decisions without options.defaultMetadata', async () => {
     await testPlaceOrder(matrix5);
+  });
+
+  it('honors options.defaultStatusCodeForDeny', async () => {
+    givenRequestContext();
+    const row = matrix1[0];
+    setupAuthorization({defaultStatusCodeForDeny: 401}, ...row[1]);
+    const result = invokeMethod(controller, 'cancelOrder', reqCtx, [
+      'order-01',
+    ]);
+    await expect(result).to.be.rejectedWith({
+      statusCode: 401,
+      message: 'Access denied',
+    });
   });
 
   async function testCancelOrder(matrix: DecisionMatrix) {

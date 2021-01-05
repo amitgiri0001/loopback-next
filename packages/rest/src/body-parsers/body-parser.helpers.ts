@@ -1,4 +1,4 @@
-// Copyright IBM Corp. 2018,2019. All Rights Reserved.
+// Copyright IBM Corp. 2018,2020. All Rights Reserved.
 // Node module: @loopback/rest
 // This file is licensed under the MIT License.
 // License text available at https://opensource.org/licenses/MIT
@@ -9,7 +9,7 @@ import {
   OptionsText,
   OptionsUrlencoded,
 } from 'body-parser';
-import * as debugModule from 'debug';
+import debugModule from 'debug';
 import {HttpError} from 'http-errors';
 import {Request, RequestBodyParserOptions, Response} from '../types';
 

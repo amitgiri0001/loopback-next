@@ -1,5 +1,5 @@
 // Copyright IBM Corp. 2019. All Rights Reserved.
-// Node module: @loopback/extension-health
+// Node module: @loopback/health
 // This file is licensed under the MIT License.
 // License text available at https://opensource.org/licenses/MIT
 
@@ -11,6 +11,7 @@ export type HealthOptions = {
   healthPath: string;
   readyPath: string;
   livePath: string;
+  openApiSpec?: boolean;
 };
 
 /**
@@ -22,6 +23,7 @@ export const DEFAULT_HEALTH_OPTIONS: HealthOptions = {
   healthPath: '/health',
   readyPath: '/ready',
   livePath: '/live',
+  openApiSpec: false,
 };
 
 /**

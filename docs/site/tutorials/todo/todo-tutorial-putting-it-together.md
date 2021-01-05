@@ -1,7 +1,7 @@
 ---
 lang: en
 title: 'Putting it all together'
-keywords: LoopBack 4.0, LoopBack 4
+keywords: LoopBack 4.0, LoopBack 4, Node.js, TypeScript, OpenAPI, Tutorial
 sidebar: lb4_sidebar
 permalink: /doc/en/lb4/todo-tutorial-putting-it-together.html
 summary: LoopBack 4 Todo Application Tutorial - Putting it all together
@@ -42,6 +42,9 @@ Server is running at http://127.0.0.1:3000
 Next, you can use the [API Explorer](http://localhost:3000/explorer) to browse
 your API and make requests!
 
+{% include note.html content="
+When using the API Explorer, be sure to clear out any default <i><b>filter</b></i> or <i><b>where</b></i> objects in order to see all the data." %}
+
 Here are some requests you can try:
 
 - `POST /todos` with a body of `{ "title": "get the milk" }`
@@ -51,6 +54,8 @@ Here are some requests you can try:
   `{ "desc": "need milk for cereal" }`
 
 That's it! You've just created your first LoopBack 4 application!
+
+_Note: Use **CTRL+C** to stop the application_
 
 ### Where to go from here
 
@@ -74,6 +79,12 @@ left off here to guide you through adding in an additional feature:
 Eager to continue learning about LoopBack 4? Check out our
 [Examples](../../Examples.md) and [Tutorials](../../Tutorials.md) sections to
 find examples for creating your own custom components, sequences and more!
+
+In fact, this example can be simplified to only defining the model and
+datasource, while still behaving the same. Using
+[`CrudRestComponent`](https://loopback.io/doc/en/lb4/apidocs.rest-crud.crudrestcomponent.html),
+the repository and controller classes can be omitted, as seen in the
+[rest-crud example](https://github.com/strongloop/loopback-next/tree/master/examples/rest-crud).
 
 ### Navigation
 

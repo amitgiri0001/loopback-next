@@ -1,4 +1,4 @@
-// Copyright IBM Corp. 2019. All Rights Reserved.
+// Copyright IBM Corp. 2019,2020. All Rights Reserved.
 // Node module: @loopback/repository-tests
 // This file is licensed under the MIT License.
 // License text available at https://opensource.org/licenses/MIT
@@ -23,9 +23,7 @@ export function getCrudContext(context: Mocha.Context) {
 export function withCrudCtx(
   fn: (context: CrudTestContext) => PromiseLike<unknown> | void,
 ): Mocha.AsyncFunc | Mocha.Func {
-  return function(this: Mocha.Context) {
-    // See https://github.com/typescript-eslint/typescript-eslint/issues/604
-    // eslint-disable-next-line no-invalid-this
+  return function (this: Mocha.Context) {
     return fn.call(this, getCrudContext(this));
   };
 }

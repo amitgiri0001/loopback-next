@@ -1,7 +1,7 @@
 ---
 lang: en
 title: 'Deploying with pm2 and nginx'
-keywords: LoopBack, pm2, nginx
+keywords: LoopBack 4.0, LoopBack 4, Node.js, TypeScript, OpenAPI, pm2, nginx
 sidebar: lb4_sidebar
 permalink: /doc/en/lb4/deploying-with-pm2-and-nginx.html
 ---
@@ -62,7 +62,7 @@ section of documentation for detailed instructions.
      apps: [
        {
          name: 'MyAPI',
-         script: 'index.js',
+         script: 'dist/index.js',
          instances: 1,
          autorestart: true,
          watch: false,
@@ -105,8 +105,8 @@ section of documentation for detailed instructions.
    $ npm start
    ```
 
-   This creates a dist folder which contains the transpiled code. Use `index.js`
-   at your app's root level for starting the server using `pm2`.
+   This creates a dist folder which contains the transpiled code. Use
+   `dist/index.js` at your app's root level for starting the server using `pm2`.
 
    Now you can visit [http://127.0.0.1:3000/](http://127.0.0.1:3000/) to check
    your newly deployed API.
@@ -125,7 +125,7 @@ section of documentation for detailed instructions.
    }
    ```
 
-3. All set! Now you can hit your localhost at `http://localhost:3000/fooapi`
+3. All set! Now you can hit your localhost at `http://localhost:80/fooapi`
    (assuming nginx is listening to port 80) and your requests will be passed on
    to `pm2` process running your Loopback application.
 

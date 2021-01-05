@@ -1,4 +1,4 @@
-// Copyright IBM Corp. 2019. All Rights Reserved.
+// Copyright IBM Corp. 2019,2020. All Rights Reserved.
 // Node module: @loopback/eslint-config
 // This file is licensed under the MIT License.
 // License text available at https://opensource.org/licenses/MIT
@@ -29,8 +29,6 @@ module.exports = {
      * See https://github.com/typescript-eslint/typescript-eslint/issues/389
      */
     project: getProjectFile(),
-    // See https://github.com/typescript-eslint/typescript-eslint/tree/master/packages/parser#configuration
-    createDefaultProgram: true,
     ecmaFeatures: {
       ecmaVersion: 2017,
       jsx: false,
@@ -58,10 +56,6 @@ module.exports = {
     'no-useless-escape': 'off',
     // TypeScript allows the same name for namespace and function
     'no-redeclare': 'off',
-
-    // Avoid promise rewrapping
-    // https://exploringjs.com/es2016-es2017/ch_async-functions.html#_returned-promises-are-not-wrapped
-    'no-return-await': 'error',
 
     /**
      * Rules imported from eslint-config-loopback
@@ -91,6 +85,10 @@ module.exports = {
     '@typescript-eslint/ban-types': 'off',
     '@typescript-eslint/no-triple-slash-reference': 'off',
     '@typescript-eslint/no-empty-interface': 'off',
+    '@typescript-eslint/no-non-null-asserted-optional-chain': 'error',
+
+    // Disable warning  Missing return type on function for now
+    '@typescript-eslint/explicit-module-boundary-types': 'off',
 
     /**
      * The following rules are enforced to support legacy tslint configuration
@@ -107,9 +105,14 @@ module.exports = {
     'no-new-wrappers': 'error', // tslint:no-construct
     // 'no-redeclare': 'error', // tslint:no-duplicate-variable
 
-    'no-invalid-this': 'error',
+    'no-invalid-this': 'off',
+    '@typescript-eslint/no-invalid-this': ['error'],
     '@typescript-eslint/no-misused-new': 'error',
-    'no-shadow': 'error', // tslint:no-shadowed-variable
+
+    // https://github.com/typescript-eslint/typescript-eslint/blob/master/packages/eslint-plugin/docs/rules/no-shadow.md#how-to-use
+    'no-shadow': 'off',
+    '@typescript-eslint/no-shadow': 'error',
+
     'no-throw-literal': 'error', // tslint:no-string-throw
 
     '@typescript-eslint/no-unused-vars': [
@@ -117,21 +120,6 @@ module.exports = {
       {
         vars: 'all',
         args: 'none', // none - do not check arguments
-        /*
-         * The following is a workaround to the issue that parameter decorators
-         * are treated as `unused-vars`.
-         *
-         * See https://github.com/typescript-eslint/typescript-eslint/issues/571
-         *
-         * @example
-         * ```ts
-         * import {inject} from '@loopback/context';
-         * class MyController {
-         *   constructor(@inject('foo') foo: string) {}
-         * }
-         * ```
-         */
-        varsIgnorePattern: 'inject|(\\w+)Bindings',
         ignoreRestSiblings: false,
       },
     ], // tslint:no-unused-variable
@@ -148,7 +136,126 @@ module.exports = {
     '@typescript-eslint/no-empty-function': 'off',
     '@typescript-eslint/consistent-type-assertions': 'off',
     '@typescript-eslint/no-misused-promises': 'error',
+
+    '@typescript-eslint/prefer-optional-chain': 'error',
+    '@typescript-eslint/prefer-nullish-coalescing': 'error',
+    '@typescript-eslint/no-extra-non-null-assertion': 'error',
+
+    // https://github.com/typescript-eslint/typescript-eslint/blob/master/packages/eslint-plugin/docs/rules/return-await.md#how-to-use
+    '@typescript-eslint/return-await': 'error',
+    // note we must disable the base rule as it can report incorrect errors
+    'no-return-await': 'off',
+
+    // https://github.com/typescript-eslint/typescript-eslint/blob/master/packages/eslint-plugin/docs/rules/naming-convention.md
+    camelcase: 'off',
+    '@typescript-eslint/naming-convention': [
+      'error',
+      {
+        selector: 'default',
+        format: ['camelCase'],
+      },
+
+      {
+        selector: 'variable',
+        format: ['camelCase', 'UPPER_CASE', 'PascalCase'],
+      },
+
+      {
+        selector: 'variable',
+        format: null,
+        filter: {
+          regex: '^_$',
+          match: true,
+        },
+      },
+
+      // For mixin functions
+      {
+        selector: 'function',
+        format: ['PascalCase'],
+        filter: {
+          regex: 'Mixin$',
+          match: true,
+        },
+      },
+
+      {
+        selector: 'parameter',
+        format: ['camelCase'],
+        leadingUnderscore: 'allow',
+      },
+
+      // For members such as `Content-Type`
+      {
+        selector: 'memberLike',
+        format: null,
+        filter: {
+          // you can expand this regex as you find more cases that require
+          // quoting that you want to allow
+          regex: '[- ]',
+          match: true,
+        },
+      },
+
+      // For enum members
+      {
+        selector: 'enumMember',
+        format: ['camelCase', 'UPPER_CASE', 'PascalCase'],
+        leadingUnderscore: 'allow',
+      },
+
+      // For properties
+      {
+        selector: 'property',
+        format: ['camelCase', 'UPPER_CASE', 'PascalCase'],
+        leadingUnderscore: 'allow',
+      },
+
+      {
+        selector: 'method',
+        format: ['camelCase'],
+        leadingUnderscore: 'allow',
+      },
+
+      // For static members
+      {
+        selector: 'memberLike',
+        modifiers: ['static'],
+        format: ['camelCase', 'UPPER_CASE'],
+      },
+
+      // For private members
+      {
+        selector: 'memberLike',
+        modifiers: ['private'],
+        format: ['camelCase'],
+        leadingUnderscore: 'allow',
+      },
+
+      // For protected members
+      {
+        selector: 'memberLike',
+        modifiers: ['protected'],
+        format: ['camelCase'],
+        leadingUnderscore: 'allow',
+      },
+
+      {
+        selector: 'typeLike',
+        format: ['PascalCase'],
+      },
+    ],
   },
+
+  overrides: [
+    {
+      files: ['**/*.js'],
+      rules: {
+        '@typescript-eslint/prefer-optional-chain': 'off',
+        '@typescript-eslint/prefer-nullish-coalescing': 'off',
+      },
+    },
+  ],
 };
 
 /**

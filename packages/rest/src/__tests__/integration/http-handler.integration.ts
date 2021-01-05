@@ -1,9 +1,9 @@
-// Copyright IBM Corp. 2019. All Rights Reserved.
+// Copyright IBM Corp. 2019,2020. All Rights Reserved.
 // Node module: @loopback/rest
 // This file is licensed under the MIT License.
 // License text available at https://opensource.org/licenses/MIT
 
-import {Context} from '@loopback/context';
+import {Context} from '@loopback/core';
 import {anOpenApiSpec, anOperationSpec} from '@loopback/openapi-spec-builder';
 import {
   ControllerSpec,
@@ -17,8 +17,8 @@ import {
   createUnexpectedHttpErrorLogger,
   expect,
 } from '@loopback/testlab';
-import * as express from 'express';
-import * as HttpErrors from 'http-errors';
+import express from 'express';
+import HttpErrors from 'http-errors';
 import {is} from 'type-is';
 import {
   BodyParser,
@@ -405,7 +405,7 @@ describe('HttpHandler', () => {
       // is called before all request data has been processed due
       // to size limit.
       // On Windows, ECONNRESET is sometimes emitted instead of EPIPE.
-      if (err && err.code !== 'EPIPE' && err.code !== 'ECONNRESET') throw err;
+      if (err?.code !== 'EPIPE' && err?.code !== 'ECONNRESET') throw err;
     }
 
     function givenLargeRequest() {
@@ -524,7 +524,8 @@ describe('HttpHandler', () => {
 
       await client.get('/hello').expect(404, {
         error: {
-          message: 'Controller method not found: TestController.unknownMethod',
+          message:
+            'Controller method not found: get /hello => TestController.unknownMethod',
           name: 'NotFoundError',
           statusCode: 404,
         },
@@ -619,18 +620,20 @@ describe('HttpHandler', () => {
   let handler: HttpHandler;
   function givenHandler() {
     rootContext = new Context();
-    rootContext.bind(SequenceActions.FIND_ROUTE).toProvider(FindRouteProvider);
+    rootContext
+      .bind(SequenceActions.FIND_ROUTE)
+      .toDynamicValue(FindRouteProvider);
     rootContext
       .bind(SequenceActions.PARSE_PARAMS)
-      .toProvider(ParseParamsProvider);
+      .toDynamicValue(ParseParamsProvider);
     rootContext
       .bind(SequenceActions.INVOKE_METHOD)
-      .toProvider(InvokeMethodProvider);
+      .toDynamicValue(InvokeMethodProvider);
     rootContext
       .bind(SequenceActions.LOG_ERROR)
       .to(createUnexpectedHttpErrorLogger());
     rootContext.bind(SequenceActions.SEND).to(writeResultToResponse);
-    rootContext.bind(SequenceActions.REJECT).toProvider(RejectProvider);
+    rootContext.bind(SequenceActions.REJECT).toDynamicValue(RejectProvider);
 
     rootContext.bind(RestBindings.SEQUENCE).toClass(DefaultSequence);
 

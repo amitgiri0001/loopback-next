@@ -4,8 +4,8 @@
 // License text available at https://opensource.org/licenses/MIT
 
 import {expect} from '@loopback/testlab';
-import * as debugModule from 'debug';
-import {Context, inject, invokeMethod, BindingKey} from '../..';
+import debugModule from 'debug';
+import {BindingKey, Context, inject, invokeMethod} from '../..';
 const debug = debugModule('loopback:context:test');
 
 class InfoController {
@@ -80,7 +80,14 @@ describe('Context bindings - Injecting dependencies of method', () => {
     const instance = await ctx.get(INFO_CONTROLLER);
     expect(() => {
       invokeMethod(instance, 'greet', ctx);
-    }).to.throw(/The arguments\[0\] is not decorated for dependency injection/);
+    }).to.throw(
+      /The argument 'InfoController\.prototype\.greet\[0\]' is not decorated for dependency injection/,
+    );
+    expect(() => {
+      invokeMethod(instance, 'greet', ctx);
+    }).to.throw(
+      /but no value was supplied by the caller\. Did you forget to apply @inject\(\) to the argument\?/,
+    );
   });
 
   function createContext() {

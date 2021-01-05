@@ -1,7 +1,7 @@
 ---
 lang: en
 title: Tutorials
-keywords: LoopBack 4.0
+keywords: LoopBack 4.0, LoopBack 4, Node.js, TypeScript, OpenAPI, Tutorial
 sidebar: lb4_sidebar
 permalink: /doc/en/lb4/Tutorials.html
 ---
@@ -26,6 +26,9 @@ LoopBack 4 comes with the following tutorials:
 - **[lb3-application](https://github.com/strongloop/loopback-next/tree/master/examples/lb3-application)**:
   Tutorial on mounting an existing LoopBack 3 application in a new LoopBack 4
   project.
+
+- **[core series](tutorials/core/index.md)**: A series of tutorials on building
+  large scale Node.js projects with LoopBack 4 core modules
 
 You can download any of the tutorial projects using our CLI tool `lb4`:
 

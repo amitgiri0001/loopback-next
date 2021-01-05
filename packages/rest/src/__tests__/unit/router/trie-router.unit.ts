@@ -1,4 +1,4 @@
-// Copyright IBM Corp. 2019. All Rights Reserved.
+// Copyright IBM Corp. 2019,2020. All Rights Reserved.
 // Node module: @loopback/rest
 // This file is licensed under the MIT License.
 // License text available at https://opensource.org/licenses/MIT
@@ -69,8 +69,8 @@ describe('trie router', () => {
 
   function getVerbAndPath(r?: RouteEntry) {
     return {
-      verb: r && r.verb,
-      path: r && r.path,
+      verb: r?.verb,
+      path: r?.path,
     };
   }
 
@@ -221,7 +221,7 @@ describe('trie router with options', () => {
     });
 
     function testNonStrictRouter(path: string, expected?: string) {
-      expected = expected || path;
+      expected = expected ?? path;
       const req = givenRequest({method: 'get', url: path});
       const route = router.find(req);
       expect(getRouteInfo(route)).to.containEql({
@@ -248,9 +248,9 @@ describe('trie router with options', () => {
 
 function getRouteInfo(r?: ResolvedRoute) {
   return {
-    verb: r && r.verb,
-    path: r && r.path,
-    params: r && r.pathParams,
+    verb: r?.verb,
+    path: r?.path,
+    params: r?.pathParams,
   };
 }
 
@@ -275,9 +275,7 @@ function addRoute(
   routes.push({
     verb,
     path,
-    spec: anOperationSpec()
-      .withOperationName(op)
-      .build(),
+    spec: anOperationSpec().withOperationName(op).build(),
     updateBindings: () => {},
     invokeHandler: async () => {},
     describe: () => op,

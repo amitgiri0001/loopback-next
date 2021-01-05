@@ -1,16 +1,25 @@
-// Copyright IBM Corp. 2019. All Rights Reserved.
+// Copyright IBM Corp. 2019,2020. All Rights Reserved.
 // Node module: @loopback/authentication
 // This file is licensed under the MIT License.
 // License text available at https://opensource.org/licenses/MIT
 
-import {inject} from '@loopback/context';
-import {HttpErrors, Request} from '@loopback/rest';
+import {inject, injectable} from '@loopback/core';
+import {
+  asSpecEnhancer,
+  HttpErrors,
+  mergeSecuritySchemeToSpec,
+  OASEnhancer,
+  OpenApiSpec,
+  Request,
+} from '@loopback/rest';
 import {UserProfile} from '@loopback/security';
-import {AuthenticationStrategy} from '../../../types';
+import {asAuthStrategy, AuthenticationStrategy} from '../../../types';
 import {JWTAuthenticationStrategyBindings} from '../keys';
 import {JWTService} from '../services/jwt-service';
 
-export class JWTAuthenticationStrategy implements AuthenticationStrategy {
+@injectable(asAuthStrategy, asSpecEnhancer)
+export class JWTAuthenticationStrategy
+  implements AuthenticationStrategy, OASEnhancer {
   name = 'jwt';
 
   constructor(
@@ -47,5 +56,13 @@ export class JWTAuthenticationStrategy implements AuthenticationStrategy {
     const token = parts[1];
 
     return token;
+  }
+
+  modifySpec(spec: OpenApiSpec): OpenApiSpec {
+    return mergeSecuritySchemeToSpec(spec, this.name, {
+      type: 'http',
+      scheme: 'bearer',
+      bearerFormat: 'JWT',
+    });
   }
 }

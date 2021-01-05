@@ -1,7 +1,7 @@
 ---
 lang: en
 title: 'Dependency Injection Decorators'
-keywords: LoopBack 4.0, LoopBack-Next
+keywords: LoopBack 4.0, LoopBack, Node.js, TypeScript, OpenAPI, Decorator
 sidebar: lb4_sidebar
 permalink: /doc/en/lb4/Decorators_inject.html
 ---
@@ -20,7 +20,7 @@ The injected values are applied to a constructed instance, so it can only be
 used on non-static properties or constructor parameters of a Class.
 
 The `@inject` decorator allows you to inject dependencies bound to any
-implementation of the [Context](Context.md) object, such as an Application
+implementation of the [Context](../Context.md) object, such as an Application
 instance or a request context instance. You can bind values, class definitions,
 and provider functions to those contexts and then resolve the values (or the
 results of functions that return those values!) in other areas of your code.
@@ -29,8 +29,8 @@ results of functions that return those values!) in other areas of your code.
 
 ```ts
 import {Application} from '@loopback/core';
-import * as fs from 'fs-extra';
-import * as path from 'path';
+import fs from 'fs-extra';
+import path from 'path';
 
 export class MyApp extends RestApplication {
   constructor() {
@@ -55,7 +55,7 @@ WidgetController:
 {% include code-caption.html content="src/controllers/widget.controller.ts" %}
 
 ```ts
-import {inject} from '@loopback/context';
+import {inject} from '@loopback/core';
 
 export class WidgetController {
   // injection for property
@@ -75,6 +75,8 @@ array of values can be injected. If the target type is not `Array`, an error
 will be thrown.
 
 ```ts
+import {inject} from '@loopback/core';
+
 class MyControllerWithValues {
   constructor(
     @inject(binding => binding.tagNames.includes('foo'))
@@ -87,6 +89,8 @@ To sort matched bindings found by the binding filter function, `@inject` honors
 `bindingComparator` in `metadata`:
 
 ```ts
+import {inject} from '@loopback/core';
+
 class MyControllerWithValues {
   constructor(
     @inject(binding => binding.tagNames.includes('foo'), {
@@ -100,6 +104,19 @@ class MyControllerWithValues {
 }
 ```
 
+{% include note.html content="The `@loopback/core` package re-exports all public
+APIs of `@loopback/context`. For consistency, we recommend the usage of
+`@loopback/core` for imports in LoopBack modules and applications unless they
+depend on `@loopback/context` explicitly. The two statements below are
+equivalent:
+
+```ts
+import {inject} from '@loopback/context';
+import {inject} from '@loopback/core';
+```
+
+" %}
+
 A few variants of `@inject` are provided to declare special forms of
 dependencies.
 
@@ -111,7 +128,7 @@ value of the key.
 Syntax: `@inject.getter(bindingSelector: BindingSelector)`.
 
 ```ts
-import {inject, Getter} from '@loopback/context';
+import {inject, Getter} from '@loopback/core';
 import {UserProfile} from '@loopback/authentication';
 import {get} from '@loopback/rest';
 
@@ -183,7 +200,7 @@ To set other types of value providers such as `toDynamicValue`or `toClass`, use
 `@inject.binding` injects a binding for the given key. It can be used to bind
 various types of value providers to the underlying binding or configure the
 binding. This is an advanced form of `@inject.setter`, which only allows to set
-a constant value (using `Binding.to(value)` behind the scene) to the underlying
+a constant value (using `Binding.to(value)` behind the scenes) to the underlying
 binding.
 
 Syntax: `@inject.binding(bindingKey: BindingAddress, {bindingCreation?: ...})`.
@@ -264,14 +281,8 @@ class Store {
 
 const ctx = new Context();
 ctx.bind('store').toClass(Store);
-ctx
-  .bind('store.locations.sf')
-  .to('San Francisco')
-  .tag('store:location');
-ctx
-  .bind('store.locations.sj')
-  .to('San Jose')
-  .tag('store:location');
+ctx.bind('store.locations.sf').to('San Francisco').tag('store:location');
+ctx.bind('store.locations.sj').to('San Jose').tag('store:location');
 const store = ctx.getSync<Store>('store');
 console.log(store.locations); // ['San Francisco', 'San Jose']
 ```
@@ -282,7 +293,7 @@ console.log(store.locations); // ['San Francisco', 'San Jose']
 a filter function.
 
 ```ts
-import {inject} from '@loopback/context';
+import {inject} from '@loopback/core';
 import {DataSource} from '@loopback/repository';
 
 export class DataSourceTracker {
@@ -335,5 +346,5 @@ const component = ctx.getSync<MyComponent>('my-component');
 injection if possible. Use `@inject.context` only when the code needs to access
 the current context object for advanced use cases.
 
-For more information, see the [Dependency Injection](Dependency-injection.md)
-section under [LoopBack Core Concepts](Concepts.md).
+For more information, see the [Dependency Injection](../Dependency-injection.md)
+section under [LoopBack Core Concepts](../Concepts.md).

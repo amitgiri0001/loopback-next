@@ -1,4 +1,4 @@
-// Copyright IBM Corp. 2018. All Rights Reserved.
+// Copyright IBM Corp. 2019,2020. All Rights Reserved.
 // Node module: @loopback/repository-json-schema
 // This file is licensed under the MIT License.
 // License text available at https://opensource.org/licenses/MIT
@@ -22,6 +22,7 @@ describe('getJsonSchemaRef', () => {
       definitions: {
         MyModel: {
           title: 'MyModel',
+          type: 'object',
           properties: {
             name: {
               type: 'string',

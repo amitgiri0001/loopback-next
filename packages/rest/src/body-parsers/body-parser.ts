@@ -1,4 +1,4 @@
-// Copyright IBM Corp. 2018. All Rights Reserved.
+// Copyright IBM Corp. 2018,2020. All Rights Reserved.
 // Node module: @loopback/rest
 // This file is licensed under the MIT License.
 // License text available at https://opensource.org/licenses/MIT
@@ -10,9 +10,9 @@ import {
   filterByTag,
   inject,
   instantiateClass,
-} from '@loopback/context';
+} from '@loopback/core';
 import {isReferenceObject, OperationObject} from '@loopback/openapi-v3';
-import * as debugModule from 'debug';
+import debugModule from 'debug';
 import {is} from 'type-is';
 import {RestHttpErrors} from '../rest-http-error';
 import {Request} from '../types';
@@ -38,7 +38,7 @@ export class RequestBodyParser {
     parsers?: BodyParser[],
     @inject.context() private readonly ctx?: Context,
   ) {
-    this.parsers = sortParsers(parsers || []);
+    this.parsers = sortParsers(parsers ?? []);
     if (debug.enabled) {
       debug(
         'Body parsers: ',
@@ -61,15 +61,18 @@ export class RequestBodyParser {
       if (customParser) {
         // Invoke the custom parser
         const body = await this._invokeCustomParser(customParser, request);
+        debug('Parsed request body', body);
         return Object.assign(requestBody, body);
       } else {
         const parser = this._findParser(matchedMediaType);
         if (parser) {
           const body = await parser.parse(request);
+          debug('Parsed request body', body);
           return Object.assign(requestBody, body);
         }
       }
     } catch (err) {
+      debug('Request body parsing error', err);
       throw normalizeParsingError(err);
     }
 
@@ -88,7 +91,7 @@ export class RequestBodyParser {
     };
     if (!operationSpec.requestBody) return {requestBody};
 
-    const contentType = getContentType(request) || 'application/json';
+    const contentType = getContentType(request) ?? 'application/json';
     debug('Loading request body with content type %j', contentType);
 
     // the type of `operationSpec.requestBody` could be `RequestBodyObject`

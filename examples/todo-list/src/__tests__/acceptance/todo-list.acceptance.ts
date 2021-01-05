@@ -1,4 +1,4 @@
-// Copyright IBM Corp. 2019. All Rights Reserved.
+// Copyright IBM Corp. 2019,2020. All Rights Reserved.
 // Node module: @loopback/example-todo-list
 // This file is licensed under the MIT License.
 // License text available at https://opensource.org/licenses/MIT
@@ -58,10 +58,7 @@ describe('TodoListApplication', () => {
     });
 
     it('counts todoLists', async () => {
-      const response = await client
-        .get('/todo-lists/count')
-        .send()
-        .expect(200);
+      const response = await client.get('/todo-lists/count').send().expect(200);
       expect(response.body.count).to.eql(persistedTodoLists.length);
     });
 
@@ -74,10 +71,7 @@ describe('TodoListApplication', () => {
     });
 
     it('finds all todoLists', async () => {
-      const response = await client
-        .get('/todo-lists')
-        .send()
-        .expect(200);
+      const response = await client.get('/todo-lists').send().expect(200);
       expect(response.body).to.containDeep(persistedTodoLists);
     });
 
@@ -146,12 +140,24 @@ describe('TodoListApplication', () => {
       return client.get('/todo-lists/99999').expect(404);
     });
 
-    it('updates a todoList by ID', async () => {
+    it('updates a todoList by ID (using patch)', async () => {
       const updatedTodoList = givenTodoList({
         title: 'A different title to the todo list',
       });
       await client
         .patch(`/todo-lists/${persistedTodoList.id}`)
+        .send(updatedTodoList)
+        .expect(204);
+      const result = await todoListRepo.findById(persistedTodoList.id);
+      expect(result).to.containEql(updatedTodoList);
+    });
+
+    it('updates a todoList by ID (using put)', async () => {
+      const updatedTodoList = givenTodoList({
+        title: 'A different title to the todo list',
+      });
+      await client
+        .put(`/todo-lists/${persistedTodoList.id}`)
         .send(updatedTodoList)
         .expect(204);
       const result = await todoListRepo.findById(persistedTodoList.id);
@@ -193,7 +199,7 @@ describe('TodoListApplication', () => {
   it('includes Todos in query result', async () => {
     const list = await givenTodoListInstance(todoListRepo);
     const todo = await givenTodoInstance(todoRepo, {todoListId: list.id});
-    const filter = JSON.stringify({include: [{relation: 'todos'}]});
+    const filter = JSON.stringify({include: ['todos']});
 
     const response = await client.get('/todo-lists').query({filter: filter});
 
@@ -202,6 +208,16 @@ describe('TodoListApplication', () => {
       ...toJSON(list),
       todos: [toJSON(todo)],
     });
+  });
+
+  it('exploded filter conditions work', async () => {
+    const list = await givenTodoListInstance(todoListRepo);
+    await givenTodoInstance(todoRepo, {title: 'todo1', todoListId: list.id});
+    await givenTodoInstance(todoRepo, {title: 'todo2', todoListId: list.id});
+    await givenTodoInstance(todoRepo, {title: 'todo3', todoListId: list.id});
+
+    const response = await client.get('/todos').query('filter[limit]=2');
+    expect(response.body).to.have.length(2);
   });
 
   /*

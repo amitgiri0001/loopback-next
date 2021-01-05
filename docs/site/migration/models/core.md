@@ -1,10 +1,15 @@
 ---
 lang: en
 title: 'Migrating model definitions and built-in APIs'
-keywords: LoopBack 4.0, LoopBack 4, LoopBack 3, Migration
+keywords:
+  LoopBack 4.0, LoopBack 4, Node.js, TypeScript, OpenAPI, LoopBack 3, Migration
 sidebar: lb4_sidebar
 permalink: /doc/en/lb4/migration-models-core.html
 ---
+
+{% include tip.html content="
+Missing instructions for your LoopBack 3 use case? Please report a [Migration docs issue](https://github.com/strongloop/loopback-next/issues/new?labels=question,Migration,Docs&template=Migration_docs.md) on GitHub to let us know.
+" %}
 
 In LoopBack 3, a single model class has three responsibilities: it describes
 shape of data (schema), provides persistence-related behavior and implements
@@ -12,9 +17,8 @@ public (REST) API.
 
 In LoopBack 4, a model class is no longer responsible for everything. We have
 [Models](../../Model.md) to describe shape of data,
-[Repositories](../../Repositories.md) to provide persistence-related behavior
-and finally [Controllers](../../Controllers.md) to implement public APIs. The
-section
+[Repositories](../../Repository.md) to provide persistence-related behavior and
+finally [Controllers](../../Controller.md) to implement public APIs. The section
 [Migrating models persisted in a database](#migrating-models-persisted-in-a-database)
 describes how to create these artifacts for models persisted in a database.
 

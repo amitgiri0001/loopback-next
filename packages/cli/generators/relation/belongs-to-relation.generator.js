@@ -1,4 +1,4 @@
-// Copyright IBM Corp. 2019. All Rights Reserved.
+// Copyright IBM Corp. 2019,2020. All Rights Reserved.
 // Node module: @loopback/cli
 // This file is licensed under the MIT License.
 // License text available at https://opensource.org/licenses/MIT
@@ -13,7 +13,10 @@ const relationUtils = require('./utils.generator');
 const CONTROLLER_TEMPLATE_PATH_BELONGS_TO =
   'controller-relation-template-belongs-to.ts.ejs';
 
-module.exports = class BelongsToRelationGenerator extends BaseRelationGenerator {
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
+module.exports = class BelongsToRelationGenerator extends (
+  BaseRelationGenerator
+) {
   constructor(args, opts) {
     super(args, opts);
   }
@@ -73,12 +76,16 @@ module.exports = class BelongsToRelationGenerator extends BaseRelationGenerator 
   }
 
   async generateModels(options) {
+    // for repo to generate relation name
+    this.artifactInfo.relationName = options.relationName;
     const modelDir = this.artifactInfo.modelDir;
     const sourceModel = options.sourceModel;
 
     const targetModel = options.destinationModel;
     const relationType = options.relationType;
     const relationName = options.relationName;
+    const defaultRelationName = options.defaultRelationName;
+    const foreignKeyName = options.foreignKeyName;
     const fktype = options.destinationModelPrimaryKeyType;
 
     const project = new relationUtils.AstLoopBackProject();
@@ -88,10 +95,16 @@ module.exports = class BelongsToRelationGenerator extends BaseRelationGenerator 
       sourceModel,
     );
     const sourceClass = relationUtils.getClassObj(sourceFile, sourceModel);
+    // this checks if the foreign key already exists, so the 2nd param should be foreignKeyName
+    relationUtils.doesRelationExist(sourceClass, foreignKeyName);
 
-    relationUtils.doesRelationExist(sourceClass, relationName);
-
-    const modelProperty = this.getBelongsTo(targetModel, relationName, fktype);
+    const modelProperty = this.getBelongsTo(
+      targetModel,
+      relationName,
+      defaultRelationName,
+      foreignKeyName,
+      fktype,
+    );
 
     relationUtils.addProperty(sourceClass, modelProperty);
     const imports = relationUtils.getRequiredImports(targetModel, relationType);
@@ -101,10 +114,32 @@ module.exports = class BelongsToRelationGenerator extends BaseRelationGenerator 
     await sourceFile.save();
   }
 
-  getBelongsTo(className, relationName, fktype) {
+  getBelongsTo(
+    className,
+    relationName,
+    defaultRelationName,
+    foreignKeyName,
+    fktype,
+  ) {
+    // checks if relation name is customized
+    let relationDecorator = [
+      {
+        name: 'belongsTo',
+        arguments: [`() =>  ${className}`],
+      },
+    ];
+    // already checked if the relation name is the same as the source key before
+    if (defaultRelationName !== relationName) {
+      relationDecorator = [
+        {
+          name: 'belongsTo',
+          arguments: [`() =>  ${className}, {name: '${relationName}'}`],
+        },
+      ];
+    }
     return {
-      decorators: [{name: 'belongsTo', arguments: [`() =>  ${className}`]}],
-      name: relationName,
+      decorators: relationDecorator,
+      name: foreignKeyName,
       type: fktype,
     };
   }
@@ -122,7 +157,7 @@ module.exports = class BelongsToRelationGenerator extends BaseRelationGenerator 
   }
 
   _getRepositoryRelationPropertyName() {
-    return utils.camelCase(this.artifactInfo.dstModelClass);
+    return this.artifactInfo.relationName;
   }
 
   _initializeProperties(options) {
@@ -140,22 +175,22 @@ module.exports = class BelongsToRelationGenerator extends BaseRelationGenerator 
   }
 
   _addCreatorToRepositoryConstructor(classConstructor) {
-    const relationPropertyName = this._getRepositoryRelationPropertyName();
+    const relationName = this.artifactInfo.relationName;
     const statement =
-      `this.${relationPropertyName} = ` +
+      `this.${relationName} = ` +
       `this.createBelongsToAccessorFor('` +
-      `${this.artifactInfo.relationName.replace(/Id$/, '')}',` +
+      `${relationName}',` +
       ` ${utils.camelCase(this.artifactInfo.dstRepositoryClassName)}` +
       `Getter,);`;
     classConstructor.insertStatements(1, statement);
   }
 
   _registerInclusionResolverForRelation(classConstructor, options) {
-    const relationPropertyName = this._getRepositoryRelationPropertyName();
+    const relationName = this.artifactInfo.relationName;
     if (options.registerInclusionResolver) {
       const statement =
         `this.registerInclusionResolver(` +
-        `'${relationPropertyName}', this.${relationPropertyName}.inclusionResolver);`;
+        `'${relationName}', this.${relationName}.inclusionResolver);`;
       classConstructor.insertStatements(2, statement);
     }
   }

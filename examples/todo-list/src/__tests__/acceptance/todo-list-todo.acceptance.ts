@@ -1,4 +1,4 @@
-// Copyright IBM Corp. 2019. All Rights Reserved.
+// Copyright IBM Corp. 2019,2020. All Rights Reserved.
 // Node module: @loopback/example-todo-list
 // This file is licensed under the MIT License.
 // License text available at https://opensource.org/licenses/MIT
@@ -13,7 +13,7 @@ import {
 import {TodoListApplication} from '../../application';
 import {Todo, TodoList} from '../../models/';
 import {TodoListRepository, TodoRepository} from '../../repositories/';
-import {givenTodo, givenTodoList} from '../helpers';
+import {givenTodo, givenTodoList, givenTodoWithoutId} from '../helpers';
 
 describe('TodoListApplication', () => {
   let app: TodoListApplication;
@@ -42,16 +42,20 @@ describe('TodoListApplication', () => {
   });
 
   it('creates todo for a todoList', async () => {
-    const todo = givenTodo({todoListId: undefined});
+    const todo = givenTodoWithoutId({todoListId: undefined});
     const response = await client
       .post(`/todo-lists/${persistedTodoList.id}/todos`)
       .send(todo)
       .expect(200);
 
-    const expected = {...todo, todoListId: persistedTodoList.id};
+    const expected = {
+      ...todo,
+      todoListId: persistedTodoList.id,
+    };
     expect(response.body).to.containEql(expected);
 
     const created = await todoRepo.findById(response.body.id);
+
     expect(toJSON(created)).to.deepEqual({id: response.body.id, ...expected});
   });
 
@@ -231,7 +235,7 @@ describe('TodoListApplication', () => {
     id: typeof Todo.prototype.id,
     todo?: Partial<Todo>,
   ) {
-    const data = givenTodo(todo);
+    const data: Partial<Todo> = givenTodo(todo);
     delete data.todoListId;
     return todoListRepo.todos(id).create(data);
   }

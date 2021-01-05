@@ -1,18 +1,132 @@
 ---
 lang: en
 title: 'Life cycle events and observers'
-keywords: LoopBack 4.0, LoopBack 4
+keywords: LoopBack 4.0, LoopBack 4, Node.js, TypeScript, OpenAPI
 sidebar: lb4_sidebar
 permalink: /doc/en/lb4/Life-cycle.html
 ---
 
 ## Overview
 
-A LoopBack application has its own life cycles at runtime. There are two methods
-to control the transition of states of `Application`.
+A LoopBack application has its own life cycles at runtime. There are a few
+methods to control the transition of states of `Application`.
 
-- start(): Start the application
+- boot(): Boot the application
+- init(): Initialize the application (it happens at most once per application)
+- start(): Start the application. It will automatically call `init()` if the
+  application is not initialized
 - stop(): Stop the application
+
+## Application states
+
+The initial state of application is `created`. There are two types of states
+expected:
+
+- Stable, such as `created`, `booted`, `started`, and `stopped`
+- In process, such as `booting`, `starting`, and `stopping`
+
+Operations can only be called at a stable state. The logic of each operation
+should immediately set the state to a new one indicating work in process, for
+example, `start()` sets `starting` and `stop()` sets `stopping`. Calling a
+different operation in an in-process state will throw an error. If the same
+operation is in process, it awaits the operation to finish without performing
+any logic.
+
+The state can transition as follows by operations including `boot`, `start`, and
+`stop`:
+
+1.  boot()
+
+    - !booted -> booting -> booted
+    - booting | booted -> booted (no-op)
+
+2.  init()
+
+    - !initialized -> initializing -> initialized
+    - initializing | initialized -> initialized (no-op)
+
+3.  start()
+
+    - !started -> starting -> started
+    - starting | started -> started (no-op)
+
+4.  stop()
+
+    - started -> stopping -> stopped
+    - stopping | !started -> stopped (no-op)
+
+State transitions are illustrated in the diagram below:
+
+![application states](imgs/application-states.png)
+
+Each state transition emits a `stateChanged` event with data for the `from` and
+`to` states. For example:
+
+```ts
+app.on('stateChanged', data => {
+  console.log(data);
+});
+```
+
+The `data` is an object such as `{from: 'starting', to: 'started'}`.
+
+## Graceful shutdown
+
+Node.js will normally exit with a `0` status code when no more async operations
+are pending. But it's typical that a LoopBack 4 application creates connections
+to backend resources and listens on network interfaces for incoming requests. In
+such cases, the process keeps alive unless it receives a signal to shutdown. For
+example, pressing `Ctrl+C` or using a `kill` command.
+
+When the LoopBack 4 application is running inside a managed container, such as a
+Kubernetes Pod, there is a protocol between the container and the application
+process. The use case is supported by configuring the application with the
+`shutdown` option:
+
+```ts
+/**
+ * Options to set up application shutdown
+ */
+export type ShutdownOptions = {
+  /**
+   * An array of signals to be trapped for graceful shutdown
+   */
+  signals?: NodeJS.Signals[];
+  /**
+   * Period in milliseconds to wait for the grace shutdown to finish before
+   * exiting the process
+   */
+  gracePeriod?: number;
+};
+
+/**
+ * Configuration for application
+ */
+export interface ApplicationConfig {
+  /**
+   * Configuration for signals that shut down the application
+   */
+  shutdown?: ShutdownOptions;
+}
+```
+
+For example, the following application captures `SIGINT` to gracefully shutdown:
+
+```ts
+const app = new Application({
+  shutdown: {
+    signals: ['SIGINT'],
+  },
+});
+// Schedule some work such as a timer or database connection
+await app.start();
+```
+
+When the application is running inside a terminal, it can respond to `Ctrl+C`,
+which sends `SIGINT` to the process. The application calls `stop` first before
+it exits with the captured signal.
+
+## Participate in the application start/stop
 
 It's often desirable for various types of artifacts to participate in the life
 cycles and perform related processing upon `start` and `stop`. Good examples of
@@ -43,19 +157,50 @@ To react on life cycle events, a life cycle observer implements the
 `LifeCycleObserver` interface.
 
 ```ts
-import {ValueOrPromise} from '@loopback/context';
+import {ValueOrPromise} from '@loopback/core';
 
 /**
  * Observers to handle life cycle start/stop events
  */
 export interface LifeCycleObserver {
-  start?(): ValueOrPromise<void>;
-  stop?(): ValueOrPromise<void>;
+  /**
+   * The method to be invoked during `init`. It will only be called at most once
+   * for a given application instance.
+   */
+  init?(...injectedArgs: unknown[]): ValueOrPromise<void>;
+  /**
+   * The method to be invoked during `start`
+   */
+  start?(...injectedArgs: unknown[]): ValueOrPromise<void>;
+  /**
+   * The method to be invoked during `stop`
+   */
+  stop?(...injectedArgs: unknown[]): ValueOrPromise<void>;
 }
 ```
 
-Both `start` and `stop` methods are optional so that an observer can opt in
+`init`, `start` and `stop` methods are optional so that an observer can opt in
 certain events.
+
+Method injection is allowed for the lifecycle methods. For example,
+
+```ts
+class MyObserverWithMethodInjection implements LifeCycleObserver {
+  status = 'not-initialized';
+
+  init(@inject('prefix') prefix: string) {
+    this.status = `${prefix}:initialized`;
+  }
+
+  start(@inject('prefix') prefix: string) {
+    this.status = `${prefix}:started`;
+  }
+
+  stop(@inject('prefix') prefix: string) {
+    this.status = `${prefix}:stopped`;
+  }
+}
+```
 
 ## Register a life cycle observer
 
@@ -80,6 +225,36 @@ export class MyComponentWithObservers implements Component {
    */
   lifeCycleObservers = [XObserver, YObserver];
 }
+```
+
+### Shorthand methods
+
+In some cases, it's desirable to register a single function to be called at
+start or stop time.
+
+For example, when writing integration-level tests, we can use `app.onStop()` to
+register a cleanup routine to be invoked whenever the application is shut down.
+
+```ts
+import {Application} from '@loopback/core';
+
+describe('my test suite', () => {
+  let app: Application;
+  before(setupApp);
+  after(() => app.stop());
+
+  // the tests come here
+
+  async setupApp() {
+    app = new Application();
+    app.onStop(async cleanup() {
+      // do some cleanup
+    });
+
+    await app.boot();
+    await app.start();
+  }
+});
 ```
 
 ## Discover life cycle observers
@@ -125,14 +300,14 @@ app
   .apply(asLifeCycleObserver);
 ```
 
-The observer class can also be decorated with `@bind` to provide binding
+The observer class can also be decorated with `@injectable` to provide binding
 metadata.
 
 ```ts
-import {bind, createBindingFromClass} from '@loopback/context';
+import {injectable, createBindingFromClass} from '@loopback/core';
 import {CoreTags, asLifeCycleObserver} from '@loopback/core';
 
-@bind(
+@injectable(
   {
     tags: {
       [CoreTags.LIFE_CYCLE_OBSERVER_GROUP]: 'g1',
@@ -150,7 +325,7 @@ app.add(createBindingFromClass(MyObserver));
 Or even simpler with `@lifeCycleObserver`:
 
 ```ts
-import {createBindingFromClass} from '@loopback/context';
+import {createBindingFromClass} from '@loopback/core';
 import {lifeCycleObserver} from '@loopback/core';
 
 @lifeCycleObserver('g1')

@@ -1,7 +1,7 @@
 ---
 lang: en
 title: 'Extension point and extensions'
-keywords: LoopBack 4.0, LoopBack 4
+keywords: LoopBack 4.0, LoopBack 4, Node.js, TypeScript, OpenAPI
 sidebar: lb4_sidebar
 permalink: /doc/en/lb4/Extension-point-and-extensions.html
 ---
@@ -50,14 +50,64 @@ decorators and functions are provided to ensure consistency and convention.
   custom name
 - `@extensions`: injects a getter function to access extensions to the target
   extension point
+- `@extensions.view`: injects a context view to access extensions to the target
+  extension point. The view can be listened for context events.
+- `@extensions.list`: injects an array of extensions to the target extension
+  point. The list is fixed when the injection is done and it does not add or
+  remove extensions afterward.
 - `extensionFilter`: creates a binding filter function to find extensions for
   the named extension point
 - `extensionFor`: creates a binding template function to set the binding to be
-  an extension for the named extension point
+  an extension for the named extension point(s). It can accept one or more
+  extension point names to contribute to given extension points
 - `addExtension`: registers an extension class to the context for the named
   extension point
 
-The usage of these helper decorators and functions are illustrated in the
+## Examples
+
+1. Inject a getter function for extensions
+
+   ```ts
+   import {Getter} from '@loopback/core';
+   import {extensionPoint, extensions} from '@loopback/core';
+
+   @extensionPoint('greeters')
+   class GreetingService {
+     @extensions()
+     public getGreeters: Getter<Greeter[]>;
+   }
+   ```
+
+2. Inject a context view for extensions
+
+   ```ts
+   import {ContextView} from '@loopback/core';
+   import {extensionPoint, extensions} from '@loopback/core';
+
+   @extensionPoint('greeters')
+   class GreetingService {
+     constructor(
+       @extensions.view()
+       public readonly greetersView: ContextView<Greeter>,
+     ) {
+       // ...
+     }
+   }
+   ```
+
+3. Inject an array of resolved extensions
+
+   ```ts
+   import {extensionPoint, extensions} from '@loopback/core';
+
+   @extensionPoint('greeters')
+   class GreetingService {
+     @extensions.list()
+     public greeters: Greeter[];
+   }
+   ```
+
+More usage of these helper decorators and functions are illustrated in the
 `greeter-extension` tutorial.
 
 ## Tutorial

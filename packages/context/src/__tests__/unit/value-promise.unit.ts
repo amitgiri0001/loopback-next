@@ -10,45 +10,7 @@ import {
   resolveMap,
   resolveUntil,
   transformValueOrPromise,
-  tryWithFinally,
 } from '../..';
-
-describe('tryWithFinally', () => {
-  it('performs final action for a fulfilled promise', async () => {
-    let finalActionInvoked = false;
-    const action = () => Promise.resolve(1);
-    const finalAction = () => (finalActionInvoked = true);
-    await tryWithFinally(action, finalAction);
-    expect(finalActionInvoked).to.be.true();
-  });
-
-  it('performs final action for a resolved value', () => {
-    let finalActionInvoked = false;
-    const action = () => 1;
-    const finalAction = () => (finalActionInvoked = true);
-    // eslint-disable-next-line @typescript-eslint/no-floating-promises
-    tryWithFinally(action, finalAction);
-    expect(finalActionInvoked).to.be.true();
-  });
-
-  it('performs final action for a rejected promise', async () => {
-    let finalActionInvoked = false;
-    const action = () => Promise.reject(new Error('error'));
-    const finalAction = () => (finalActionInvoked = true);
-    await expect(tryWithFinally(action, finalAction)).be.rejectedWith('error');
-    expect(finalActionInvoked).to.be.true();
-  });
-
-  it('performs final action for an action that throws an error', () => {
-    let finalActionInvoked = false;
-    const action = () => {
-      throw new Error('error');
-    };
-    const finalAction = () => (finalActionInvoked = true);
-    expect(() => tryWithFinally(action, finalAction)).to.throw('error');
-    expect(finalActionInvoked).to.be.true();
-  });
-});
 
 describe('getDeepProperty', () => {
   it('gets the root value if path is empty', () => {
@@ -164,7 +126,7 @@ describe('resolveMap', () => {
 
   it('does not set a key with value undefined', () => {
     const source = {a: 'x', b: undefined};
-    const result = resolveMap(source, v => v && v.toUpperCase());
+    const result = resolveMap(source, v => v?.toUpperCase());
     expect(result).to.not.have.property('b');
     expect(result).to.eql({a: 'X'});
   });
@@ -180,7 +142,7 @@ describe('resolveMap', () => {
   it('does not set a key with promise resolved to undefined', async () => {
     const source = {a: 'x', b: undefined};
     const result = await resolveMap(source, v =>
-      Promise.resolve(v && v.toUpperCase()),
+      Promise.resolve(v?.toUpperCase()),
     );
     expect(result).to.not.have.property('b');
     expect(result).to.eql({a: 'X'});
@@ -325,21 +287,20 @@ describe('resolveUntil', () => {
 
 describe('transformValueOrPromise', () => {
   it('transforms a value', () => {
-    const result = transformValueOrPromise('a', v => v && v.toUpperCase());
+    const result = transformValueOrPromise('a', v => v?.toUpperCase());
     expect(result).to.eql('A');
   });
 
   it('transforms a promise', async () => {
-    const result = await transformValueOrPromise(
-      Promise.resolve('a'),
-      v => v && v.toUpperCase(),
+    const result = await transformValueOrPromise(Promise.resolve('a'), v =>
+      v?.toUpperCase(),
     );
     expect(result).to.eql('A');
   });
 
   it('transforms a value to promise', async () => {
     const result = await transformValueOrPromise('a', v =>
-      Promise.resolve(v && v.toUpperCase()),
+      Promise.resolve(v?.toUpperCase()),
     );
     expect(result).to.eql('A');
   });

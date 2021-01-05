@@ -1,23 +1,24 @@
-// Copyright IBM Corp. 2019. All Rights Reserved.
+// Copyright IBM Corp. 2019,2020. All Rights Reserved.
 // Node module: @loopback/tsdocs
 // This file is licensed under the MIT License.
 // License text available at https://opensource.org/licenses/MIT
 
 import {expect} from '@loopback/testlab';
-import * as fs from 'fs-extra';
-import pEvent from 'p-event';
-import * as path from 'path';
+import {once} from 'events';
+import fs from 'fs-extra';
+import path from 'path';
 import {runExtractorForMonorepo, updateApiDocs} from '../..';
 import {runExtractorForPackage} from '../../monorepo-api-extractor';
 
 const runCLI = require('@loopback/build').runCLI;
 
-const MONOREPO_ROOT = path.join(__dirname, '../../../fixtures/monorepo');
+const MONOREPO_ROOT = path.dirname(
+  require.resolve('@loopback/tsdocs-monorepo/package.json'),
+);
 const APIDOCS_ROOT = path.join(MONOREPO_ROOT, 'docs/apidocs');
 const SITE_APIDOCS_ROOT = path.join(MONOREPO_ROOT, 'docs/site/apidocs');
 
-describe('tsdocs', function() {
-  // eslint-disable-next-line no-invalid-this
+describe('tsdocs', function (this: Mocha.Suite) {
   this.timeout(10000);
 
   const API_MD_FILES = [
@@ -39,6 +40,26 @@ describe('tsdocs', function() {
     fs.emptyDirSync(APIDOCS_ROOT);
     fs.emptyDirSync(SITE_APIDOCS_ROOT);
     fs.emptyDirSync(path.join(MONOREPO_ROOT, 'packages/pkg1/docs'));
+  });
+
+  let originalConsoleLog: typeof console.log;
+
+  before(function setupConsoleLogInterceptor() {
+    originalConsoleLog = console.log;
+    console.log = function (...args: unknown[]) {
+      const msg = typeof args[0] === 'string' ? args[0] : '';
+      const ignore =
+        msg &&
+        (/Analysis will use the bundled TypeScript version/.test(msg) ||
+          /The target project appears to use TypeScript/.test(msg));
+      if (ignore) return;
+      process.stdout.write('XX: ' + require('util').inspect(args));
+      originalConsoleLog(...args);
+    };
+  });
+
+  after(function uninstallConsoleLogInterceptor() {
+    console.log = originalConsoleLog;
   });
 
   it('runs api-extractor', async () => {
@@ -91,7 +112,7 @@ describe('tsdocs', function() {
     const child = runCLI('@microsoft/api-documenter/lib/start', args, {
       stdio: 'ignore',
     });
-    await pEvent(child, 'close');
+    await once(child, 'close');
     const files = await fs.readdir(SITE_APIDOCS_ROOT);
     expect(files.sort()).eql(API_MD_FILES);
   });
@@ -121,8 +142,9 @@ describe('tsdocs', function() {
     expect(index).to.containEql(`---
 lang: en
 title: 'API docs: index'
-keywords: LoopBack 4.0, LoopBack 4
+keywords: LoopBack 4.0, LoopBack 4, Node.js, TypeScript, OpenAPI
 sidebar: lb4_sidebar
+editurl: https://github.com/strongloop/loopback-next
 permalink: /doc/en/lb4/apidocs.index.html
 ---`);
 
@@ -141,6 +163,9 @@ permalink: /doc/en/lb4/apidocs.index.html
       'utf-8',
     );
     expect(constructorDoc).to.not.match(/\.\(constructor\)\.md/);
+    expect(constructorDoc).to.match(
+      /editurl\: https\:\/\/github\.com\/strongloop\/loopback\-next\/tree\/master\/packages\/pkg1/,
+    );
 
     const pkgDoc = await fs.readFile(
       path.join(SITE_APIDOCS_ROOT, 'pkg1.md'),
@@ -148,6 +173,9 @@ permalink: /doc/en/lb4/apidocs.index.html
     );
     expect(pkgDoc).to.match(
       /\[pkg1\]\(https\:\/\/github\.com\/strongloop\/loopback\-next\/tree\/master\/packages\/pkg1\)/,
+    );
+    expect(pkgDoc).to.match(
+      /editurl\: https\:\/\/github\.com\/strongloop\/loopback\-next\/tree\/master\/packages\/pkg1/,
     );
   });
 });

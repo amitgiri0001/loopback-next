@@ -1,7 +1,7 @@
 ---
 lang: en
 title: 'Add TodoList Repository'
-keywords: LoopBack 4.0, LoopBack 4
+keywords: LoopBack 4.0, LoopBack 4, Node.js, TypeScript, OpenAPI, Tutorial
 sidebar: lb4_sidebar
 permalink: /doc/en/lb4/todo-list-tutorial-repository.html
 summary: LoopBack 4 TodoList Application Tutorial - Add TodoList Repository
@@ -29,13 +29,36 @@ datasources.
 lb4 repository
 ? Please select the datasource DbDatasource
 ? Select the model(s) you want to generate a repository TodoList
+? Please select the repository base class DefaultCrudRepository (Juggler bridge)
    create src/repositories/todo-list.repository.ts
    update src/repositories/index.ts
-? Please select the repository base class DefaultCrudRepository (Legacy juggler
-bridge)
 
 Repository TodoListRepository was created in src/repositories/
 ```
+
+#### Custom Methods
+
+A custom method can be added to the repository class. For example, if we want to
+find a `TodoList` with a specific `title` from the repository level, the
+following method can be added:
+
+```ts
+export class TodoListRepository extends DefaultCrudRepository<
+  TodoList,
+  typeof TodoList.prototype.id,
+  TodoListRelations
+> {
+  // other code
+
+  // Add the following function
+  public findByTitle(title: string) {
+    return this.findOne({where: {title}});
+  }
+}
+```
+
+To view the completed file, see the
+[`TodoList` example](https://github.com/strongloop/loopback-next/blob/master/examples/todo-list/src/repositories/todo-list.repository.ts).
 
 ### Navigation
 

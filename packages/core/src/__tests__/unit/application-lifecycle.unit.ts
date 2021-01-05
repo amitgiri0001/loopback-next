@@ -1,14 +1,15 @@
-// Copyright IBM Corp. 2017,2018. All Rights Reserved.
+// Copyright IBM Corp. 2018,2020. All Rights Reserved.
 // Node module: @loopback/core
 // This file is licensed under the MIT License.
 // License text available at https://opensource.org/licenses/MIT
 
 import {
-  bind,
   BindingScope,
   Constructor,
   Context,
   createBindingFromClass,
+  inject,
+  injectable,
 } from '@loopback/context';
 import {expect} from '@loopback/testlab';
 import {
@@ -22,6 +23,143 @@ import {
 } from '../..';
 
 describe('Application life cycle', () => {
+  describe('state', () => {
+    it('updates application state', async () => {
+      const app = new Application();
+      expect(app.state).to.equal('created');
+      const initialize = app.init();
+      expect(app.state).to.equal('initializing');
+      await initialize;
+      expect(app.state).to.equal('initialized');
+      const start = app.start();
+      await start;
+      expect(app.state).to.equal('started');
+      const stop = app.stop();
+      expect(app.state).to.equal('stopping');
+      await stop;
+      expect(app.state).to.equal('stopped');
+    });
+
+    it('calls init by start only once', async () => {
+      const app = new Application();
+      let start = app.start();
+      expect(app.state).to.equal('initializing');
+      await start;
+      expect(app.state).to.equal('started');
+      const stop = app.stop();
+      expect(app.state).to.equal('stopping');
+      await stop;
+      expect(app.state).to.equal('stopped');
+      start = app.start();
+      expect(app.state).to.equal('starting');
+      await start;
+      expect(app.state).to.equal('started');
+      await app.stop();
+    });
+
+    it('emits state change events', async () => {
+      const app = new Application();
+      const events: string[] = [];
+      app.on('stateChanged', event => {
+        events.push(`${event.from} -> ${event.to}`);
+      });
+      const start = app.start();
+      expect(events).to.eql(['created -> initializing']);
+      await start;
+      expect(events).to.eql([
+        'created -> initializing',
+        'initializing -> initialized',
+        'initialized -> starting',
+        'starting -> started',
+      ]);
+      const stop = app.stop();
+      expect(events).to.eql([
+        'created -> initializing',
+        'initializing -> initialized',
+        'initialized -> starting',
+        'starting -> started',
+        'started -> stopping',
+      ]);
+      await stop;
+      expect(events).to.eql([
+        'created -> initializing',
+        'initializing -> initialized',
+        'initialized -> starting',
+        'starting -> started',
+        'started -> stopping',
+        'stopping -> stopped',
+      ]);
+    });
+
+    it('emits state events', async () => {
+      const app = new Application();
+      const events: string[] = [];
+      for (const e of [
+        'initializing',
+        'initialized',
+        'starting',
+        'started',
+        'stopping',
+        'stopped',
+      ]) {
+        app.on(e, event => {
+          events.push(e);
+        });
+      }
+      const start = app.start();
+      expect(events).to.eql(['initializing']);
+      await start;
+      expect(events).to.eql([
+        'initializing',
+        'initialized',
+        'starting',
+        'started',
+      ]);
+      const stop = app.stop();
+      expect(events).to.eql([
+        'initializing',
+        'initialized',
+        'starting',
+        'started',
+        'stopping',
+      ]);
+      await stop;
+      expect(events).to.eql([
+        'initializing',
+        'initialized',
+        'starting',
+        'started',
+        'stopping',
+        'stopped',
+      ]);
+    });
+
+    it('allows application.stop when it is created', async () => {
+      const app = new Application();
+      await app.stop(); // no-op
+      expect(app.state).to.equal('created');
+    });
+
+    it('await application.stop when it is stopping', async () => {
+      const app = new Application();
+      await app.start();
+      const stop = app.stop();
+      const stopAgain = app.stop();
+      await stop;
+      await stopAgain;
+      expect(app.state).to.equal('stopped');
+    });
+
+    it('await application.start when it is starting', async () => {
+      const app = new Application();
+      const start = app.start();
+      const startAgain = app.start();
+      await start;
+      await startAgain;
+      expect(app.state).to.equal('started');
+    });
+  });
+
   describe('start', () => {
     it('starts all injected servers', async () => {
       const app = new Application();
@@ -67,6 +205,30 @@ describe('Application life cycle', () => {
       expect(component.status).to.equal('stopped');
     });
 
+    it('initializes all registered components', async () => {
+      const app = new Application();
+      app.component(ObservingComponentWithServers);
+      const component = await app.get<ObservingComponentWithServers>(
+        `${CoreBindings.COMPONENTS}.ObservingComponentWithServers`,
+      );
+      expect(component.status).to.equal('not-initialized');
+      await app.init();
+      expect(component.status).to.equal('initialized');
+      expect(component.initialized).to.be.true();
+    });
+
+    it('initializes all registered components by start', async () => {
+      const app = new Application();
+      app.component(ObservingComponentWithServers);
+      const component = await app.get<ObservingComponentWithServers>(
+        `${CoreBindings.COMPONENTS}.ObservingComponentWithServers`,
+      );
+      expect(component.status).to.equal('not-initialized');
+      await app.start();
+      expect(component.status).to.equal('started');
+      expect(component.initialized).to.be.true();
+    });
+
     it('starts/stops all observers from the component', async () => {
       const app = new Application();
       app.component(ComponentWithObservers);
@@ -100,8 +262,35 @@ describe('Application life cycle', () => {
       expect(observer.status).to.equal('stopped');
     });
 
-    it('honors @bind', async () => {
-      @bind({
+    it('starts/stops all registered life cycle observers with param injections', async () => {
+      const app = new Application();
+      app.lifeCycleObserver(MyObserverWithMethodInjection, 'my-observer');
+
+      const observer = await app.get<MyObserverWithMethodInjection>(
+        'lifeCycleObservers.my-observer',
+      );
+      app.bind('prefix').to('***');
+      expect(observer.status).to.equal('not-initialized');
+      await app.init();
+      expect(observer.status).to.equal('***:initialized');
+      await app.start();
+      expect(observer.status).to.equal('***:started');
+      app.bind('prefix').to('###');
+      await app.stop();
+      expect(observer.status).to.equal('###:stopped');
+    });
+
+    it('registers life cycle observers with options', async () => {
+      const app = new Application();
+      const binding = app.lifeCycleObserver(MyObserver, {
+        name: 'my-observer',
+        namespace: 'my-observers',
+      });
+      expect(binding.key).to.eql('my-observers.my-observer');
+    });
+
+    it('honors @injectable', async () => {
+      @injectable({
         tags: {
           [CoreTags.LIFE_CYCLE_OBSERVER]: CoreTags.LIFE_CYCLE_OBSERVER,
           [CoreTags.LIFE_CYCLE_OBSERVER_GROUP]: 'my-group',
@@ -172,10 +361,120 @@ describe('Application life cycle', () => {
       expect(stopInvoked).to.be.false(); // not invoked
     });
   });
+
+  describe('app.onInit()', () => {
+    it('registers the handler as "init" lifecycle observer', async () => {
+      const app = new Application();
+      let invoked = false;
+
+      const binding = app.onInit(async function doSomething() {
+        // delay the actual observer code to the next tick to
+        // verify that the promise returned by an async observer
+        // is correctly forwarded by LifeCycle wrapper
+        await Promise.resolve();
+        invoked = true;
+      });
+
+      expect(binding.key).to.match(/^lifeCycleObservers.doSomething/);
+
+      await app.start();
+      expect(invoked).to.be.true();
+    });
+
+    it('registers multiple handlers with the same name', async () => {
+      const app = new Application();
+      const invoked: string[] = [];
+
+      app.onInit(() => {
+        invoked.push('first');
+      });
+      app.onInit(() => {
+        invoked.push('second');
+      });
+
+      await app.init();
+      expect(invoked).to.deepEqual(['first', 'second']);
+    });
+  });
+
+  describe('app.onStart()', () => {
+    it('registers the handler as "start" lifecycle observer', async () => {
+      const app = new Application();
+      let invoked = false;
+
+      const binding = app.onStart(async function doSomething() {
+        // delay the actual observer code to the next tick to
+        // verify that the promise returned by an async observer
+        // is correctly forwarded by LifeCycle wrapper
+        await Promise.resolve();
+        invoked = true;
+      });
+
+      expect(binding.key).to.match(/^lifeCycleObservers.doSomething/);
+
+      await app.start();
+      expect(invoked).to.be.true();
+    });
+
+    it('registers multiple handlers with the same name', async () => {
+      const app = new Application();
+      const invoked: string[] = [];
+
+      app.onStart(() => {
+        invoked.push('first');
+      });
+      app.onStart(() => {
+        invoked.push('second');
+      });
+
+      await app.start();
+      expect(invoked).to.deepEqual(['first', 'second']);
+    });
+  });
+
+  describe('app.onStop()', () => {
+    it('registers the handler as "stop" lifecycle observer', async () => {
+      const app = new Application();
+      let invoked = false;
+
+      const binding = app.onStop(async function doSomething() {
+        // delay the actual observer code to the next tick to
+        // verify that the promise returned by an async observer
+        // is correctly forwarded by LifeCycle wrapper
+        await Promise.resolve();
+        invoked = true;
+      });
+
+      expect(binding.key).to.match(/^lifeCycleObservers.doSomething/);
+
+      await app.start();
+      expect(invoked).to.be.false();
+      await app.stop();
+      expect(invoked).to.be.true();
+    });
+
+    it('registers multiple handlers with the same name', async () => {
+      const app = new Application();
+      const invoked: string[] = [];
+      app.onStop(() => {
+        invoked.push('first');
+      });
+      app.onStop(() => {
+        invoked.push('second');
+      });
+      await app.start();
+      expect(invoked).to.be.empty();
+      await app.stop();
+      // `stop` observers are invoked in reverse order
+      expect(invoked).to.deepEqual(['second', 'first']);
+    });
+  });
 });
 
 class ObservingComponentWithServers implements Component, LifeCycleObserver {
   status = 'not-initialized';
+  initialized = false;
+
   servers: {
     [name: string]: Constructor<Server>;
   };
@@ -184,6 +483,11 @@ class ObservingComponentWithServers implements Component, LifeCycleObserver {
       ObservingServer: ObservingServer,
       ObservingServer2: ObservingServer,
     };
+  }
+
+  init() {
+    this.status = 'initialized';
+    this.initialized = true;
   }
   start() {
     this.status = 'started';
@@ -215,6 +519,22 @@ class MyObserver implements LifeCycleObserver {
   }
   stop() {
     this.status = 'stopped';
+  }
+}
+
+class MyObserverWithMethodInjection implements LifeCycleObserver {
+  status = 'not-initialized';
+
+  init(@inject('prefix') prefix: string) {
+    this.status = `${prefix}:initialized`;
+  }
+
+  start(@inject('prefix') prefix: string) {
+    this.status = `${prefix}:started`;
+  }
+
+  stop(@inject('prefix') prefix: string) {
+    this.status = `${prefix}:stopped`;
   }
 }
 

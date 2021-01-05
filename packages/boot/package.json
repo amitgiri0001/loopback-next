@@ -1,17 +1,16 @@
 {
   "name": "@loopback/boot",
-  "version": "1.5.11",
+  "version": "3.1.2",
   "description": "A collection of Booters for LoopBack 4 Applications",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
   "engines": {
-    "node": ">=8.9"
-  },
-  "publishConfig": {
-    "access": "public"
+    "node": "^10.16 || 12 || 14"
   },
   "scripts": {
     "acceptance": "lb-mocha \"dist/__tests__/acceptance/**/*.js\"",
     "build": "lb-tsc",
-    "clean": "lb-clean loopback-boot*.tgz dist tsconfig.build.tsbuildinfo package",
+    "clean": "lb-clean loopback-boot*.tgz dist *.tsbuildinfo package",
     "pretest": "npm run build",
     "integration": "lb-mocha \"dist/__tests__/integration/**/*.js\"",
     "test": "lb-mocha \"dist/__tests__/**/*.js\"",
@@ -21,28 +20,33 @@
   "author": "IBM Corp.",
   "copyright.owner": "IBM Corp.",
   "license": "MIT",
+  "publishConfig": {
+    "access": "public"
+  },
+  "peerDependencies": {
+    "@loopback/core": "^2.13.1"
+  },
   "dependencies": {
-    "@loopback/context": "^1.23.5",
-    "@loopback/core": "^1.10.7",
-    "@loopback/repository": "^1.15.4",
-    "@loopback/service-proxy": "^1.3.11",
+    "@loopback/model-api-builder": "^2.1.19",
+    "@loopback/repository": "^3.3.0",
+    "@loopback/service-proxy": "^3.0.5",
     "@types/debug": "^4.1.5",
-    "@types/glob": "^7.1.1",
-    "debug": "^4.1.1",
-    "glob": "^7.1.6"
+    "@types/glob": "^7.1.3",
+    "debug": "^4.3.1",
+    "glob": "^7.1.6",
+    "tslib": "^2.0.3"
   },
   "devDependencies": {
-    "@loopback/build": "^2.0.16",
-    "@loopback/eslint-config": "^4.1.4",
-    "@loopback/openapi-v3": "^1.10.1",
-    "@loopback/rest": "^1.23.0",
-    "@loopback/testlab": "^1.9.4",
-    "@types/node": "^10.17.5"
+    "@loopback/build": "^6.2.8",
+    "@loopback/core": "^2.13.1",
+    "@loopback/eslint-config": "^10.0.4",
+    "@loopback/rest": "^9.1.1",
+    "@loopback/rest-crud": "^0.8.19",
+    "@loopback/testlab": "^3.2.10",
+    "@types/node": "^10.17.35"
   },
   "files": [
     "README.md",
-    "index.js",
-    "index.d.ts",
     "dist",
     "src",
     "!*/__tests__"

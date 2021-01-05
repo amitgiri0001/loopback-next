@@ -1,4 +1,4 @@
-// Copyright IBM Corp. 2019. All Rights Reserved.
+// Copyright IBM Corp. 2019,2020. All Rights Reserved.
 // Node module: @loopback/cli
 // This file is licensed under the MIT License.
 // License text available at https://opensource.org/licenses/MIT
@@ -14,7 +14,9 @@ const utils = require('../../lib/utils');
 const {loadLb3App} = require('./lb3app-loader');
 const {importLb3ModelDefinition} = require('./migrate-model');
 const {canImportModelName} = require('./model-names');
+const g = require('../../lib/globalize');
 
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
 module.exports = class Lb3ModelImporter extends BaseGenerator {
   constructor(args, opts) {
     super(args, opts);
@@ -22,15 +24,20 @@ module.exports = class Lb3ModelImporter extends BaseGenerator {
     this.argument('lb3app', {
       type: String,
       required: true,
-      description:
+      description: g.f(
         'Path to your LoopBack 3.x application. ' +
-        'This can be a project directory (e.g. "my-lb3-app") or ' +
-        'the server file (e.g. "my-lb3-app/server/server.js").',
+          'This can be a project directory (e.g. "my-lb3-app") or ' +
+          'the server file (e.g. "my-lb3-app/server/server.js").',
+      ),
+      // description:
+      //   'Path to your LoopBack 3.x application. ' +
+      //   'This can be a project directory (e.g. "my-lb3-app") or ' +
+      //   'the server file (e.g. "my-lb3-app/server/server.js").',
     });
 
     this.option('outDir', {
       type: String,
-      description: 'Directory where to write the generated source file',
+      description: g.f('Directory where to write the generated source file'),
       default: 'src/models',
     });
   }
@@ -41,6 +48,10 @@ module.exports = class Lb3ModelImporter extends BaseGenerator {
     this.artifactInfo.relPath = path.relative(
       this.destinationPath(),
       this.artifactInfo.outDir,
+    );
+    this.artifactInfo.modelDir = path.resolve(
+      this.artifactInfo.rootDir,
+      utils.modelsDir,
     );
     return super.setOptions();
   }
@@ -77,7 +88,7 @@ Learn more at https://loopback.io/doc/en/lb4/Importing-LB3-models.html
     const prompts = [
       {
         name: 'modelNames',
-        message: 'Select models to import:',
+        message: g.f('Select models to import:'),
         type: 'checkbox',
         choices: modelNames,
         // Require at least one model to be selected
@@ -91,6 +102,14 @@ Learn more at https://loopback.io/doc/en/lb4/Importing-LB3-models.html
     const answers = await this.prompt(prompts);
     debug('Models chosen:', answers.modelNames);
     this.modelNames = answers.modelNames;
+  }
+
+  async loadExistingLb4Models() {
+    debug(`model list dir ${this.artifactInfo.modelDir}`);
+    this.existingLb4ModelNames = await utils.getArtifactList(
+      this.artifactInfo.modelDir,
+      'model',
+    );
   }
 
   async migrateSelectedModels() {
@@ -130,6 +149,20 @@ Learn more at https://loopback.io/doc/en/lb4/Importing-LB3-models.html
     );
     debug('LB4 model data', templateData);
 
+    if (!templateData.isModelBaseBuiltin) {
+      const baseName = templateData.modelBaseClass;
+      if (
+        !this.existingLb4ModelNames.includes(baseName) &&
+        !this.modelNames.includes(baseName)
+      ) {
+        this.log(
+          'Adding %s (base of %s) to the list of imported models.',
+          chalk.yellow(baseName),
+          chalk.yellow(name),
+        );
+        this.modelNames.push(baseName);
+      }
+    }
     const fileName = utils.getModelFileName(name);
     const fullTargetPath = path.resolve(this.artifactInfo.relPath, fileName);
     debug('Model %s output file', name, fullTargetPath);

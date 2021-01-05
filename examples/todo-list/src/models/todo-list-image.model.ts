@@ -1,4 +1,4 @@
-// Copyright IBM Corp. 2018,2019. All Rights Reserved.
+// Copyright IBM Corp. 2018,2020. All Rights Reserved.
 // Node module: @loopback/example-todo-list
 // This file is licensed under the MIT License.
 // License text available at https://opensource.org/licenses/MIT
@@ -11,13 +11,12 @@ export class TodoListImage extends Entity {
   @property({
     type: 'number',
     id: true,
+    generated: false,
   })
-  id: number;
-
-  @belongsTo(() => TodoList)
-  todoListId: number;
+  id?: number;
 
   @property({
+    type: 'string',
     required: true,
   })
   // Ideally we would use Buffer type here, but
@@ -25,12 +24,16 @@ export class TodoListImage extends Entity {
   // see https://github.com/strongloop/loopback-next/issues/1742
   value: string;
 
+  @belongsTo(() => TodoList)
+  todoListId: number;
+
   constructor(data?: Partial<TodoListImage>) {
     super(data);
   }
 }
 
 export interface TodoListImageRelations {
+  // describe navigational properties here
   todoList?: TodoListWithRelations;
 }
 

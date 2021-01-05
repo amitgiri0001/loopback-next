@@ -1,4 +1,4 @@
-// Copyright IBM Corp. 2017,2018. All Rights Reserved.
+// Copyright IBM Corp. 2017,2020. All Rights Reserved.
 // Node module: @loopback/context
 // This file is licensed under the MIT License.
 // License text available at https://opensource.org/licenses/MIT
@@ -11,6 +11,7 @@ import {
   MetadataMap,
   ParameterDecoratorFactory,
   PropertyDecoratorFactory,
+  Reflector,
 } from '@loopback/metadata';
 import {Binding, BindingTag} from './binding';
 import {
@@ -18,28 +19,42 @@ import {
   BindingSelector,
   filterByTag,
   isBindingAddress,
+  isBindingTagFilter,
 } from './binding-filter';
-import {BindingAddress} from './binding-key';
+import {BindingAddress, BindingKey} from './binding-key';
 import {BindingComparator} from './binding-sorter';
 import {BindingCreationPolicy, Context} from './context';
 import {ContextView, createViewGetter} from './context-view';
+import {JSONObject} from './json-types';
 import {ResolutionOptions, ResolutionSession} from './resolution-session';
-import {BoundValue, ValueOrPromise} from './value-promise';
+import {BoundValue, Constructor, ValueOrPromise} from './value-promise';
 
-const PARAMETERS_KEY = MetadataAccessor.create<Injection, ParameterDecorator>(
-  'inject:parameters',
-);
-const PROPERTIES_KEY = MetadataAccessor.create<Injection, PropertyDecorator>(
-  'inject:properties',
-);
+const INJECT_PARAMETERS_KEY = MetadataAccessor.create<
+  Injection,
+  ParameterDecorator
+>('inject:parameters');
+
+const INJECT_PROPERTIES_KEY = MetadataAccessor.create<
+  Injection,
+  PropertyDecorator
+>('inject:properties');
 
 // A key to cache described argument injections
-const METHODS_KEY = MetadataAccessor.create<Injection, MethodDecorator>(
+const INJECT_METHODS_KEY = MetadataAccessor.create<Injection, MethodDecorator>(
   'inject:methods',
 );
 
+// TODO(rfeng): We may want to align it with `ValueFactory` interface that takes
+// an argument of `ResolutionContext`.
 /**
- * A function to provide resolution of injected values
+ * A function to provide resolution of injected values.
+ *
+ * @example
+ * ```ts
+ * const resolver: ResolverFunction = (ctx, injection, session) {
+ *   return session.currentBinding?.key;
+ * }
+ * ```
  */
 export interface ResolverFunction {
   (
@@ -122,6 +137,11 @@ export function inject(
   if (injectionMetadata.bindingComparator && !resolve) {
     throw new Error('Binding comparator is only allowed with a binding filter');
   }
+  if (!bindingSelector && typeof resolve !== 'function') {
+    throw new Error(
+      'A non-empty binding selector or resolve function is required for @inject',
+    );
+  }
   return function markParameterOrPropertyAsInjected(
     target: Object,
     member: string | undefined,
@@ -132,10 +152,8 @@ export function inject(
     if (typeof methodDescriptorOrParameterIndex === 'number') {
       // The decorator is applied to a method parameter
       // Please note propertyKey is `undefined` for constructor
-      const paramDecorator: ParameterDecorator = ParameterDecoratorFactory.createDecorator<
-        Injection
-      >(
-        PARAMETERS_KEY,
+      const paramDecorator: ParameterDecorator = ParameterDecoratorFactory.createDecorator<Injection>(
+        INJECT_PARAMETERS_KEY,
         {
           target,
           member,
@@ -168,10 +186,8 @@ export function inject(
             ),
         );
       }
-      const propDecorator: PropertyDecorator = PropertyDecoratorFactory.createDecorator<
-        Injection
-      >(
-        PROPERTIES_KEY,
+      const propDecorator: PropertyDecorator = PropertyDecoratorFactory.createDecorator<Injection>(
+        INJECT_PROPERTIES_KEY,
         {
           target,
           member,
@@ -311,11 +327,11 @@ export namespace inject {
    * @param metadata - Metadata for the injection
    */
   export const binding = function injectBinding(
-    bindingKey?: BindingAddress,
+    bindingKey?: string | BindingKey<unknown>,
     metadata?: InjectBindingMetadata,
   ) {
     metadata = Object.assign({decorator: '@inject.binding'}, metadata);
-    return inject(bindingKey || '', metadata, resolveAsBinding);
+    return inject(bindingKey ?? '', metadata, resolveAsBinding);
   };
 
   /**
@@ -375,7 +391,7 @@ export namespace inject {
    * ```
    */
   export const context = function injectContext() {
-    return inject('', {decorator: '@inject.context'}, ctx => ctx);
+    return inject('', {decorator: '@inject.context'}, (ctx: Context) => ctx);
   };
 }
 
@@ -395,7 +411,7 @@ export function assertTargetType(
   const targetName = ResolutionSession.describeInjection(injection).targetName;
   const targetType = inspectTargetType(injection);
   if (targetType && targetType !== expectedType) {
-    expectedTypeName = expectedTypeName || expectedType.name;
+    expectedTypeName = expectedTypeName ?? expectedType.name;
     throw new Error(
       `The type of ${targetName} (${targetType.name}) is not ${expectedTypeName}`,
     );
@@ -470,8 +486,7 @@ function findOrCreateBindingForInjection(
   injection: Injection<unknown>,
   session?: ResolutionSession,
 ) {
-  if (injection.bindingSelector === '')
-    return session && session.currentBinding;
+  if (injection.bindingSelector === '') return session?.currentBinding;
   const bindingCreation =
     injection.metadata &&
     (injection.metadata as InjectBindingMetadata).bindingCreation;
@@ -554,17 +569,17 @@ export function describeInjectedArguments(
   target: Object,
   method?: string,
 ): Readonly<Injection>[] {
-  method = method || '';
+  method = method ?? '';
 
   // Try to read from cache
   const cache =
     MetadataInspector.getAllMethodMetadata<Readonly<Injection>[]>(
-      METHODS_KEY,
+      INJECT_METHODS_KEY,
       target,
       {
         ownMetadataOnly: true,
       },
-    ) || {};
+    ) ?? {};
   let meta: Readonly<Injection>[] = cache[method];
   if (meta) return meta;
 
@@ -581,16 +596,16 @@ export function describeInjectedArguments(
   }
   meta =
     MetadataInspector.getAllParameterMetadata<Readonly<Injection>>(
-      PARAMETERS_KEY,
+      INJECT_PARAMETERS_KEY,
       target,
       method,
       options,
-    ) || [];
+    ) ?? [];
 
   // Cache the result
   cache[method] = meta;
   MetadataInspector.defineMetadata<MetadataMap<Readonly<Injection>[]>>(
-    METHODS_KEY,
+    INJECT_METHODS_KEY,
     cache,
     target,
   );
@@ -603,22 +618,19 @@ export function describeInjectedArguments(
  * @param injection - Injection information
  */
 export function inspectTargetType(injection: Readonly<Injection>) {
-  let type = MetadataInspector.getDesignTypeForProperty(
-    injection.target,
-    injection.member!,
-  );
-  if (type) {
-    return type;
-  }
-  const designType = MetadataInspector.getDesignTypeForMethod(
-    injection.target,
-    injection.member!,
-  );
-  type =
-    designType.parameterTypes[
+  if (typeof injection.methodDescriptorOrParameterIndex === 'number') {
+    const designType = MetadataInspector.getDesignTypeForMethod(
+      injection.target,
+      injection.member!,
+    );
+    return designType?.parameterTypes?.[
       injection.methodDescriptorOrParameterIndex as number
     ];
-  return type;
+  }
+  return MetadataInspector.getDesignTypeForProperty(
+    injection.target,
+    injection.member!,
+  );
 }
 
 /**
@@ -694,8 +706,89 @@ export function describeInjectedProperties(
 ): MetadataMap<Readonly<Injection>> {
   const metadata =
     MetadataInspector.getAllPropertyMetadata<Readonly<Injection>>(
-      PROPERTIES_KEY,
+      INJECT_PROPERTIES_KEY,
       target,
-    ) || {};
+    ) ?? {};
   return metadata;
+}
+
+/**
+ * Inspect injections for a binding created with `toClass` or `toProvider`
+ * @param binding - Binding object
+ */
+export function inspectInjections(binding: Readonly<Binding<unknown>>) {
+  const json: JSONObject = {};
+  const ctor = binding.valueConstructor ?? binding.providerConstructor;
+  if (ctor == null) return json;
+  const constructorInjections = describeInjectedArguments(ctor, '').map(
+    inspectInjection,
+  );
+  if (constructorInjections.length) {
+    json.constructorArguments = constructorInjections;
+  }
+  const propertyInjections = describeInjectedProperties(ctor.prototype);
+  const properties: JSONObject = {};
+  for (const p in propertyInjections) {
+    properties[p] = inspectInjection(propertyInjections[p]);
+  }
+  if (Object.keys(properties).length) {
+    json.properties = properties;
+  }
+  return json;
+}
+
+/**
+ * Inspect an injection
+ * @param injection - Injection information
+ */
+function inspectInjection(injection: Readonly<Injection<unknown>>) {
+  const injectionInfo = ResolutionSession.describeInjection(injection);
+  const descriptor: JSONObject = {};
+  if (injectionInfo.targetName) {
+    descriptor.targetName = injectionInfo.targetName;
+  }
+  if (isBindingAddress(injectionInfo.bindingSelector)) {
+    // Binding key
+    descriptor.bindingKey = injectionInfo.bindingSelector.toString();
+  } else if (isBindingTagFilter(injectionInfo.bindingSelector)) {
+    // Binding tag filter
+    descriptor.bindingTagPattern = JSON.parse(
+      JSON.stringify(injectionInfo.bindingSelector.bindingTagPattern),
+    );
+  } else {
+    // Binding filter function
+    descriptor.bindingFilter =
+      injectionInfo.bindingSelector?.name ?? '<function>';
+  }
+  // Inspect metadata
+  if (injectionInfo.metadata) {
+    if (
+      injectionInfo.metadata.decorator &&
+      injectionInfo.metadata.decorator !== '@inject'
+    ) {
+      descriptor.decorator = injectionInfo.metadata.decorator;
+    }
+    if (injectionInfo.metadata.optional) {
+      descriptor.optional = injectionInfo.metadata.optional;
+    }
+  }
+  return descriptor;
+}
+
+/**
+ * Check if the given class has `@inject` or other decorations that map to
+ * `@inject`.
+ *
+ * @param cls - Class with possible `@inject` decorations
+ */
+export function hasInjections(cls: Constructor<unknown>): boolean {
+  return (
+    MetadataInspector.getClassMetadata(INJECT_PARAMETERS_KEY, cls) != null ||
+    Reflector.getMetadata(INJECT_PARAMETERS_KEY.toString(), cls.prototype) !=
+      null ||
+    MetadataInspector.getAllPropertyMetadata(
+      INJECT_PROPERTIES_KEY,
+      cls.prototype,
+    ) != null
+  );
 }

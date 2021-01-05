@@ -1,9 +1,9 @@
-// Copyright IBM Corp. 2018. All Rights Reserved.
+// Copyright IBM Corp. 2018,2020. All Rights Reserved.
 // Node module: @loopback/openapi-v3
 // This file is licensed under the MIT License.
 // License text available at https://opensource.org/licenses/MIT
 
-import {MethodDecoratorFactory} from '@loopback/context';
+import {MethodDecoratorFactory} from '@loopback/core';
 import {RestEndpoint} from '../controller-spec';
 import {OAI3Keys} from '../keys';
 import {OperationObject} from '../types';

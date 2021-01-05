@@ -1,7 +1,7 @@
 ---
 lang: en
 title: 'Summary'
-keywords: LoopBack 4.0, LoopBack 4
+keywords: LoopBack 4.0, LoopBack 4, Node.js, TypeScript, OpenAPI
 sidebar: lb4_sidebar
 permalink: /doc/en/lb4/core-tutorial-part11.html
 ---
@@ -15,7 +15,7 @@ can be useful for our developers to build a scalable Node.js application.
   dependencies of a class separated from its behaviors.
 - [Extension points and extension framework](5-extension-point-extension.md)
   help you to organize artifacts with loose coupling and promote extensibility.
-- [Observers](7-obseration.md) and [interceptors](6-interception.md) allows you
+- [Observers](7-observation.md) and [interceptors](6-interception.md) allows you
   to add logic as part of the application life cycle events.
 - [Configuration](8-configuration.md) can be added to extension points,
   extentions and services which enables greater flexibility in your application.
@@ -30,10 +30,9 @@ application powered by LoopBack.
 
 - **Codebase**: LoopBack application code can be committed to GitHub for the
   version control.
-- **Dependencies**:
-  [Dependency injection](https://loopback.io/doc/en/lb4/Dependency-injection.html)
-  can be used to keep the construction of dependencies of a class or function
-  separated from its behavior.
+- **Dependencies**: [Dependency injection](../../Dependency-injection.md) can be
+  used to keep the construction of dependencies of a class or function separated
+  from its behavior.
 
 - **Config**: LoopBack provides context-based configuration and pluggable
   configuration resolver.

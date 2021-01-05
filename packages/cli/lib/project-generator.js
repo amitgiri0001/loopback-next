@@ -1,4 +1,4 @@
-// Copyright IBM Corp. 2017,2019. All Rights Reserved.
+// Copyright IBM Corp. 2017,2020. All Rights Reserved.
 // Node module: @loopback/cli
 // This file is licensed under the MIT License.
 // License text available at https://opensource.org/licenses/MIT
@@ -10,7 +10,9 @@ const utils = require('./utils');
 const chalk = require('chalk');
 const cliVersion = require('../package.json').version;
 const path = require('path');
+const g = require('./globalize');
 
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
 module.exports = class ProjectGenerator extends BaseGenerator {
   // Note: arguments and options should be defined in the constructor.
   constructor(args, opts) {
@@ -21,21 +23,21 @@ module.exports = class ProjectGenerator extends BaseGenerator {
     this.buildOptions = [
       {
         name: 'eslint',
-        description: 'add a linter with pre-configured lint rules',
+        description: g.f('add a linter with pre-configured lint rules'),
       },
       {
         name: 'prettier',
-        description: 'install prettier to format code conforming to rules',
+        description: g.f('install prettier to format code conforming to rules'),
       },
       {
         name: 'mocha',
-        description: 'install mocha to run tests',
+        description: g.f('install mocha to run tests'),
       },
       {
         name: 'loopbackBuild',
-        description: 'use @loopback/build helpers (e.g. lb-eslint)',
+        description: g.f('use @loopback/build helpers (e.g. lb-eslint)'),
       },
-      {name: 'vscode', description: 'add VSCode config files'},
+      {name: 'vscode', description: g.f('add VSCode config files')},
     ];
   }
 
@@ -43,47 +45,47 @@ module.exports = class ProjectGenerator extends BaseGenerator {
     this.argument('name', {
       type: String,
       required: false,
-      description: 'Project name for the ' + this.projectType,
+      description: g.f('Project name for the %s', this.projectType),
     });
 
     this.option('description', {
       type: String,
-      description: 'Description for the ' + this.projectType,
+      description: g.f('Description for the %s', this.projectType),
     });
 
     this.option('outdir', {
       type: String,
-      description: 'Project root directory for the ' + this.projectType,
+      description: g.f('Project root directory for the %s', this.projectType),
     });
 
     this.option('eslint', {
       type: Boolean,
-      description: 'Enable eslint',
+      description: g.f('Enable eslint'),
     });
 
     this.option('prettier', {
       type: Boolean,
-      description: 'Enable prettier',
+      description: g.f('Enable prettier'),
     });
 
     this.option('mocha', {
       type: Boolean,
-      description: 'Enable mocha',
+      description: g.f('Enable mocha'),
     });
 
     this.option('loopbackBuild', {
       type: Boolean,
-      description: 'Use @loopback/build',
+      description: g.f('Use @loopback/build'),
     });
 
     this.option('vscode', {
       type: Boolean,
-      description: 'Use preconfigured VSCode settings',
+      description: g.f('Use preconfigured VSCode settings'),
     });
 
     this.option('private', {
       type: Boolean,
-      description: 'Mark the project private (excluded from npm publish)',
+      description: g.f('Mark the project private (excluded from npm publish)'),
     });
 
     this._setupRenameTransformer();
@@ -113,9 +115,13 @@ module.exports = class ProjectGenerator extends BaseGenerator {
       projectType: this.projectType,
       dependencies: utils.getDependencies(),
     };
-    this.projectOptions = ['name', 'description', 'outdir', 'private'].concat(
-      this.buildOptions,
-    );
+    this.projectOptions = [
+      'name',
+      'description',
+      'outdir',
+      'private',
+      'apiconnect',
+    ].concat(this.buildOptions);
     this.projectOptions.forEach(n => {
       if (typeof n === 'object') {
         n = n.name;
@@ -132,7 +138,7 @@ module.exports = class ProjectGenerator extends BaseGenerator {
       {
         type: 'input',
         name: 'name',
-        message: 'Project name:',
+        message: g.f('Project name:'),
         when: this.projectInfo.name == null,
         default:
           this.options.name || utils.toFileName(path.basename(process.cwd())),
@@ -141,7 +147,7 @@ module.exports = class ProjectGenerator extends BaseGenerator {
       {
         type: 'input',
         name: 'description',
-        message: 'Project description:',
+        message: g.f('Project description:'),
         when: this.projectInfo.description == null,
         default: this.options.name || this.appname,
       },
@@ -158,13 +164,13 @@ module.exports = class ProjectGenerator extends BaseGenerator {
       {
         type: 'input',
         name: 'outdir',
-        message: 'Project root directory:',
+        message: g.f('Project root directory:'),
         when:
           this.projectInfo.outdir == null ||
           // prompts if option was set to a directory that already exists
           utils.validateNotExisting(this.projectInfo.outdir) !== true,
         validate: utils.validateNotExisting,
-        default: utils.toFileName(this.projectInfo.name),
+        default: this.projectInfo.name && this.projectInfo.name.toLowerCase(),
       },
     ];
 
@@ -178,8 +184,9 @@ module.exports = class ProjectGenerator extends BaseGenerator {
     const choices = [];
     this.buildOptions.forEach(f => {
       if (this.options[f.name] == null) {
+        const name = g.f('Enable %s', f.name);
         choices.push({
-          name: `Enable ${f.name}: ${chalk.gray(f.description)}`,
+          name: `${name}: ${chalk.gray(f.description)}`,
           key: f.name,
           short: `Enable ${f.name}`,
           checked: true,
@@ -191,7 +198,7 @@ module.exports = class ProjectGenerator extends BaseGenerator {
     const prompts = [
       {
         name: 'settings',
-        message: 'Select features to enable in the project',
+        message: g.f('Select features to enable in the project'),
         type: 'checkbox',
         choices: choices,
         // Skip if all features are enabled by cli options
@@ -211,12 +218,32 @@ module.exports = class ProjectGenerator extends BaseGenerator {
     });
   }
 
+  promptYarnInstall() {
+    if (this.shouldExit()) return false;
+    const prompts = [
+      {
+        type: 'confirm',
+        name: 'yarn',
+        message: g.f('Yarn is available. Do you prefer to use it by default?'),
+        when: !this.options.packageManager && utils.isYarnAvailable(),
+        default: false,
+      },
+    ];
+
+    return this.prompt(prompts).then(props => {
+      if (props.yarn) {
+        this.options.packageManager = 'yarn';
+      }
+    });
+  }
+
   scaffold() {
     if (this.shouldExit()) return false;
 
     this.destinationRoot(this.projectInfo.outdir);
 
-    // Store original cli version in .yo.rc.json
+    // Store information for cli operation in .yo.rc.json
+    this.config.set('packageManager', this.options.packageManager || 'npm');
     this.config.set('version', cliVersion);
 
     // First copy common files from ../../project/templates
@@ -225,6 +252,13 @@ module.exports = class ProjectGenerator extends BaseGenerator {
       this.destinationPath(''),
       {
         project: this.projectInfo,
+        packageManager: this.config.get('packageManager'),
+        author: this.user.git.email()
+          ? {
+              name: this.user.git.name(),
+              email: this.user.git.email(),
+            }
+          : null,
       },
     );
 
@@ -242,6 +276,7 @@ module.exports = class ProjectGenerator extends BaseGenerator {
       this.destinationPath(''),
       {
         project: this.projectInfo,
+        packageManager: this.config.get('packageManager'),
       },
     );
 
@@ -269,6 +304,10 @@ module.exports = class ProjectGenerator extends BaseGenerator {
 
     if (!this.projectInfo.vscode) {
       this.fs.delete(this.destinationPath('.vscode'));
+    }
+
+    if (this.options.packageManager === 'yarn') {
+      this.fs.delete(this.destinationPath('.npmrc'));
     }
   }
 };

@@ -1,9 +1,11 @@
-// Copyright IBM Corp. 2018,2019. All Rights Reserved.
+// Copyright IBM Corp. 2018,2020. All Rights Reserved.
 // Node module: @loopback/openapi-v3
 // This file is licensed under the MIT License.
 // License text available at https://opensource.org/licenses/MIT
 
-import {MetadataInspector, ParameterDecoratorFactory} from '@loopback/context';
+import {MetadataInspector, ParameterDecoratorFactory} from '@loopback/core';
+import {FilterSchemaOptions, Model} from '@loopback/repository-json-schema';
+import {getFilterSchemaFor, getWhereSchemaFor} from '../filter-schema';
 import {resolveSchema} from '../generate-schema';
 import {OAI3Keys} from '../keys';
 import {
@@ -33,11 +35,11 @@ import {
  * @param paramSpec - Parameter specification.
  */
 export function param(paramSpec: ParameterObject) {
-  return function(target: object, member: string, index: number) {
+  return function (target: object, member: string, index: number) {
     paramSpec = paramSpec || {};
     // Get the design time method parameter metadata
     const methodSig = MetadataInspector.getDesignTypeForMethod(target, member);
-    const paramTypes = (methodSig && methodSig.parameterTypes) || [];
+    const paramTypes = methodSig?.parameterTypes || [];
 
     // Map design-time parameter type to the OpenAPI param type
 
@@ -50,8 +52,11 @@ export function param(paramSpec: ParameterObject) {
         // generate schema if `paramSpec` has `schema` but without `type`
         (isSchemaObject(paramSpec.schema) && !paramSpec.schema.type)
       ) {
-        // please note `resolveSchema` only adds `type` and `format` for `schema`
-        paramSpec.schema = resolveSchema(paramType, paramSpec.schema);
+        // If content explicitly mentioned do not resolve schema
+        if (!paramSpec.content) {
+          // please note `resolveSchema` only adds `type` and `format` for `schema`
+          paramSpec.schema = resolveSchema(paramType, paramSpec.schema);
+        }
       }
     }
 
@@ -81,7 +86,7 @@ export function param(paramSpec: ParameterObject) {
  * reference link:
  * https://github.com/OAI/OpenAPI-Specification/blob/master/versions/3.0.0.md#data-types
  */
-const builtinTypes = {
+const builtinTypes: Record<string, ParamShortcutOptions> = {
   string: {type: 'string'},
   boolean: {type: 'boolean'},
   number: {type: 'number'},
@@ -197,7 +202,7 @@ export namespace param {
      * @param name - Parameter name
      * @param schema - Optional OpenAPI Schema describing the object value.
      */
-    object: function(
+    object: function (
       name: string,
       schema: SchemaObject | ReferenceObject = {
         type: 'object',
@@ -212,9 +217,11 @@ export namespace param {
       return param({
         name,
         in: 'query',
-        style: 'deepObject',
-        explode: true,
-        schema,
+        content: {
+          'application/json': {
+            schema,
+          },
+        },
         ...spec,
       });
     },
@@ -421,7 +428,7 @@ export namespace param {
    * @param source - Source of the parameter value
    * @param itemSpec - Item type for the array or the full item object
    */
-  export const array = function(
+  export const array = function (
     name: string,
     source: ParameterLocation,
     itemSpec: SchemaObject | ReferenceObject,
@@ -432,10 +439,57 @@ export namespace param {
       schema: {type: 'array', items: itemSpec},
     });
   };
+
+  /**
+   * Sugar decorator for `filter` query parameter
+   *
+   * @example
+   * ```ts
+   * async find(
+   *   @param.filter(modelCtor)) filter?: Filter<T>,
+   * ): Promise<(T & Relations)[]> {
+   *   // ...
+   * }
+   * ```
+   * @param modelCtor - Model class
+   * @param options - Options to customize the parameter name or filter schema
+   *
+   */
+  export function filter(
+    modelCtor: typeof Model,
+    options?: string | (FilterSchemaOptions & {name?: string}),
+  ) {
+    let name = 'filter';
+    if (typeof options === 'string') {
+      name = options;
+      options = {};
+    }
+    name = options?.name ?? name;
+    return param.query.object(name, getFilterSchemaFor(modelCtor, options));
+  }
+
+  /**
+   * Sugar decorator for `where` query parameter
+   *
+   * @example
+   * ```ts
+   * async count(
+   *   @param.where(modelCtor)) where?: Where<T>,
+   * ): Promise<Count> {
+   *   // ...
+   * }
+   * ```
+   * @param modelCtor - Model class
+   * @param name - Custom name for the parameter, default to `where`
+   *
+   */
+  export function where(modelCtor: typeof Model, name = 'where') {
+    return param.query.object(name, getWhereSchemaFor(modelCtor));
+  }
 }
 
 interface ParamShortcutOptions {
-  type: string;
+  type: SchemaObject['type'];
   format?: string;
 }
 

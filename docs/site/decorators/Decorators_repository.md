@@ -1,7 +1,8 @@
 ---
 lang: en
 title: 'Repository Decorators'
-keywords: LoopBack 4.0, LoopBack-Next
+keywords:
+  LoopBack 4.0, LoopBack, Node.js, TypeScript, OpenAPI, Decorator, Repository
 sidebar: lb4_sidebar
 permalink: /doc/en/lb4/Decorators_repository.html
 ---
@@ -24,8 +25,8 @@ Repository decorators are used for defining models (domain objects) for use with
 your chosen datasources and for the navigation strategies among models.
 
 If you are not familiar with repository related concepts like `Model`, `Entity`
-and `Datasource`, see LoopBack concept [Repositories](../Repositories.md) to
-learn more.
+and `Datasource`, see LoopBack concept [Repositories](../Repository.md) to learn
+more.
 
 ### Model Decorators
 
@@ -40,7 +41,7 @@ Syntax: `@model(definition?: ModelDefinitionSyntax)`
 Model decorator is a class decorator. In LoopBack 4, we inherit the model
 definition format from LoopBack 3, which is described in the
 [Model definition JSON file](https://loopback.io/doc/en/lb3/Model-definition-JSON-file).
-For usage examples, see [Define Models](../Repositories.md#define-models).
+For usage examples, see [Define Models](../Repository.md#define-models).
 
 _Please note we will elaborate more about model and model definition in the
 [Model](../Model.md) page, and replace the link above with a LoopBack 4 link_
@@ -71,7 +72,7 @@ The property decorator defines metadata for a property on a Model definition.
 The format of property definitions can be found in
 [Property definitions](https://loopback.io/doc/en/lb2/Model-definition-JSON-file.html#properties)
 
-For usage examples, see [Define Models](../Repositories.md#define-models).
+For usage examples, see [Define Models](../Repository.md#define-models).
 
 ### Repository Decorator
 
@@ -83,7 +84,7 @@ This decorator either injects an existing repository or creates a repository
 from a model and a datasource.
 
 The injection example can be found in
-[Repository#controller-configuration](../Repositories.md#controller-configuration).
+[Repository#controller-configuration](../Repository.md#controller-configuration).
 
 To create a repository in a controller, you can define your model and datasource
 first, then import them in your controller file:
@@ -161,7 +162,7 @@ Syntax:
 `@hasOne(targetResolver: EntityResolver<T>, definition?: Partial<HasOneDefinition>)`
 
 One-to-one connection between models e.g. a `TodoList` model has one
-`TodoListImage` model. See [HasOne relation](../hasOne-relation.md) for more
+`TodoListImage` model. See [HasOne relation](../HasOne-relation.md) for more
 details.
 
 {% include code-caption.html content="todo-list.model.ts" %}

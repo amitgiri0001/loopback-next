@@ -1,9 +1,9 @@
-// Copyright IBM Corp. 2018. All Rights Reserved.
+// Copyright IBM Corp. 2018,2020. All Rights Reserved.
 // Node module: @loopback/boot
 // This file is licensed under the MIT License.
 // License text available at https://opensource.org/licenses/MIT
 
-import {BindingKey} from '@loopback/context';
+import {BindingKey} from '@loopback/core';
 import {Bootstrapper} from './bootstrapper';
 import {BootOptions} from './types';
 
@@ -27,6 +27,10 @@ export namespace BootBindings {
     'application.bootstrapper',
   );
 
+  /**
+   * Booter binding namespace
+   */
+  export const BOOTERS = 'booters';
   export const BOOTER_PREFIX = 'booters';
 }
 

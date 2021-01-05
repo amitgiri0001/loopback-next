@@ -1,4 +1,4 @@
-// Copyright IBM Corp. 2018. All Rights Reserved.
+// Copyright IBM Corp. 2018,2020. All Rights Reserved.
 // Node module: @loopback/boot
 // This file is licensed under the MIT License.
 // License text available at https://opensource.org/licenses/MIT
@@ -14,8 +14,7 @@ import {resolve} from 'path';
 import {BooterApp} from '../fixtures/application';
 
 describe('lifecycle script booter integration tests', () => {
-  const SANDBOX_PATH = resolve(__dirname, '../../.sandbox');
-  const sandbox = new TestSandbox(SANDBOX_PATH);
+  const sandbox = new TestSandbox(resolve(__dirname, '../../.sandbox'));
 
   const OBSERVER_PREFIX = CoreBindings.LIFE_CYCLE_OBSERVERS;
   const OBSERVER_TAG = CoreTags.LIFE_CYCLE_OBSERVER;
@@ -47,7 +46,7 @@ describe('lifecycle script booter integration tests', () => {
       'observers/lifecycle-observer.observer.js',
     );
 
-    const MyApp = require(resolve(SANDBOX_PATH, 'application.js')).BooterApp;
+    const MyApp = require(resolve(sandbox.path, 'application.js')).BooterApp;
     app = new MyApp();
   }
 });

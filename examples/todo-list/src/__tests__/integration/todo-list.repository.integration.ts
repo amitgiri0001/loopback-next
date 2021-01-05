@@ -1,3 +1,8 @@
+// Copyright IBM Corp. 2019,2020. All Rights Reserved.
+// Node module: @loopback/example-todo-list
+// This file is licensed under the MIT License.
+// License text available at https://opensource.org/licenses/MIT
+
 import {expect, toJSON} from '@loopback/testlab';
 import {
   TodoListImageRepository,
@@ -37,7 +42,7 @@ describe('TodoListRepository', () => {
     const todo = await givenTodoInstance(todoRepo, {todoListId: list.id});
 
     const response = await todoListRepo.find({
-      include: [{relation: 'todos'}],
+      include: ['todos'],
     });
 
     expect(toJSON(response)).to.deepEqual([
@@ -53,7 +58,7 @@ describe('TodoListRepository', () => {
     const todo = await givenTodoInstance(todoRepo, {todoListId: list.id});
 
     const response = await todoListRepo.findById(list.id, {
-      include: [{relation: 'todos'}],
+      include: ['todos'],
     });
 
     expect(toJSON(response)).to.deepEqual({
@@ -68,7 +73,7 @@ describe('TodoListRepository', () => {
 
     const response = await todoListRepo.findOne({
       where: {id: list.id},
-      include: [{relation: 'todos'}],
+      include: ['todos'],
     });
 
     expect(toJSON(response)).to.deepEqual({
@@ -84,7 +89,7 @@ describe('TodoListRepository', () => {
     });
 
     const response = await todoListRepo.find({
-      include: [{relation: 'image'}],
+      include: ['image'],
     });
 
     expect(toJSON(response)).to.deepEqual([
@@ -102,7 +107,7 @@ describe('TodoListRepository', () => {
     });
 
     const response = await todoListRepo.findById(list.id, {
-      include: [{relation: 'image'}],
+      include: ['image'],
     });
 
     expect(toJSON(response)).to.deepEqual({
@@ -118,7 +123,7 @@ describe('TodoListRepository', () => {
     });
 
     const response = await todoListRepo.findOne({
-      include: [{relation: 'image'}],
+      include: ['image'],
     });
 
     expect(toJSON(response)).to.deepEqual({
@@ -135,7 +140,7 @@ describe('TodoListRepository', () => {
     });
 
     const response = await todoListRepo.find({
-      include: [{relation: 'image'}, {relation: 'todos'}],
+      include: ['image', 'todos'],
     });
 
     expect(toJSON(response)).to.deepEqual([

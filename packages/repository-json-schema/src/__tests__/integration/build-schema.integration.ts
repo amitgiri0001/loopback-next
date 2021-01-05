@@ -1,15 +1,18 @@
-// Copyright IBM Corp. 2019. All Rights Reserved.
+// Copyright IBM Corp. 2019,2020. All Rights Reserved.
 // Node module: @loopback/repository-json-schema
 // This file is licensed under the MIT License.
 // License text available at https://opensource.org/licenses/MIT
 
-import {MetadataInspector} from '@loopback/context';
+import {MetadataInspector, Reflector} from '@loopback/core';
 import {
   belongsTo,
   Entity,
   hasMany,
   model,
+  ModelDefinitionSyntax,
+  MODEL_KEY,
   property,
+  PropertyType,
 } from '@loopback/repository';
 import {expect} from '@loopback/testlab';
 import {
@@ -17,24 +20,64 @@ import {
   JsonSchema,
   JSON_SCHEMA_KEY,
   modelToJsonSchema,
-  MODEL_TYPE_KEYS,
 } from '../..';
 import {expectValidJsonSchema} from '../helpers/expect-valid-json-schema';
 
 describe('build-schema', () => {
   describe('modelToJsonSchema', () => {
     context('properties conversion', () => {
-      it('does not convert null or undefined property', () => {
+      it('reports error for property without type (`null`)', () => {
+        // We cannot use `@model()` and `@property()` decorators because
+        // they no longer allow missing property type. Fortunately,
+        // it's possible to reproduce the problematic edge case by
+        // creating the model definition object directly.
+        class TestModel {}
+        const definition: ModelDefinitionSyntax = {
+          name: 'TestModel',
+          properties: {
+            nul: {type: (null as unknown) as PropertyType},
+          },
+        };
+        Reflector.defineMetadata(MODEL_KEY.key, definition, TestModel);
+
+        expect(() => modelToJsonSchema(TestModel)).to.throw(
+          /Property TestModel.nul does not have "type" in its definition/,
+        );
+      });
+
+      it('reports error for property without type (`undefined`)', () => {
+        // We cannot use `@model()` and `@property()` decorators because
+        // they no longer allow missing property type. Fortunately,
+        // it's possible to reproduce the problematic edge case by
+        // creating the model definition object directly.
+        class TestModel {}
+        const definition: ModelDefinitionSyntax = {
+          name: 'TestModel',
+          properties: {
+            undef: {type: (undefined as unknown) as PropertyType},
+          },
+        };
+        Reflector.defineMetadata(MODEL_KEY.key, definition, TestModel);
+
+        expect(() => modelToJsonSchema(TestModel)).to.throw(
+          /Property TestModel.undef does not have "type" in its definition/,
+        );
+      });
+
+      it('allows property of null type', () => {
         @model()
         class TestModel {
-          @property()
+          @property({type: 'null'})
           nul: null;
-          @property()
-          undef: undefined;
         }
 
         const jsonSchema = modelToJsonSchema(TestModel);
-        expect(jsonSchema.properties).to.not.have.keys(['nul', 'undef']);
+        expect(jsonSchema).to.eql({
+          title: 'TestModel',
+          type: 'object',
+          properties: {nul: {type: 'null'}},
+          additionalProperties: false,
+        });
         expectValidJsonSchema(jsonSchema);
       });
 
@@ -180,6 +223,24 @@ describe('build-schema', () => {
         expectValidJsonSchema(jsonSchema);
       });
 
+      it('properly converts any properties', () => {
+        @model()
+        class TestModel {
+          @property({
+            type: 'any',
+          })
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          anyProp: any;
+        }
+
+        const jsonSchema = modelToJsonSchema(TestModel);
+        expect(jsonSchema.properties).to.deepEqual({
+          anyProp: {},
+        });
+
+        expectValidJsonSchema(jsonSchema);
+      });
+
       it('properly converts primitive array properties', () => {
         @model()
         class TestModel {
@@ -218,22 +279,105 @@ describe('build-schema', () => {
         expectValidJsonSchema(jsonSchema);
       });
 
-      it('properly converts properties with recursive arrays', () => {
+      it('properly converts nested array property when json schema provided', () => {
+        @model()
+        class TestModel {
+          // alternatively use @property.array('array')
+          @property.array(Array, {
+            jsonSchema: {
+              type: 'array',
+              items: {type: 'string'},
+            },
+          })
+          nestedArr: Array<Array<string>>;
+        }
+
+        const jsonSchema = modelToJsonSchema(TestModel);
+        expect(jsonSchema.properties).to.deepEqual({
+          nestedArr: {
+            type: 'array',
+            items: {
+              type: 'array',
+              items: {
+                type: 'string',
+              },
+            },
+          },
+        });
+        expectValidJsonSchema(jsonSchema);
+      });
+
+      it('properly converts properties with enum in json schema', () => {
+        enum QueryLanguage {
+          JSON = 'json',
+          SQL = 'sql',
+          MONGO = 'mongo',
+        }
+
+        @model()
+        class TestModel {
+          @property({
+            type: 'string',
+            required: true,
+            jsonSchema: {
+              enum: Object.values(QueryLanguage),
+            },
+          })
+          queryLanguage: QueryLanguage;
+        }
+
+        const jsonSchema = modelToJsonSchema(TestModel);
+        expect(jsonSchema.properties).to.eql({
+          queryLanguage: {
+            type: 'string',
+            enum: ['json', 'sql', 'mongo'],
+          },
+        });
+      });
+
+      it('properly converts properties with array and json schema', () => {
+        @model()
+        class TestModel {
+          @property.array(String, {
+            jsonSchema: {
+              format: 'email',
+              minLength: 5,
+              maxLength: 50,
+              transform: ['toLowerCase'],
+            },
+          })
+          emails?: string[];
+        }
+
+        const jsonSchema = modelToJsonSchema(TestModel);
+        expect(jsonSchema.properties).to.eql({
+          emails: {
+            type: 'array',
+            items: {
+              type: 'string',
+              format: 'email',
+              minLength: 5,
+              maxLength: 50,
+              transform: ['toLowerCase'],
+            },
+          },
+        });
+      });
+
+      it('throws for nested array property when json schema is missing', () => {
         @model()
         class RecursiveArray {
           @property.array(Array)
           recArr: string[][];
         }
 
-        const jsonSchema = modelToJsonSchema(RecursiveArray);
-        expect(jsonSchema.properties).to.eql({
-          recArr: {
-            type: 'array',
-            items: {
-              type: 'array',
-            },
+        expect.throws(
+          () => {
+            modelToJsonSchema(RecursiveArray);
           },
-        });
+          Error,
+          'You must provide the "jsonSchema" field when define a nested array property',
+        );
       });
 
       it('supports explicit primitive type decoration via strings', () => {
@@ -350,8 +494,88 @@ describe('build-schema', () => {
           expect(jsonSchema.definitions).to.deepEqual({
             CustomType: {
               title: 'CustomType',
+              type: 'object',
               properties: {
                 prop: {
+                  type: 'string',
+                },
+              },
+              additionalProperties: false,
+            },
+          });
+          expectValidJsonSchema(jsonSchema);
+        });
+
+        it('properly converts decorated properties with {partial: true}', () => {
+          @model()
+          class CustomType {
+            @property()
+            prop: string;
+
+            @property({required: true})
+            requiredProp: string;
+          }
+
+          @model()
+          class TestModel {
+            @property(CustomType)
+            cusType: CustomType;
+          }
+
+          const jsonSchema = modelToJsonSchema(TestModel, {partial: true});
+          expect(jsonSchema.properties).to.deepEqual({
+            cusType: {$ref: '#/definitions/CustomType'},
+          });
+          expect(jsonSchema.definitions).to.deepEqual({
+            CustomType: {
+              title: 'CustomType',
+              type: 'object',
+              properties: {
+                prop: {
+                  type: 'string',
+                },
+                requiredProp: {
+                  type: 'string',
+                },
+              },
+              required: ['requiredProp'],
+              additionalProperties: false,
+            },
+          });
+          expectValidJsonSchema(jsonSchema);
+        });
+
+        it("properly converts decorated properties with {partial: 'deep'}", () => {
+          @model()
+          class CustomType {
+            @property()
+            prop: string;
+
+            @property({required: true})
+            requiredProp: string;
+          }
+
+          @model()
+          class TestModel {
+            @property(CustomType)
+            cusType: CustomType;
+          }
+
+          const jsonSchema = modelToJsonSchema(TestModel, {partial: 'deep'});
+          expect(jsonSchema.properties).to.deepEqual({
+            cusType: {$ref: '#/definitions/CustomTypePartial'},
+          });
+          expect(jsonSchema.definitions).to.deepEqual({
+            CustomTypePartial: {
+              title: 'CustomTypePartial',
+              type: 'object',
+              description:
+                "(tsType: Partial<CustomType>, schemaOptions: { partial: 'deep' })",
+              properties: {
+                prop: {
+                  type: 'string',
+                },
+                requiredProp: {
                   type: 'string',
                 },
               },
@@ -407,8 +631,52 @@ describe('build-schema', () => {
           expect(jsonSchema.definitions).to.deepEqual({
             CustomType: {
               title: 'CustomType',
+              type: 'object',
               properties: {
                 prop: {
+                  type: 'string',
+                },
+              },
+              additionalProperties: false,
+            },
+          });
+          expectValidJsonSchema(jsonSchema);
+        });
+
+        it('properly converts decorated custom array type properties with partial', () => {
+          @model()
+          class CustomType {
+            @property()
+            prop: string;
+
+            @property({required: true})
+            requiredProp: string;
+          }
+
+          @model()
+          class TestModel {
+            @property.array(CustomType)
+            cusType: CustomType[];
+          }
+
+          const jsonSchema = modelToJsonSchema(TestModel, {partial: 'deep'});
+          expect(jsonSchema.properties).to.deepEqual({
+            cusType: {
+              type: 'array',
+              items: {$ref: '#/definitions/CustomTypePartial'},
+            },
+          });
+          expect(jsonSchema.definitions).to.deepEqual({
+            CustomTypePartial: {
+              title: 'CustomTypePartial',
+              type: 'object',
+              description:
+                "(tsType: Partial<CustomType>, schemaOptions: { partial: 'deep' })",
+              properties: {
+                prop: {
+                  type: 'string',
+                },
+                requiredProp: {
                   type: 'string',
                 },
               },
@@ -480,6 +748,7 @@ describe('build-schema', () => {
           expect(jsonSchema.definitions).to.deepEqual({
             Address: {
               title: 'Address',
+              type: 'object',
               properties: {
                 city: {
                   type: 'string',
@@ -573,6 +842,7 @@ describe('build-schema', () => {
           expect(schemaDefs).to.deepEqual({
             CustomTypeFoo: {
               title: 'CustomTypeFoo',
+              type: 'object',
               properties: {
                 prop: {
                   type: 'string',
@@ -582,6 +852,7 @@ describe('build-schema', () => {
             },
             CustomTypeBar: {
               title: 'CustomTypeBar',
+              type: 'object',
               properties: {
                 prop: {
                   type: 'array',
@@ -613,6 +884,7 @@ describe('build-schema', () => {
 
       const expectedSchema = {
         title: 'Category',
+        type: 'object',
         properties: {
           products: {
             type: 'array',
@@ -623,6 +895,7 @@ describe('build-schema', () => {
         definitions: {
           Product: {
             title: 'Product',
+            type: 'object',
             properties: {
               category: {
                 $ref: '#/definitions/Category',
@@ -717,7 +990,7 @@ describe('build-schema', () => {
       };
       MetadataInspector.defineMetadata(
         JSON_SCHEMA_KEY,
-        {[MODEL_TYPE_KEYS.ModelOnly]: cachedSchema},
+        {modelOnly: cachedSchema},
         TestModel,
       );
       const jsonSchema = getJsonSchema(TestModel);
@@ -763,6 +1036,7 @@ describe('build-schema', () => {
 
       const expectedSchemaForCategory = {
         title: 'Category',
+        type: 'object',
         properties: {
           products: {
             type: 'array',
@@ -773,6 +1047,7 @@ describe('build-schema', () => {
         definitions: {
           Product: {
             title: 'Product',
+            type: 'object',
             properties: {
               category: {
                 $ref: '#/definitions/Category',
@@ -812,7 +1087,10 @@ describe('build-schema', () => {
         definitions: {
           ProductWithRelations: {
             title: 'ProductWithRelations',
-            description: `(Schema options: { includeRelations: true })`,
+            type: 'object',
+            description:
+              `(tsType: ProductWithRelations, ` +
+              `schemaOptions: { includeRelations: true })`,
             properties: {
               id: {type: 'number'},
               categoryId: {type: 'number'},
@@ -830,7 +1108,10 @@ describe('build-schema', () => {
         },
         additionalProperties: false,
         title: 'CategoryWithRelations',
-        description: `(Schema options: { includeRelations: true })`,
+        type: 'object',
+        description:
+          `(tsType: CategoryWithRelations, ` +
+          `schemaOptions: { includeRelations: true })`,
       };
       const jsonSchema = getJsonSchema(Category, {includeRelations: true});
       expect(jsonSchema).to.deepEqual(expectedSchema);
@@ -855,7 +1136,10 @@ describe('build-schema', () => {
         definitions: {
           ProductWithRelations: {
             title: 'ProductWithRelations',
-            description: `(Schema options: { includeRelations: true })`,
+            type: 'object',
+            description:
+              `(tsType: ProductWithRelations, ` +
+              `schemaOptions: { includeRelations: true })`,
             properties: {
               id: {type: 'number'},
               categoryId: {type: 'number'},
@@ -874,7 +1158,10 @@ describe('build-schema', () => {
         },
         additionalProperties: false,
         title: 'CategoryWithoutPropWithRelations',
-        description: `(Schema options: { includeRelations: true })`,
+        type: 'object',
+        description:
+          `(tsType: CategoryWithoutPropWithRelations, ` +
+          `schemaOptions: { includeRelations: true })`,
       };
 
       // To check for case when there are no other properties than relational
@@ -928,7 +1215,7 @@ describe('build-schema', () => {
       };
       MetadataInspector.defineMetadata(
         JSON_SCHEMA_KEY,
-        {[MODEL_TYPE_KEYS.ModelWithRelations]: cachedSchema},
+        {modelWithRelations: cachedSchema},
         Category,
       );
       const jsonSchema = getJsonSchema(Category, {includeRelations: true});
@@ -958,6 +1245,7 @@ describe('build-schema', () => {
         definitions: {
           ProductWithRelations: {
             title: 'ProductWithRelations',
+            type: 'object',
             properties: {
               id: {type: 'number'},
               categoryId: {type: 'number'},
@@ -976,10 +1264,11 @@ describe('build-schema', () => {
         },
         additionalProperties: false,
         title: 'CategoryWithRelations',
+        type: 'object',
       };
       MetadataInspector.defineMetadata(
         JSON_SCHEMA_KEY,
-        {[MODEL_TYPE_KEYS.ModelWithRelations]: cachedSchema},
+        {modelWithRelations: cachedSchema},
         Category,
       );
       const jsonSchema = getJsonSchema(Category);
@@ -991,6 +1280,7 @@ describe('build-schema', () => {
         },
         additionalProperties: false,
         title: 'Category',
+        type: 'object',
       });
     });
 
@@ -1041,12 +1331,15 @@ describe('build-schema', () => {
         const excludeIdSchema = getJsonSchema(Product, {exclude: ['id']});
         expect(excludeIdSchema).to.deepEqual({
           title: 'ProductExcluding_id_',
+          type: 'object',
           properties: {
             name: {type: 'string'},
             description: {type: 'string'},
           },
           additionalProperties: false,
-          description: `(Schema options: { exclude: [ 'id' ] })`,
+          description:
+            `(tsType: Omit<Product, 'id'>, ` +
+            `schemaOptions: { exclude: [ 'id' ] })`,
         });
       });
 
@@ -1064,11 +1357,14 @@ describe('build-schema', () => {
         });
         expect(excludeIdAndNameSchema).to.deepEqual({
           title: 'ProductExcluding_id-name_',
+          type: 'object',
           properties: {
             description: {type: 'string'},
           },
           additionalProperties: false,
-          description: `(Schema options: { exclude: [ 'id', 'name' ] })`,
+          description:
+            `(tsType: Omit<Product, 'id' | 'name'>, ` +
+            `schemaOptions: { exclude: [ 'id', 'name' ] })`,
         });
       });
 
@@ -1113,7 +1409,8 @@ describe('build-schema', () => {
         expect(optionalIdSchema.required).to.deepEqual(['name']);
         expect(optionalIdSchema.title).to.equal('ProductOptional_id_');
         expect(optionalIdSchema.description).to.endWith(
-          `(Schema options: { optional: [ 'id' ] })`,
+          `(tsType: @loopback/repository-json-schema#Optional<Product, 'id'>, ` +
+            `schemaOptions: { optional: [ 'id' ] })`,
         );
       });
 
@@ -1130,7 +1427,8 @@ describe('build-schema', () => {
           'ProductOptional_id-name_',
         );
         expect(optionalIdAndNameSchema.description).to.endWith(
-          `(Schema options: { optional: [ 'id', 'name' ] })`,
+          `(tsType: @loopback/repository-json-schema#Optional<Product, 'id' | 'name'>, ` +
+            `schemaOptions: { optional: [ 'id', 'name' ] })`,
         );
       });
 
@@ -1156,7 +1454,8 @@ describe('build-schema', () => {
         expect(optionalNameSchema.required).to.deepEqual(['id']);
         expect(optionalNameSchema.title).to.equal('ProductOptional_name_');
         expect(optionalNameSchema.description).to.endWith(
-          `(Schema options: { optional: [ 'name' ] })`,
+          `(tsType: @loopback/repository-json-schema#Optional<Product, 'name'>,` +
+            ` schemaOptions: { optional: [ 'name' ] })`,
         );
 
         optionalNameSchema = getJsonSchema(Product, {
@@ -1166,7 +1465,8 @@ describe('build-schema', () => {
         expect(optionalNameSchema.required).to.deepEqual(['id']);
         expect(optionalNameSchema.title).to.equal('ProductOptional_name_');
         expect(optionalNameSchema.description).to.endWith(
-          `(Schema options: { optional: [ 'name' ] })`,
+          `(tsType: @loopback/repository-json-schema#Optional<Product, 'name'>, ` +
+            `schemaOptions: { optional: [ 'name' ] })`,
         );
       });
 
@@ -1196,7 +1496,9 @@ describe('build-schema', () => {
           'ProductOptional_name_Excluding_id_',
         );
         expect(bothOptionsSchema.description).to.endWith(
-          `(Schema options: { exclude: [ 'id' ], optional: [ 'name' ] })`,
+          `(tsType: @loopback/repository-json-schema#` +
+            `Optional<Omit<Product, 'id'>, 'name'>, ` +
+            `schemaOptions: { exclude: [ 'id' ], optional: [ 'name' ] })`,
         );
       });
     });

@@ -3,9 +3,9 @@
 // This file is licensed under the MIT License.
 // License text available at https://opensource.org/licenses/MIT
 
-import {bind, createBindingFromClass} from '@loopback/core';
+import {createBindingFromClass, injectable} from '@loopback/core';
 import {expect} from '@loopback/testlab';
-import * as chalk from 'chalk';
+import chalk from 'chalk';
 import {
   asGreeter,
   Greeter,
@@ -48,7 +48,7 @@ describe('greeter-extension-pont', () => {
     /**
      * A greeter implementation for French
      */
-    @bind(asGreeter)
+    @injectable(asGreeter)
     class FrenchGreeter implements Greeter {
       language = 'fr';
 

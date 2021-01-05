@@ -1,11 +1,18 @@
-// Copyright IBM Corp. 2018,2019. All Rights Reserved.
+// Copyright IBM Corp. 2018,2020. All Rights Reserved.
 // Node module: @loopback/context
 // This file is licensed under the MIT License.
 // License text available at https://opensource.org/licenses/MIT
 
 import {MetadataAccessor, MetadataInspector} from '@loopback/metadata';
-import * as debugFactory from 'debug';
-import {Binding, BindingScope, BindingTag, BindingTemplate} from './binding';
+import debugFactory from 'debug';
+import {
+  Binding,
+  BindingScope,
+  BindingTag,
+  BindingTemplate,
+  DynamicValueProviderClass,
+  isDynamicValueProviderClass,
+} from './binding';
 import {BindingAddress} from './binding-key';
 import {ContextTags} from './keys';
 import {Provider} from './provider';
@@ -14,17 +21,19 @@ import {Constructor} from './value-promise';
 const debug = debugFactory('loopback:context:binding-inspector');
 
 /**
- * Binding metadata from `@bind`
+ * Binding metadata from `@injectable`
+ *
+ * @typeParam T - Value type
  */
-export type BindingMetadata = {
+export type BindingMetadata<T = unknown> = {
   /**
    * An array of template functions to configure a binding
    */
-  templates: BindingTemplate[];
+  templates: BindingTemplate<T>[];
   /**
    * The target class where binding metadata is decorated
    */
-  target: Constructor<unknown>;
+  target: Constructor<T>;
 };
 
 /**
@@ -44,28 +53,34 @@ export type BindingScopeAndTags = {
 };
 
 /**
- * Specification of parameters for `@bind()`
+ * Specification of parameters for `@injectable()`
  */
-export type BindingSpec = BindingTemplate | BindingScopeAndTags;
+export type BindingSpec<T = unknown> = BindingTemplate<T> | BindingScopeAndTags;
 
 /**
  * Check if a class implements `Provider` interface
  * @param cls - A class
+ *
+ * @typeParam T - Value type
  */
-export function isProviderClass(
-  cls: Constructor<unknown>,
-): cls is Constructor<Provider<unknown>> {
-  return cls && typeof cls.prototype.value === 'function';
+export function isProviderClass<T>(
+  cls: unknown,
+): cls is Constructor<Provider<T>> {
+  return (
+    typeof cls === 'function' && typeof cls.prototype?.value === 'function'
+  );
 }
 
 /**
  * A factory function to create a template function to bind the target class
  * as a `Provider`.
  * @param target - Target provider class
+ *
+ * @typeParam T - Value type
  */
-export function asProvider(
-  target: Constructor<Provider<unknown>>,
-): BindingTemplate {
+export function asProvider<T>(
+  target: Constructor<Provider<T>>,
+): BindingTemplate<T> {
   return function bindAsProvider(binding) {
     binding.toProvider(target).tag(ContextTags.PROVIDER, {
       [ContextTags.TYPE]: ContextTags.PROVIDER,
@@ -77,16 +92,23 @@ export function asProvider(
  * A factory function to create a template function to bind the target class
  * as a class or `Provider`.
  * @param target - Target class, which can be an implementation of `Provider`
+ * or `DynamicValueProviderClass`
+ *
+ * @typeParam T - Value type
  */
-export function asClassOrProvider(
-  target: Constructor<unknown>,
-): BindingTemplate {
+export function asClassOrProvider<T>(
+  target: Constructor<T | Provider<T>> | DynamicValueProviderClass<T>,
+): BindingTemplate<T> {
   // Add a template to bind to a class or provider
   return function bindAsClassOrProvider(binding) {
     if (isProviderClass(target)) {
       asProvider(target)(binding);
+    } else if (isDynamicValueProviderClass<T>(target)) {
+      binding.toDynamicValue(target).tag(ContextTags.DYNAMIC_VALUE_PROVIDER, {
+        [ContextTags.TYPE]: ContextTags.DYNAMIC_VALUE_PROVIDER,
+      });
     } else {
-      binding.toClass(target);
+      binding.toClass(target as Constructor<T>);
     }
   };
 }
@@ -94,10 +116,12 @@ export function asClassOrProvider(
 /**
  * Convert binding scope and tags as a template function
  * @param scopeAndTags - Binding scope and tags
+ *
+ * @typeParam T - Value type
  */
-export function asBindingTemplate(
+export function asBindingTemplate<T = unknown>(
   scopeAndTags: BindingScopeAndTags,
-): BindingTemplate {
+): BindingTemplate<T> {
   return function applyBindingScopeAndTag(binding) {
     if (scopeAndTags.scope) {
       binding.inScope(scopeAndTags.scope);
@@ -115,11 +139,13 @@ export function asBindingTemplate(
 /**
  * Get binding metadata for a class
  * @param target - The target class
+ *
+ * @typeParam T - Value type
  */
-export function getBindingMetadata(
+export function getBindingMetadata<T = unknown>(
   target: Function,
-): BindingMetadata | undefined {
-  return MetadataInspector.getClassMetadata<BindingMetadata>(
+): BindingMetadata<T> | undefined {
+  return MetadataInspector.getClassMetadata<BindingMetadata<T>>(
     BINDING_METADATA_KEY,
     target,
   );
@@ -138,23 +164,27 @@ export function removeNameAndKeyTags(binding: Binding<unknown>) {
 /**
  * Get the binding template for a class with binding metadata
  *
- * @param cls - A class with optional `@bind`
+ * @param cls - A class with optional `@injectable`
+ *
+ * @typeParam T - Value type
  */
-export function bindingTemplateFor<T = unknown>(
-  cls: Constructor<T | Provider<T>>,
+export function bindingTemplateFor<T>(
+  cls: Constructor<T | Provider<T>> | DynamicValueProviderClass<T>,
+  options?: BindingFromClassOptions,
 ): BindingTemplate<T> {
   const spec = getBindingMetadata(cls);
   debug('class %s has binding metadata', cls.name, spec);
-  const templateFunctions = (spec && spec.templates) || [
-    asClassOrProvider(cls),
-  ];
+  const templateFunctions = spec?.templates ?? [asClassOrProvider(cls)];
   return function applyBindingTemplatesFromMetadata(binding) {
     for (const t of templateFunctions) {
       binding.apply(t);
     }
-    if (spec && spec.target !== cls) {
+    if (spec?.target !== cls) {
       // Remove name/key tags inherited from base classes
       binding.apply(removeNameAndKeyTags);
+    }
+    if (options != null) {
+      applyClassBindingOptions(binding, options);
     }
   };
 }
@@ -174,6 +204,7 @@ export type TypeNamespaceMapping = {[name: string]: string};
 export const DEFAULT_TYPE_NAMESPACES: TypeNamespaceMapping = {
   class: 'classes',
   provider: 'providers',
+  dynamicValueProvider: 'dynamicValueProviders',
 };
 
 /**
@@ -189,17 +220,23 @@ export type BindingFromClassOptions = {
    */
   type?: string;
   /**
-   * Artifact name, such as `my-rest-server` and `my-controller`
+   * Artifact name, such as `my-rest-server` and `my-controller`. It
+   * overrides the name tag
    */
   name?: string;
   /**
-   * Namespace for the binding key, such as `servers` and `controllers`
+   * Namespace for the binding key, such as `servers` and `controllers`. It
+   * overrides the default namespace or namespace tag
    */
   namespace?: string;
   /**
    * Mapping artifact type to binding key namespaces
    */
   typeNamespaceMapping?: TypeNamespaceMapping;
+  /**
+   * Default namespace if the binding does not have an explicit namespace
+   */
+  defaultNamespace?: string;
   /**
    * Default scope if the binding does not have an explicit scope
    */
@@ -210,22 +247,26 @@ export type BindingFromClassOptions = {
  * Create a binding from a class with decorated metadata. The class is attached
  * to the binding as follows:
  * - `binding.toClass(cls)`: if `cls` is a plain class such as `MyController`
- * - `binding.toProvider(cls)`: it `cls` is a value provider class with a
+ * - `binding.toProvider(cls)`: if `cls` is a value provider class with a
  * prototype method `value()`
+ * - `binding.toDynamicValue(cls)`: if `cls` is a dynamic value provider class
+ * with a static method `value()`
  *
- * @param cls - A class. It can be either a plain class or  a value provider class
+ * @param cls - A class. It can be either a plain class, a value provider class,
+ * or a dynamic value provider class
  * @param options - Options to customize the binding key
+ *
+ * @typeParam T - Value type
  */
-export function createBindingFromClass<T = unknown>(
-  cls: Constructor<T | Provider<T>>,
+export function createBindingFromClass<T>(
+  cls: Constructor<T | Provider<T>> | DynamicValueProviderClass<T>,
   options: BindingFromClassOptions = {},
 ): Binding<T> {
   debug('create binding from class %s with options', cls.name, options);
   try {
-    const templateFn = bindingTemplateFor(cls);
+    const templateFn = bindingTemplateFor(cls, options);
     const key = buildBindingKey(cls, options);
     const binding = Binding.bind<T>(key).apply(templateFn);
-    applyClassBindingOptions(binding, options);
     return binding;
   } catch (err) {
     err.message += ` (while building binding for class ${cls.name})`;
@@ -282,9 +323,11 @@ function getNamespace(type: string, typeNamespaces = DEFAULT_TYPE_NAMESPACES) {
  *
  * @param cls - A class to be bound
  * @param options - Options to customize how to build the key
+ *
+ * @typeParam T - Value type
  */
-function buildBindingKey(
-  cls: Constructor<unknown>,
+function buildBindingKey<T>(
+  cls: Constructor<T | Provider<T>>,
   options: BindingFromClassOptions = {},
 ) {
   if (options.key) return options.key;
@@ -297,7 +340,9 @@ function buildBindingKey(
   if (key) return key;
 
   let namespace =
-    options.namespace || bindingTemplate.tagMap[ContextTags.NAMESPACE];
+    options.namespace ??
+    bindingTemplate.tagMap[ContextTags.NAMESPACE] ??
+    options.defaultNamespace;
   if (!namespace) {
     const namespaces = Object.assign(
       {},
@@ -305,17 +350,17 @@ function buildBindingKey(
       options.typeNamespaceMapping,
     );
     // Derive the key from type + name
-    let type = options.type || bindingTemplate.tagMap[ContextTags.TYPE];
+    let type = options.type ?? bindingTemplate.tagMap[ContextTags.TYPE];
     if (!type) {
       type =
-        bindingTemplate.tagNames.find(t => namespaces[t] != null) ||
+        bindingTemplate.tagNames.find(t => namespaces[t] != null) ??
         ContextTags.CLASS;
     }
     namespace = getNamespace(type, namespaces);
   }
 
   const name =
-    options.name || bindingTemplate.tagMap[ContextTags.NAME] || cls.name;
+    options.name ?? (bindingTemplate.tagMap[ContextTags.NAME] || cls.name);
   key = `${namespace}.${name}`;
 
   return key;

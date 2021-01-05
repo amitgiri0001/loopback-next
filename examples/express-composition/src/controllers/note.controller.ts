@@ -1,4 +1,4 @@
-// Copyright IBM Corp. 2019. All Rights Reserved.
+// Copyright IBM Corp. 2019,2020. All Rights Reserved.
 // Node module: @loopback/example-express-composition
 // This file is licensed under the MIT License.
 // License text available at https://opensource.org/licenses/MIT
@@ -13,9 +13,7 @@ import {
 import {
   del,
   get,
-  getFilterSchemaFor,
   getModelSchemaRef,
-  getWhereSchemaFor,
   param,
   patch,
   post,
@@ -60,9 +58,7 @@ export class NoteController {
       },
     },
   })
-  async count(
-    @param.query.object('where', getWhereSchemaFor(Note)) where?: Where<Note>,
-  ): Promise<Count> {
+  async count(@param.where(Note) where?: Where<Note>): Promise<Count> {
     return this.noteRepository.count(where);
   }
 
@@ -79,7 +75,7 @@ export class NoteController {
     },
   })
   async find(
-    @param.query.object('filter', getFilterSchemaFor(Note))
+    @param.filter(Note)
     filter?: Filter<Note>,
   ): Promise<Note[]> {
     return this.noteRepository.find(filter);
@@ -102,7 +98,7 @@ export class NoteController {
       },
     })
     note: Partial<Note>,
-    @param.query.object('where', getWhereSchemaFor(Note)) where?: Where<Note>,
+    @param.where(Note) where?: Where<Note>,
   ): Promise<Count> {
     return this.noteRepository.updateAll(note, where);
   }

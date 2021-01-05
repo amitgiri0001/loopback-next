@@ -39,14 +39,46 @@ describe('includeRelatedModels', () => {
     expect(result).to.eql([category]);
   });
 
-  it('throws error if the target repository does not have the registered resolver', async () => {
-    const category = await categoryRepo.create({name: 'category 1'});
-    await expect(
-      includeRelatedModels(categoryRepo, [category], [{relation: 'products'}]),
-    ).to.be.rejectedWith(
-      /Invalid "filter.include" entries: {"relation":"products"}/,
-    );
-  });
+  context(
+    'throws error if the target repository does not have registered resolvers',
+    () => {
+      it('the error message reports the invalid entry with relation property', async () => {
+        const category = await categoryRepo.create({name: 'category 1'});
+        await expect(
+          includeRelatedModels(
+            categoryRepo,
+            [category],
+            [{relation: 'notRegistered'}],
+          ),
+        ).to.be.rejectedWith(
+          /Invalid "filter.include" entries: {"relation":"notRegistered"}/,
+        );
+      });
+      it('the error message reports the invalid entry', async () => {
+        const category = await categoryRepo.create({name: 'category 1'});
+        await expect(
+          includeRelatedModels(categoryRepo, [category], ['notRegistered']),
+        ).to.be.rejectedWith(
+          /Invalid "filter.include" entries: "notRegistered"/,
+        );
+      });
+      it('the error statusCode should be 400', async () => {
+        const category = await categoryRepo.create({name: 'category 1'});
+        let error;
+        try {
+          await includeRelatedModels(
+            categoryRepo,
+            [category],
+            [{relation: 'notRegistered'}],
+          );
+        } catch (err) {
+          error = err;
+        }
+        expect(error.statusCode).to.equal(400);
+        expect(error.code).to.equal('INVALID_INCLUSION_FILTER');
+      });
+    },
+  );
 
   it('returns an empty array if target model of the source entity does not have any matched instances', async () => {
     const category = await categoryRepo.create({name: 'category'});
@@ -56,7 +88,7 @@ describe('includeRelatedModels', () => {
     const categories = await includeRelatedModels(
       categoryRepo,
       [category],
-      [{relation: 'products'}],
+      ['products'],
     );
 
     expect(categories[0].products).to.be.empty();
@@ -74,7 +106,7 @@ describe('includeRelatedModels', () => {
     const productWithCategories = await includeRelatedModels(
       productRepo,
       [product],
-      [{relation: 'category'}],
+      ['category'],
     );
 
     expect(productWithCategories[0].toJSON()).to.deepEqual({
@@ -106,7 +138,7 @@ describe('includeRelatedModels', () => {
     const productWithCategories = await includeRelatedModels(
       productRepo,
       [productOne, productTwo, productThree],
-      [{relation: 'category'}],
+      ['category'],
     );
 
     expect(toJSON(productWithCategories)).to.deepEqual([
@@ -133,7 +165,7 @@ describe('includeRelatedModels', () => {
     const categoryWithProducts = await includeRelatedModels(
       categoryRepo,
       [category],
-      [{relation: 'products'}],
+      ['products'],
     );
 
     expect(toJSON(categoryWithProducts)).to.deepEqual([
@@ -168,7 +200,7 @@ describe('includeRelatedModels', () => {
     const categoryWithProducts = await includeRelatedModels(
       categoryRepo,
       [categoryOne, categoryTwo, categoryThree],
-      [{relation: 'products'}],
+      ['products'],
     );
 
     expect(toJSON(categoryWithProducts)).to.deepEqual([

@@ -1,9 +1,9 @@
-// Copyright IBM Corp. 2018,2019. All Rights Reserved.
+// Copyright IBM Corp. 2018,2020. All Rights Reserved.
 // Node module: @loopback/rest-explorer
 // This file is licensed under the MIT License.
 // License text available at https://opensource.org/licenses/MIT
 
-import {inject} from '@loopback/context';
+import {config, inject} from '@loopback/core';
 import {
   OpenApiSpecForm,
   RequestContext,
@@ -11,9 +11,9 @@ import {
   RestServer,
   RestServerConfig,
 } from '@loopback/rest';
-import * as ejs from 'ejs';
-import * as fs from 'fs';
-import * as path from 'path';
+import ejs from 'ejs';
+import fs from 'fs';
+import path from 'path';
 import {RestExplorerBindings} from './rest-explorer.keys';
 import {RestExplorerConfig} from './rest-explorer.types';
 
@@ -31,11 +31,12 @@ export class ExplorerController {
 
   private openApiSpecUrl: string;
   private useSelfHostedSpec: boolean;
+  private swaggerThemeFile: string;
 
   constructor(
     @inject(RestBindings.CONFIG, {optional: true})
     restConfig: RestServerConfig = {},
-    @inject(RestExplorerBindings.CONFIG, {optional: true})
+    @config({fromBinding: RestExplorerBindings.COMPONENT})
     explorerConfig: RestExplorerConfig = {},
     @inject(RestBindings.BASE_PATH) private serverBasePath: string,
     @inject(RestBindings.SERVER) private restServer: RestServer,
@@ -43,6 +44,8 @@ export class ExplorerController {
   ) {
     this.useSelfHostedSpec = explorerConfig.useSelfHostedSpec !== false;
     this.openApiSpecUrl = this.getOpenApiSpecUrl(restConfig);
+    this.swaggerThemeFile =
+      explorerConfig.swaggerThemeFile ?? './swagger-ui.css';
   }
 
   indexRedirect() {
@@ -58,6 +61,7 @@ export class ExplorerController {
   }
 
   index() {
+    const swaggerThemeFile = this.swaggerThemeFile;
     let openApiSpecUrl = this.openApiSpecUrl;
 
     // if using self-hosted openapi spec, then the path to use is always the
@@ -80,6 +84,7 @@ export class ExplorerController {
     }
     const data = {
       openApiSpecUrl,
+      swaggerThemeFile,
     };
 
     const homePage = templateFn(data);
@@ -97,12 +102,12 @@ export class ExplorerController {
     if (this.useSelfHostedSpec) {
       return './' + ExplorerController.OPENAPI_RELATIVE_URL;
     }
-    const openApiConfig = restConfig.openApiSpec || {};
-    const endpointMapping = openApiConfig.endpointMapping || {};
+    const openApiConfig = restConfig.openApiSpec ?? {};
+    const endpointMapping = openApiConfig.endpointMapping ?? {};
     const endpoint = Object.keys(endpointMapping).find(k =>
       isOpenApiV3Json(endpointMapping[k]),
     );
-    return endpoint || '/openapi.json';
+    return endpoint ?? '/openapi.json';
   }
 }
 

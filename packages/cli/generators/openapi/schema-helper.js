@@ -1,4 +1,4 @@
-// Copyright IBM Corp. 2018,2019. All Rights Reserved.
+// Copyright IBM Corp. 2018,2020. All Rights Reserved.
 // Node module: @loopback/cli
 // This file is licensed under the MIT License.
 // License text available at https://opensource.org/licenses/MIT
@@ -9,8 +9,9 @@ const {
   isExtension,
   titleCase,
   escapePropertyName,
-  toJsonStr,
+  printSpecObject,
   toFileName,
+  printJsonSchema,
 } = require('./utils');
 
 function setImport(typeSpec) {
@@ -37,7 +38,7 @@ function getTypeSpec(schema, options) {
 function getDefault(schema, options) {
   let defaultVal = '';
   if (options && options.includeDefault && schema.default !== undefined) {
-    defaultVal = ' = ' + toJsonStr(schema.default);
+    defaultVal = ' = ' + printSpecObject(schema.default);
   }
   return defaultVal;
 }
@@ -120,10 +121,14 @@ function mapArrayType(schema, options) {
     const typeSpec = getTypeSpec(schema, options);
     const itemTypeSpec = mapSchemaType(schema.items, opts);
     const defaultVal = getDefault(schema, options);
-    typeSpec.name = itemTypeSpec.signature + '[]';
-    typeSpec.declaration = itemTypeSpec.signature + '[]';
-    typeSpec.signature =
-      (typeSpec.className || itemTypeSpec.signature + '[]') + defaultVal;
+    let arrayType = `${itemTypeSpec.signature}[]`;
+    if (itemTypeSpec.signature.match(/[\|\&]/)) {
+      // The type is a union or intersection
+      arrayType = `(${itemTypeSpec.signature})[]`;
+    }
+    typeSpec.name = arrayType;
+    typeSpec.declaration = arrayType;
+    typeSpec.signature = (typeSpec.className || arrayType) + defaultVal;
     typeSpec.itemType = itemTypeSpec;
     collectImports(typeSpec, itemTypeSpec);
     return typeSpec;
@@ -151,6 +156,7 @@ function mapObjectType(schema, options) {
     const properties = [];
     const required = schema.required || [];
     for (const p in schema.properties) {
+      const propSchema = {...schema.properties[p]};
       const suffix = required.includes(p) ? '' : '?';
       const propertyType = mapSchemaType(
         schema.properties[p],
@@ -161,10 +167,12 @@ function mapObjectType(schema, options) {
       // The property name might have chars such as `-`
       const propName = escapePropertyName(p);
 
-      let propDecoration = `@property()`;
+      const propSchemaJson = printJsonSchema(propSchema);
+
+      let propDecoration = `@property({jsonSchema: ${propSchemaJson}})`;
 
       if (required.includes(p)) {
-        propDecoration = `@property({required: true})`;
+        propDecoration = `@property({required: true, jsonSchema: ${propSchemaJson}})`;
       }
 
       if (propertyType.itemType) {
@@ -177,7 +185,7 @@ function mapObjectType(schema, options) {
               getJSType(propertyType.itemType.name);
         if (itemType) {
           // Use `@property.array` for array types
-          propDecoration = `@property.array(${itemType})`;
+          propDecoration = `@property.array(${itemType}, {jsonSchema: ${propSchemaJson}})`;
           if (propertyType.itemType.className) {
             // The referenced item type is either a class or type
             collectImports(typeSpec, propertyType.itemType);
@@ -196,18 +204,37 @@ function mapObjectType(schema, options) {
       properties.push(propSpec);
     }
     typeSpec.properties = properties;
-    const propertySignatures = properties.map(p => p.signature);
+    typeSpec.importProperty = properties.length > 0;
 
     // Handle `additionalProperties`
     if (schema.additionalProperties === true) {
-      propertySignatures.push('[additionalProperty: string]: any;');
+      const signature = '[additionalProperty: string]: any;';
+      typeSpec.properties.push({
+        name: '',
+        description: 'additionalProperties',
+        comment: 'eslint-disable-next-line @typescript-eslint/no-explicit-any',
+        signature,
+      });
     } else if (schema.additionalProperties) {
-      propertySignatures.push(
+      // TypeScript does not like `[additionalProperty: string]: string;`
+      /*
+      const signature =
         '[additionalProperty: string]: ' +
-          mapSchemaType(schema.additionalProperties).signature +
-          ';',
-      );
+        mapSchemaType(schema.additionalProperties).signature +
+        ';';
+      */
+      const signature = '[additionalProperty: string]: any;';
+      typeSpec.properties.push({
+        name: '',
+        description: 'additionalProperties',
+        comment: 'eslint-disable-next-line @typescript-eslint/no-explicit-any',
+        signature,
+      });
     }
+    const propertySignatures = properties.map(p => {
+      if (p.comment) return `  // ${p.comment}\n  ${p.signature}`;
+      return p.signature;
+    });
     typeSpec.declaration = `{
   ${propertySignatures.join('\n  ')}
 }`;
@@ -261,7 +288,7 @@ function mapPrimitiveType(schema, options) {
   }
   // Handle enums
   if (Array.isArray(schema.enum)) {
-    jsType = schema.enum.map(v => toJsonStr(v)).join(' | ');
+    jsType = schema.enum.map(v => printSpecObject(v)).join(' | ');
   }
   const typeSpec = getTypeSpec(schema, options);
   const defaultVal = getDefault(schema, options);

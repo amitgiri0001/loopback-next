@@ -1,4 +1,4 @@
-// Copyright IBM Corp. 2019. All Rights Reserved.
+// Copyright IBM Corp. 2019,2020. All Rights Reserved.
 // Node module: @loopback/example-context
 // This file is licensed under the MIT License.
 // License text available at https://opensource.org/licenses/MIT
@@ -6,12 +6,12 @@
 import {
   asGlobalInterceptor,
   AsyncProxy,
-  bind,
   BindingKey,
   BindingScope,
   Context,
   createBindingFromClass,
   inject,
+  injectable,
   Interceptor,
   InvocationContext,
   Provider,
@@ -33,7 +33,7 @@ const TRACING_INTERCEPTOR = BindingKey.create<Interceptor>(
 const CONVERTER = BindingKey.create<Converter>('converter');
 const GREETER = BindingKey.create<Greeter>('greeter');
 
-@bind(asGlobalInterceptor('tracing'))
+@injectable(asGlobalInterceptor('tracing'))
 class TracingInterceptor implements Provider<Interceptor> {
   constructor(
     @inject(REQUEST_ID_GENERATOR) private generator: RequestIdGenerator,
@@ -100,10 +100,7 @@ export async function main() {
     `[${context.name}] ${count++}`;
   ctx.bind(REQUEST_ID_GENERATOR).to(reqUuidGenerator);
   ctx.bind(GREETER).toClass(Greeter);
-  ctx
-    .bind(CONVERTER)
-    .toClass(Converter)
-    .tag(BindingScope.SINGLETON);
+  ctx.bind(CONVERTER).toClass(Converter).tag(BindingScope.SINGLETON);
 
   const greeter = await ctx.get(GREETER, {asProxyWithInterceptors: true});
   console.log(await greeter!.greet('John'));

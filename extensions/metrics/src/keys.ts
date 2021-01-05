@@ -1,10 +1,9 @@
 // Copyright IBM Corp. 2019. All Rights Reserved.
-// Node module: @loopback/extension-metrics
+// Node module: @loopback/metrics
 // This file is licensed under the MIT License.
 // License text available at https://opensource.org/licenses/MIT
 
-import {BindingKey} from '@loopback/context';
-import {CoreBindings} from '@loopback/core';
+import {BindingKey, CoreBindings} from '@loopback/core';
 import {MetricsComponent} from './metrics.component';
 
 /**

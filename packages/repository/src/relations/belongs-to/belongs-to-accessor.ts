@@ -3,7 +3,7 @@
 // This file is licensed under the MIT License.
 // License text available at https://opensource.org/licenses/MIT
 
-import * as debugFactory from 'debug';
+import debugFactory from 'debug';
 import {DataObject} from '../../common-types';
 import {Entity} from '../../model';
 import {EntityCrudRepository} from '../../repositories/repository';
@@ -13,8 +13,8 @@ import {
   InclusionResolver,
 } from '../relation.types';
 import {resolveBelongsToMetadata} from './belongs-to.helpers';
-import {DefaultBelongsToRepository} from './belongs-to.repository';
 import {createBelongsToInclusionResolver} from './belongs-to.inclusion-resolver';
+import {DefaultBelongsToRepository} from './belongs-to.repository';
 
 const debug = debugFactory('loopback:repository:belongs-to-accessor');
 
@@ -53,6 +53,12 @@ export function createBelongsToAccessor<
     const primaryKey = meta.keyTo;
     const sourceModel = await sourceRepository.findById(sourceId);
     const foreignKeyValue = sourceModel[foreignKey as keyof Source];
+    // workaround to check referential integrity.
+    // should be removed once the memory connector ref integrity is done
+    // GH issue: https://github.com/strongloop/loopback-next/issues/2333
+    if (!foreignKeyValue) {
+      return (undefined as unknown) as Target;
+    }
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const constraint: any = {[primaryKey]: foreignKeyValue};
     const constrainedRepo = new DefaultBelongsToRepository(

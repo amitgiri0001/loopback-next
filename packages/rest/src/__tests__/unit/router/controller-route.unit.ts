@@ -1,4 +1,4 @@
-// Copyright IBM Corp. 2019. All Rights Reserved.
+// Copyright IBM Corp. 2019,2020. All Rights Reserved.
 // Node module: @loopback/rest
 // This file is licensed under the MIT License.
 // License text available at https://opensource.org/licenses/MIT
@@ -11,8 +11,27 @@ import {
   ControllerRoute,
   createControllerFactoryForBinding,
   createControllerFactoryForClass,
+  joinPath,
   RestBindings,
+  RouteSource,
 } from '../../..';
+
+describe('joinPath', () => {
+  it('joins basePath and path', () => {
+    expect(joinPath('', 'a')).to.equal('/a');
+    expect(joinPath('/', '')).to.equal('/');
+    expect(joinPath('/', 'a')).to.equal('/a');
+    expect(joinPath('/root', 'a')).to.equal('/root/a');
+    expect(joinPath('root', 'a')).to.equal('/root/a');
+    expect(joinPath('root/', '/a')).to.equal('/root/a');
+    expect(joinPath('root/', '/a/')).to.equal('/root/a');
+    expect(joinPath('/root/', '/a/')).to.equal('/root/a');
+    expect(joinPath('/root//x', '/a')).to.equal('/root/x/a');
+    expect(joinPath('/root/', '/')).to.equal('/root');
+    expect(joinPath('/root/x', '/a/b')).to.equal('/root/x/a/b');
+    expect(joinPath('//root//x', '//a///b////c')).to.equal('/root/x/a/b/c');
+  });
+});
 
 describe('ControllerRoute', () => {
   it('rejects routes with no methodName', () => {
@@ -85,6 +104,24 @@ describe('ControllerRoute', () => {
     );
 
     expect(route._controllerName).to.eql('my-controller');
+  });
+
+  it('implements toString', () => {
+    const spec = anOperationSpec().build();
+    const route = new MyRoute(
+      'get',
+      '/greet',
+      spec,
+      MyController,
+      myControllerFactory,
+      'greet',
+    );
+    expect(route.toString()).to.equal(
+      'MyRoute - get /greet => MyController.greet',
+    );
+    expect(new RouteSource(route).toString()).to.equal(
+      'MyRoute - get /greet => MyController.greet',
+    );
   });
 
   describe('updateBindings()', () => {

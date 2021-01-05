@@ -1,4 +1,4 @@
-// Copyright IBM Corp. 2019. All Rights Reserved.
+// Copyright IBM Corp. 2019,2020. All Rights Reserved.
 // Node module: @loopback/context
 // This file is licensed under the MIT License.
 // License text available at https://opensource.org/licenses/MIT
@@ -51,7 +51,15 @@ describe('Context bindings - Injecting dependencies of classes', () => {
         throw new Error('ctx.get() should have failed');
       },
       function onError(err) {
-        expect(err).to.match(/resolve.*InfoController.*argument 1/);
+        expect(err.message).to.match(
+          /The argument 'InfoController\.constructor\[0\]' is not decorated for dependency injection/,
+        );
+        expect(err.message).to.match(
+          /but no value was supplied by the caller\. Did you forget to apply @inject\(\) to the argument\?/,
+        );
+        expect(err.message).to.match(
+          /\(context: [\w\-]+, resolutionPath: controllers\.info\)/,
+        );
       },
     );
   });
@@ -72,7 +80,15 @@ describe('Context bindings - Injecting dependencies of classes', () => {
         throw new Error('ctx.get() should have failed');
       },
       function onError(err) {
-        expect(err).to.match(/resolve.*InfoController.*argument 1/);
+        expect(err.message).to.match(
+          /The argument 'InfoController\.constructor\[0\]' is not decorated for dependency injection/,
+        );
+        expect(err.message).to.match(
+          /but no value was supplied by the caller\. Did you forget to apply @inject\(\) to the argument\?/,
+        );
+        expect(err.message).to.match(
+          /\(context: [\w\-]+, resolutionPath: controllers\.info\)/,
+        );
       },
     );
   });
@@ -169,6 +185,51 @@ describe('Context bindings - Injecting dependencies of classes', () => {
     // rebind the value to verify that getter always returns a fresh value
     ctx.bind(HASH_KEY).to('456');
     expect(await store.getter()).to.equal('456');
+  });
+
+  it('allows circular dependencies using getter', async () => {
+    // DepartmentService and EmployeeService depends on each other
+    interface DepartmentService {
+      getEmployeeService: Getter<EmployeeService>;
+    }
+
+    interface EmployeeService {
+      getDepartmentService: Getter<DepartmentService>;
+    }
+
+    class DepartmentServiceImpl implements DepartmentService {
+      constructor(
+        // Use getter to avoid circular dependencies
+        @inject.getter('services.employee')
+        readonly getEmployeeService: Getter<EmployeeService>,
+      ) {}
+    }
+
+    class EmployeeServiceImpl implements EmployeeService {
+      constructor(
+        // Use getter to avoid circular dependencies
+        @inject.getter('services.department')
+        readonly getDepartmentService: Getter<DepartmentService>,
+      ) {}
+    }
+    ctx
+      .bind('services.department')
+      .toClass(DepartmentServiceImpl)
+      .inScope(BindingScope.SINGLETON);
+    ctx
+      .bind('services.employee')
+      .toClass(EmployeeServiceImpl)
+      .inScope(BindingScope.SINGLETON);
+    const departmentService = await ctx.get<DepartmentService>(
+      'services.department',
+    );
+    const employeeService = await ctx.get<EmployeeService>('services.employee');
+    expect(await departmentService.getEmployeeService()).to.eql(
+      employeeService,
+    );
+    expect(await employeeService.getDepartmentService()).to.eql(
+      departmentService,
+    );
   });
 
   it('creates getter from a value', () => {
@@ -274,14 +335,8 @@ describe('Context bindings - Injecting dependencies of classes', () => {
 
       const requestCtx = givenRequestContextWithSingletonStore(Store);
 
-      ctx
-        .bind('features.security')
-        .to('security')
-        .tag('feature');
-      requestCtx
-        .bind('features.debug')
-        .to('debug')
-        .tag('feature');
+      ctx.bind('features.security').to('security').tag('feature');
+      requestCtx.bind('features.debug').to('debug').tag('feature');
 
       const store = await requestCtx.get<Store>(STORE_KEY);
       // For singleton bindings, the injected tagged bindings will be only from
@@ -330,10 +385,7 @@ describe('Context bindings - Injecting dependencies of classes', () => {
       requestCtx.bind(HASH_KEY).to('123');
 
       // Bind `Store` as a singleton at parent level (`ctx`)
-      ctx
-        .bind(STORE_KEY)
-        .toClass(storeClass)
-        .inScope(BindingScope.SINGLETON);
+      ctx.bind(STORE_KEY).toClass(storeClass).inScope(BindingScope.SINGLETON);
       return requestCtx;
     }
   });
@@ -364,10 +416,7 @@ describe('Context bindings - Injecting dependencies of classes', () => {
 
     it('injects a setter function that uses an existing binding', () => {
       // Create a binding for hash key
-      ctx
-        .bind(HASH_KEY)
-        .to('123')
-        .tag('hash');
+      ctx.bind(HASH_KEY).to('123').tag('hash');
       ctx.bind(STORE_KEY).toClass(Store);
       const store = ctx.getSync<Store>(STORE_KEY);
       // Change the hash value
@@ -415,10 +464,7 @@ describe('Context bindings - Injecting dependencies of classes', () => {
 
       it('supports NEVER_CREATE with an existing binding', () => {
         // Create a binding for hash key
-        const hashBinding = ctx
-          .bind(HASH_KEY)
-          .to('123')
-          .tag('hash');
+        const hashBinding = ctx.bind(HASH_KEY).to('123').tag('hash');
         ctx
           .bind(STORE_KEY)
           .toClass(givenStoreClass(BindingCreationPolicy.NEVER_CREATE));
@@ -439,10 +485,7 @@ describe('Context bindings - Injecting dependencies of classes', () => {
 
       it('supports CREATE_IF_NOT_BOUND with an existing binding', () => {
         // Create a binding for hash key
-        const hashBinding = ctx
-          .bind(HASH_KEY)
-          .to('123')
-          .tag('hash');
+        const hashBinding = ctx.bind(HASH_KEY).to('123').tag('hash');
         ctx
           .bind(STORE_KEY)
           .toClass(givenStoreClass(BindingCreationPolicy.CREATE_IF_NOT_BOUND));
@@ -489,10 +532,7 @@ describe('Context bindings - Injecting dependencies of classes', () => {
 
     it('injects a binding that exists', () => {
       // Create a binding for hash key
-      const hashBinding = ctx
-        .bind(HASH_KEY)
-        .to('123')
-        .tag('hash');
+      const hashBinding = ctx.bind(HASH_KEY).to('123').tag('hash');
       ctx.bind(STORE_KEY).toClass(Store);
       const store = ctx.getSync<Store>(STORE_KEY);
       expect(store.binding).to.be.exactly(hashBinding);
@@ -530,10 +570,7 @@ describe('Context bindings - Injecting dependencies of classes', () => {
 
       it('supports NEVER_CREATE with an existing binding', () => {
         // Create a binding for hash key
-        const hashBinding = ctx
-          .bind(HASH_KEY)
-          .to('123')
-          .tag('hash');
+        const hashBinding = ctx.bind(HASH_KEY).to('123').tag('hash');
         ctx
           .bind(STORE_KEY)
           .toClass(givenStoreClass(BindingCreationPolicy.NEVER_CREATE));
@@ -551,10 +588,7 @@ describe('Context bindings - Injecting dependencies of classes', () => {
 
       it('supports CREATE_IF_NOT_BOUND with an existing binding', () => {
         // Create a binding for hash key
-        const hashBinding = ctx
-          .bind(HASH_KEY)
-          .to('123')
-          .tag('hash');
+        const hashBinding = ctx.bind(HASH_KEY).to('123').tag('hash');
         ctx
           .bind(STORE_KEY)
           .toClass(givenStoreClass(BindingCreationPolicy.CREATE_IF_NOT_BOUND));
@@ -601,14 +635,8 @@ describe('Context bindings - Injecting dependencies of classes', () => {
     }
 
     ctx.bind(STORE_KEY).toClass(Store);
-    ctx
-      .bind('store.locations.sf')
-      .to('San Francisco')
-      .tag('store:location');
-    ctx
-      .bind('store.locations.sj')
-      .to('San Jose')
-      .tag('store:location');
+    ctx.bind('store.locations.sf').to('San Francisco').tag('store:location');
+    ctx.bind('store.locations.sj').to('San Jose').tag('store:location');
     const store: Store = ctx.getSync(STORE_KEY);
     expect(store.locations).to.eql(['San Francisco', 'San Jose']);
   });
@@ -619,14 +647,8 @@ describe('Context bindings - Injecting dependencies of classes', () => {
     }
 
     ctx.bind(STORE_KEY).toClass(Store);
-    ctx
-      .bind('store.locations.sf')
-      .to('San Francisco')
-      .tag('store:location:sf');
-    ctx
-      .bind('store.locations.sj')
-      .to('San Jose')
-      .tag('store:location:sj');
+    ctx.bind('store.locations.sf').to('San Francisco').tag('store:location:sf');
+    ctx.bind('store.locations.sj').to('San Jose').tag('store:location:sj');
     const store: Store = ctx.getSync(STORE_KEY);
     expect(store.locations).to.eql(['San Jose']);
   });
@@ -647,10 +669,7 @@ describe('Context bindings - Injecting dependencies of classes', () => {
     }
 
     ctx.bind(STORE_KEY).toClass(Store);
-    ctx
-      .bind('store.locations.sf')
-      .to('San Francisco')
-      .tag('store:location');
+    ctx.bind('store.locations.sf').to('San Francisco').tag('store:location');
     ctx
       .bind('store.locations.sj')
       .toDynamicValue(async () => 'San Jose')
@@ -682,10 +701,7 @@ describe('Context bindings - Injecting dependencies of classes', () => {
     }
 
     ctx.bind(STORE_KEY).toClass(Store);
-    ctx
-      .bind('store.locations.sf')
-      .to('San Francisco')
-      .tag('store:location');
+    ctx.bind('store.locations.sf').to('San Francisco').tag('store:location');
     ctx
       .bind('store.locations.sj')
       .toProvider(LocationProvider)
@@ -704,10 +720,7 @@ describe('Context bindings - Injecting dependencies of classes', () => {
     }
 
     ctx.bind(STORE_KEY).toClass(Store);
-    ctx
-      .bind('store.locations.sf')
-      .to('San Francisco')
-      .tag('store:location');
+    ctx.bind('store.locations.sf').to('San Francisco').tag('store:location');
     ctx
       .bind('store.locations.sj')
       .toDynamicValue(() => Promise.reject(new Error('Bad')))

@@ -1,7 +1,7 @@
 ---
 lang: en
 title: 'Creating an Express Application with LoopBack REST API'
-keywords: LoopBack 4.0, LoopBack 4
+keywords: LoopBack 4.0, LoopBack 4, Node.js, TypeScript, OpenAPI
 sidebar: lb4_sidebar
 permalink: /doc/en/lb4/express-with-lb4-rest-tutorial.html
 summary: A simple Express application with LoopBack 4 REST API
@@ -9,21 +9,22 @@ summary: A simple Express application with LoopBack 4 REST API
 
 ## Overview
 
-[Express](https://expressjs.com) is an unopinionated Node.js framework. LoopBack
-REST API can be mounted to an Express application and be used as middleware.
-This way the user can mix and match features from both frameworks to suit their
-needs.
+[Express](https://expressjs.com) is an un-opinionated Node.js framework.
+LoopBack REST API can be mounted to an Express application and be used as
+middleware. This way the user can mix and match features from both frameworks to
+suit their needs.
 
 {% include note.html content="
 If you want to use LoopBack as the host instead and mount your Express
 application on a LoopBack 4 application, see
-[Mounting an Express Router](Routes.md#mounting-an-express-router).
+[Using Express Middleware](Express-middleware.md) and
+[Mounting an Express Router](Route.md#mounting-an-express-router).
 " %}
 
 This tutorial assumes familiarity with scaffolding a LoopBack 4 application,
-[`Models`](Model.md), [`DataSources`](DataSources.md),
-[`Repositories`](Repositories.md), and [`Controllers`](Controllers.md). To see
-how they're used in a LoopBack application, please see the
+[`Models`](Model.md), [`DataSources`](DataSource.md),
+[`Repositories`](Repository.md), and [`Controllers`](Controller.md). To see how
+they're used in a LoopBack application, please see the
 [`Todo` tutorial](todo-tutorial.md).
 
 ## Try it out
@@ -139,7 +140,7 @@ Create a new file **src/server.ts** to create your Express class:
 {% include code-caption.html content="src/server.ts" %}
 
 ```ts
-import * as express from 'express';
+import express from 'express';
 
 export class ExpressServer {
   constructor() {}
@@ -150,13 +151,15 @@ Create two properties, the Express application instance and LoopBack application
 instance:
 
 ```ts
-import {NoteApplication} from './application';
-import {ApplicationConfig} from '@loopback/core';
-import * as express from 'express';
+import express from 'express';
+import {ApplicationConfig, NoteApplication} from './application';
+
+export {ApplicationConfig};
 
 export class ExpressServer {
-  private app: express.Application;
-  private lbApp: NoteApplication;
+  public readonly app: express.Application;
+  public readonly lbApp: NoteApplication;
+  private server?: http.Server;
 
   constructor(options: ApplicationConfig = {}) {
     this.app = express();
@@ -185,7 +188,7 @@ Then, we can add some custom Express routes, as follows:
 
 ```ts
 import {Request, Response} from 'express';
-import * as path from 'path';
+import path from 'path';
 
 export class ExpressServer {
   private app: express.Application;
@@ -195,10 +198,10 @@ export class ExpressServer {
     // earlier code
 
     // Custom Express routes
-    this.app.get('/', function(_req: Request, res: Response) {
+    this.app.get('/', function (_req: Request, res: Response) {
       res.sendFile(path.resolve('public/express.html'));
     });
-    this.app.get('/hello', function(_req: Request, res: Response) {
+    this.app.get('/hello', function (_req: Request, res: Response) {
       res.send('Hello world!');
     });
   }
@@ -209,22 +212,16 @@ And add the
 [public/express.html](https://github.com/strongloop/loopback-next/blob/master/examples/express-composition/public/express.html)
 file to your project.
 
-Let's also install [`p-event`](https://www.npmjs.com/package/p-event) to make
-sure the server is listening:
-
-```sh
-npm install --save p-event
-```
-
 Finally, we can add functions to boot the `Note` application and start the
 Express application:
 
 ```ts
-import pEvent from 'p-event';
+import {once} from 'events';
 
 export class ExpressServer {
-  private app: express.Application;
-  private lbApp: NoteApplication;
+  public readonly app: express.Application;
+  public readonly lbApp: NoteApplication;
+  private server?: http.Server;
 
   constructor(options: ApplicationConfig = {}) {
     //...
@@ -236,10 +233,10 @@ export class ExpressServer {
 
   public async start() {
     await this.lbApp.start();
-    const port = this.lbApp.restServer.config.port || 3000;
+    const port = this.lbApp.restServer.config.port ?? 3000;
     const host = this.lbApp.restServer.config.host || '127.0.0.1';
     this.server = this.app.listen(port, host);
-    await pEvent(this.server, 'listening');
+    await once(this.server, 'listening');
   }
 
   // For testing purposes
@@ -259,10 +256,9 @@ Now that our **src/server.ts** file is ready, then we can modify our
 {% include code-caption.html content="src/index.ts" %}
 
 ```ts
-import {ExpressServer} from './server';
-import {ApplicationConfig} from '@loopback/core';
+import {ApplicationConfig, ExpressServer} from './server';
 
-export {ExpressServer, NoteApplication};
+export {ApplicationConfig, ExpressServer, NoteApplication};
 
 export async function main(options: ApplicationConfig = {}) {
   const server = new ExpressServer(options);
@@ -270,21 +266,13 @@ export async function main(options: ApplicationConfig = {}) {
   await server.start();
   console.log('Server is running at http://127.0.0.1:3000');
 }
-```
-
-{% include code-caption.html content="index.js" %}
-
-```js
-const application = require('./dist');
-
-module.exports = application;
 
 if (require.main === module) {
   // Run the application
   const config = {
     rest: {
-      port: +process.env.PORT || 3000,
-      host: process.env.HOST || 'localhost',
+      port: +(process.env.PORT ?? 3000),
+      host: process.env.HOST ?? 'localhost',
       openApiSpec: {
         // useful when used with OpenAPI-to-GraphQL to locate your application
         setServersFromRequest: true,
@@ -293,7 +281,7 @@ if (require.main === module) {
       listenOnStart: false,
     },
   };
-  application.main(config).catch(err => {
+  main(config).catch(err => {
     console.error('Cannot start the application.', err);
     process.exit(1);
   });

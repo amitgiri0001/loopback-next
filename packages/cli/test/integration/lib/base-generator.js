@@ -1,4 +1,4 @@
-// Copyright IBM Corp. 2018. All Rights Reserved.
+// Copyright IBM Corp. 2018,2020. All Rights Reserved.
 // Node module: @loopback/cli
 // This file is licensed under the MIT License.
 // License text available at https://opensource.org/licenses/MIT
@@ -11,10 +11,10 @@ const path = require('path');
 const mockStdin = require('mock-stdin');
 const process = require('process');
 
-module.exports = function(generator, env = {}) {
+module.exports = function (generator, env = {}) {
   if (!env.args) env = {...env, args: []};
 
-  return function() {
+  return function () {
     describe('usage', () => {
       it('prints lb4', () => {
         process.chdir(path.resolve(__dirname, '..', '..', '..'));

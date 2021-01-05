@@ -1,7 +1,9 @@
 ---
 lang: en
 title: 'Testing your application'
-keywords: LoopBack 4.0, LoopBack 4
+keywords:
+  LoopBack 4.0, LoopBack 4, Node.js, TypeScript, OpenAPI, Node.js, TypeScript,
+  OpenAPI
 sidebar: lb4_sidebar
 permalink: /doc/en/lb4/Testing-your-application.html
 ---
@@ -114,6 +116,8 @@ export const testdb: juggler.DataSource = new juggler.DataSource({
 });
 ```
 
+{% include important.html content="The `name` property of your test datasource must match your real datasource's name." %}
+
 ### Clean the database before each test
 
 Start with a clean database before each test. This may seem counter-intuitive:
@@ -144,7 +148,7 @@ belongs to Category, include it in the repository call, for example:
 {% include code-caption.html content="src/__tests__/helpers/database.helpers.ts" %}
 
 ```ts
-import {Getter} from '@loopback/context';
+import {Getter} from '@loopback/core';
 import {ProductRepository, CategoryRepository} from '../../repositories';
 import {testdb} from '../fixtures/datasources/testdb.datasource';
 
@@ -364,9 +368,9 @@ which breaks the recommended test layout 'arrange-act-assert' (or
 #### Create a stub Repository
 
 When writing an application that accesses data in a database, the best practice
-is to use [repositories](Repositories.md) to encapsulate all
+is to use [repositories](Repository.md) to encapsulate all
 data-access/persistence-related code. Other parts of the application (typically
-[controllers](Controllers.md)) can then depend on these repositories for data
+[controllers](Controller.md)) can then depend on these repositories for data
 access. To test Repository dependents (for example, Controllers) in isolation,
 we need to provide a test double, usually as a test stub.
 
@@ -583,7 +587,7 @@ describe('Person (unit)', () => {
 ```
 
 Writing a unit test for custom repository methods is not as straightforward
-because `CrudRepository` is based on legacy
+because `CrudRepository` is based on
 [loopback-datasource-juggler](https://github.com/strongloop/loopback-datasource-juggler)
 which was not designed with dependency injection in mind. Instead, use
 integration tests to verify the implementation of custom repository methods. For
@@ -740,10 +744,10 @@ instance:
 
 ```ts
 import {merge} from 'lodash';
-import * as GEO_CODER_CONFIG from '../datasources/geo.datasource.config.json';
+import {GeocoderDataSource} from '../datasources/geocoder.datasource';
 
 function givenGeoService() {
-  const config = merge({}, GEO_CODER_CONFIG, {
+  const config = merge({}, GeocoderDataSource.defaultConfig, {
     // your config overrides
   });
   const dataSource = new GeoDataSource(config);
@@ -751,7 +755,7 @@ function givenGeoService() {
 }
 ```
 
-#### Test invidivudal service methods
+#### Test individual service methods
 
 With the service proxy instance available, integration tests can focus on
 executing individual methods with the right set of input parameters; and
@@ -963,8 +967,11 @@ describe('Product (acceptance)', () => {
         port: 0,
       },
     });
-    app.dataSource(testdb);
     await app.boot();
+
+    // change to use the test datasource after the app has been booted so that
+    // it is not overriden
+    app.dataSource(testdb);
     await app.start();
 
     client = createRestAppClient(app);
@@ -980,3 +987,34 @@ that rejects anonymous requests for certain endpoints, then you can write a test
 making an anonymous request to those endpoints to verify that it's correctly
 rejected. These tests are essentially the same as the tests verifying
 implementation of individual endpoints as described in the previous section.
+
+# Code coverage
+
+`@loopback/build` contains a command line tool (`lb-nyc`) that acts as a wrapper
+for [`nyc`](https://github.com/istanbuljs/nyc).
+
+To set up code coverage:
+
+- Create `.nycrc` in your project's root directory
+
+  ```json
+  {
+    "include": ["dist"],
+    "exclude": ["dist/__tests__/"],
+    "extension": [".js", ".ts"],
+    "reporter": ["text", "html"],
+    "exclude-after-remap": false
+  }
+  ```
+
+- Update your `package.json` scripts:
+
+  ```json
+  "precoverage": "npm test",
+  "coverage": "open coverage/index.html",
+  "coverage:ci": "lb-nyc report --reporter=text-lcov | coveralls",
+  "test": "lb-nyc npm run mocha",
+  "test:ci": "lb-nyc npm run mocha"
+  ```
+
+  `coverage:ci` sets up integration with [Coveralls](https://coveralls.io/).

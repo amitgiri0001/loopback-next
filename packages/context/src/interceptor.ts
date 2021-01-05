@@ -1,4 +1,4 @@
-// Copyright IBM Corp. 2019. All Rights Reserved.
+// Copyright IBM Corp. 2019,2020. All Rights Reserved.
 // Node module: @loopback/context
 // This file is licensed under the MIT License.
 // License text available at https://opensource.org/licenses/MIT
@@ -11,12 +11,17 @@ import {
   MetadataMap,
   MethodDecoratorFactory,
 } from '@loopback/metadata';
-import * as assert from 'assert';
-import * as debugFactory from 'debug';
+import assert from 'assert';
+import debugFactory from 'debug';
 import {Binding, BindingTemplate} from './binding';
-import {bind} from './binding-decorator';
-import {filterByTag} from './binding-filter';
-import {BindingSpec} from './binding-inspector';
+import {injectable} from './binding-decorator';
+import {
+  BindingFromClassOptions,
+  BindingSpec,
+  createBindingFromClass,
+  isProviderClass,
+} from './binding-inspector';
+import {BindingAddress, BindingKey} from './binding-key';
 import {sortBindingsByPhase} from './binding-sorter';
 import {Context} from './context';
 import {
@@ -34,8 +39,10 @@ import {
   ContextBindings,
   ContextTags,
   GLOBAL_INTERCEPTOR_NAMESPACE,
+  LOCAL_INTERCEPTOR_NAMESPACE,
 } from './keys';
-import {tryWithFinally, ValueOrPromise} from './value-promise';
+import {Provider} from './provider';
+import {Constructor, tryWithFinally, ValueOrPromise} from './value-promise';
 const debug = debugFactory('loopback:context:interceptor');
 
 /**
@@ -47,13 +54,39 @@ export class InterceptedInvocationContext extends InvocationContext {
    * ContextTags.GLOBAL_INTERCEPTOR)
    */
   getGlobalInterceptorBindingKeys(): string[] {
-    const bindings: Readonly<Binding<Interceptor>>[] = this.find(
-      filterByTag(ContextTags.GLOBAL_INTERCEPTOR),
+    let bindings: Readonly<Binding<Interceptor>>[] = this.findByTag(
+      ContextTags.GLOBAL_INTERCEPTOR,
     );
+    bindings = bindings.filter(binding =>
+      // Only include interceptors that match the source type of the invocation
+      this.applicableTo(binding),
+    );
+
     this.sortGlobalInterceptorBindings(bindings);
     const keys = bindings.map(b => b.key);
     debug('Global interceptor binding keys:', keys);
     return keys;
+  }
+
+  /**
+   * Check if the binding for a global interceptor matches the source type
+   * of the invocation
+   * @param binding - Binding
+   */
+  private applicableTo(binding: Readonly<Binding<unknown>>) {
+    const sourceType = this.source?.type;
+    // Unknown source type, always apply
+    if (sourceType == null) return true;
+    const allowedSource: string | string[] =
+      binding.tagMap[ContextTags.GLOBAL_INTERCEPTOR_SOURCE];
+    return (
+      // No tag, always apply
+      allowedSource == null ||
+      // source matched
+      allowedSource === sourceType ||
+      // source included in the string[]
+      (Array.isArray(allowedSource) && allowedSource.includes(sourceType))
+    );
   }
 
   /**
@@ -67,7 +100,7 @@ export class InterceptedInvocationContext extends InvocationContext {
     const orderedGroups =
       this.getSync(ContextBindings.GLOBAL_INTERCEPTOR_ORDERED_GROUPS, {
         optional: true,
-      }) || [];
+      }) ?? [];
     return sortBindingsByPhase(
       bindings,
       ContextTags.GLOBAL_INTERCEPTOR_GROUP,
@@ -88,11 +121,11 @@ export class InterceptedInvocationContext extends InvocationContext {
         INTERCEPT_METHOD_KEY,
         this.target,
         this.methodName,
-      ) || [];
+      ) ?? [];
     const targetClass =
       typeof this.target === 'function' ? this.target : this.target.constructor;
     const classInterceptors =
-      MetadataInspector.getClassMetadata(INTERCEPT_CLASS_KEY, targetClass) ||
+      MetadataInspector.getClassMetadata(INTERCEPT_CLASS_KEY, targetClass) ??
       [];
     // Inserting class level interceptors before method level ones
     interceptors = mergeInterceptors(classInterceptors, interceptors);
@@ -126,7 +159,7 @@ export function asGlobalInterceptor(group?: string): BindingTemplate {
  * @param specs - Extra binding specs
  */
 export function globalInterceptor(group?: string, ...specs: BindingSpec[]) {
-  return bind(asGlobalInterceptor(group), ...specs);
+  return injectable(asGlobalInterceptor(group), ...specs);
 }
 
 /**
@@ -305,6 +338,7 @@ export function invokeMethodWithInterceptors(
     target,
     methodName,
     args,
+    options.source,
   );
 
   invocationCtx.assertMethodExists();
@@ -318,4 +352,79 @@ export function invokeMethodWithInterceptors(
     },
     () => invocationCtx.close(),
   );
+}
+
+/**
+ * Options for an interceptor binding
+ */
+export interface InterceptorBindingOptions extends BindingFromClassOptions {
+  /**
+   * Global or local interceptor
+   */
+  global?: boolean;
+  /**
+   * Group name for a global interceptor
+   */
+  group?: string;
+  /**
+   * Source filter for a global interceptor
+   */
+  source?: string | string[];
+}
+
+/**
+ * Register an interceptor function or provider class to the given context
+ * @param ctx - Context object
+ * @param interceptor - An interceptor function or provider class
+ * @param options - Options for the interceptor binding
+ */
+export function registerInterceptor(
+  ctx: Context,
+  interceptor: Interceptor | Constructor<Provider<Interceptor>>,
+  options: InterceptorBindingOptions = {},
+) {
+  let {global} = options;
+  const {group, source} = options;
+  if (group != null || source != null) {
+    // If group or source is set, assuming global
+    global = global !== false;
+  }
+
+  const namespace =
+    options.namespace ?? options.defaultNamespace ?? global
+      ? GLOBAL_INTERCEPTOR_NAMESPACE
+      : LOCAL_INTERCEPTOR_NAMESPACE;
+
+  let binding: Binding<Interceptor>;
+  if (isProviderClass(interceptor)) {
+    binding = createBindingFromClass(interceptor, {
+      defaultNamespace: namespace,
+      ...options,
+    });
+    if (binding.tagMap[ContextTags.GLOBAL_INTERCEPTOR]) {
+      global = true;
+    }
+    ctx.add(binding);
+  } else {
+    let key = options.key;
+    if (!key) {
+      const name = options.name ?? interceptor.name;
+      if (!name) {
+        key = BindingKey.generate<Interceptor>(namespace).key;
+      } else {
+        key = `${namespace}.${name}`;
+      }
+    }
+    binding = ctx
+      .bind(key as BindingAddress<Interceptor>)
+      .to(interceptor as Interceptor);
+  }
+  if (global) {
+    binding.apply(asGlobalInterceptor(group));
+    if (source) {
+      binding.tag({[ContextTags.GLOBAL_INTERCEPTOR_SOURCE]: source});
+    }
+  }
+
+  return binding;
 }

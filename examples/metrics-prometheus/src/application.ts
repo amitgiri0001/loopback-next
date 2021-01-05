@@ -1,11 +1,11 @@
-// Copyright IBM Corp. 2019. All Rights Reserved.
-// Node module: @loopback/example-greeting-app
+// Copyright IBM Corp. 2019,2020. All Rights Reserved.
+// Node module: @loopback/example-metrics-prometheus
 // This file is licensed under the MIT License.
 // License text available at https://opensource.org/licenses/MIT
 
 import {BootMixin} from '@loopback/boot';
 import {ApplicationConfig} from '@loopback/core';
-import {MetricsComponent} from '@loopback/extension-metrics';
+import {MetricsComponent} from '@loopback/metrics';
 import {RestApplication} from '@loopback/rest';
 
 export class GreetingApplication extends BootMixin(RestApplication) {

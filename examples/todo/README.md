@@ -14,7 +14,7 @@ LoopBack 4. You will experience how you can create REST APIs with just
 
 First, you'll need to install a supported version of Node:
 
-- [Node.js](https://nodejs.org/en/) at v8.9 or greater
+- [Node.js](https://nodejs.org/en/) at v10 or greater
 
 Additionally, this tutorial assumes that you are comfortable with certain
 technologies, languages and concepts.
@@ -76,8 +76,9 @@ continue with this tutorial!
 
 ### Need help?
 
-Check out our [Gitter channel](https://gitter.im/strongloop/loopback) and ask
-for help with this tutorial.
+Check out our
+[Slack](https://join.slack.com/t/loopbackio/shared_invite/zt-8lbow73r-SKAKz61Vdao~_rGf91pcsw)
+and ask for help with this tutorial.
 
 ### Bugs/Feedback
 

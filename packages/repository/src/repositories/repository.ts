@@ -1,8 +1,9 @@
-// Copyright IBM Corp. 2018,2019. All Rights Reserved.
+// Copyright IBM Corp. 2018,2020. All Rights Reserved.
 // Node module: @loopback/repository
 // This file is licensed under the MIT License.
 // License text available at https://opensource.org/licenses/MIT
 
+import {Filter, FilterExcludingWhere, Where} from '@loopback/filter';
 import {
   AnyObject,
   Command,
@@ -16,7 +17,6 @@ import {CrudConnector} from '../connectors';
 import {DataSource} from '../datasource';
 import {EntityNotFoundError} from '../errors';
 import {Entity, Model, ValueObject} from '../model';
-import {Filter, Where} from '../query';
 import {InclusionResolver} from '../relations/relation.types';
 import {IsolationLevel, Transaction} from '../transaction';
 
@@ -138,7 +138,8 @@ export interface EntityCrudRepository<
   T extends Entity,
   ID,
   Relations extends object = {}
-> extends EntityRepository<T, ID>, CrudRepository<T, Relations> {
+> extends EntityRepository<T, ID>,
+    CrudRepository<T, Relations> {
   // entityClass should have type "typeof T", but that's not supported by TSC
   entityClass: typeof Entity & {prototype: T};
   inclusionResolvers: Map<string, InclusionResolver<T, Entity>>;
@@ -172,6 +173,13 @@ export interface EntityCrudRepository<
 
   /**
    * Find an entity by id, return a rejected promise if not found.
+   *
+   * @remarks
+   *
+   * The rationale behind findById is to find an instance by its primary key
+   * (id). No other search criteria than id should be used. If a client wants
+   * to use a `where` clause beyond id, use `find` or `findOne` instead.
+   *
    * @param id - Value for the entity id
    * @param filter - Additional query options. E.g. `filter.include` configures
    * which related models to fetch as part of the database query (or queries).
@@ -180,7 +188,7 @@ export interface EntityCrudRepository<
    */
   findById(
     id: ID,
-    filter?: Filter<T>,
+    filter?: FilterExcludingWhere<T>,
     options?: Options,
   ): Promise<T & Relations>;
 
@@ -303,7 +311,11 @@ export class CrudRepositoryImpl<T extends Entity, ID>
     );
   }
 
-  async findById(id: ID, filter?: Filter<T>, options?: Options): Promise<T> {
+  async findById(
+    id: ID,
+    filter?: FilterExcludingWhere<T>,
+    options?: Options,
+  ): Promise<T> {
     if (typeof this.connector.findById === 'function') {
       return this.toModel(
         this.connector.findById(this.entityClass, id, options),

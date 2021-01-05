@@ -1,4 +1,4 @@
-// Copyright IBM Corp. 2018. All Rights Reserved.
+// Copyright IBM Corp. 2018,2020. All Rights Reserved.
 // Node module: @loopback/testlab
 // This file is licensed under the MIT License.
 // License text available at https://opensource.org/licenses/MIT
@@ -9,12 +9,30 @@ import {
   emptyDir,
   ensureDir,
   ensureDirSync,
+  mkdtempSync,
+  outputFile,
+  outputJson,
   pathExists,
+  readFile,
   remove,
-  writeFile,
-  writeJson,
 } from 'fs-extra';
-import {parse, resolve} from 'path';
+import {join, parse, resolve} from 'path';
+
+/**
+ * Options for a test sandbox
+ */
+export interface TestSandboxOptions {
+  /**
+   * The `subdir` controls if/how the sandbox creates a subdirectory under the
+   * root path. It has one of the following values:
+   *
+   * - `true`: Creates a unique subdirectory. This will be the default behavior.
+   * - `false`: Uses the root path as the target directory without creating a
+   * subdirectory.
+   * - a string such as `sub-dir-1`: creates a subdirectory with the given value.
+   */
+  subdir: boolean | string;
+}
 
 /**
  * TestSandbox class provides a convenient way to get a reference to a
@@ -37,19 +55,39 @@ export class TestSandbox {
    * Will create a directory if it doesn't already exist. If it exists, you
    * still get an instance of the TestSandbox.
    *
-   * @param path - Path of the TestSandbox. If relative (it will be resolved relative to cwd()).
+   * @example
+   * ```ts
+   * // Create a sandbox as a unique temporary subdirectory under the rootPath
+   * const sandbox = new TestSandbox(rootPath);
+   * const sandbox = new TestSandbox(rootPath, {subdir: true});
+   *
+   * // Create a sandbox in the root path directly
+   * // This is same as the old behavior
+   * const sandbox = new TestSandbox(rootPath, {subdir: false});
+   *
+   * // Create a sandbox in the `test1` subdirectory of the root path
+   * const sandbox = new TestSandbox(rootPath, {subdir: 'test1'});
+   * ```
+   *
+   * @param rootPath - Root path of the TestSandbox. If relative it will be
+   * resolved against the current directory.
+   * @param options - Options to control if/how the sandbox creates a
+   * subdirectory for the sandbox. If not provided, the sandbox
+   * will automatically creates a unique temporary subdirectory. This allows
+   * sandboxes with the same root path can be used in parallel during testing.
    */
-  constructor(path: string) {
-    // resolve ensures path is absolute / makes it absolute (relative to cwd())
-    this._path = resolve(path);
-    ensureDirSync(this.path);
-  }
-
-  /**
-   * Returns the path of the TestSandbox
-   */
-  getPath(): string {
-    return this.path;
+  constructor(rootPath: string, options?: TestSandboxOptions) {
+    rootPath = resolve(rootPath);
+    ensureDirSync(rootPath);
+    options = {subdir: true, ...options};
+    const subdir = typeof options.subdir === 'string' ? options.subdir : '.';
+    if (options.subdir !== true) {
+      this._path = resolve(rootPath, subdir);
+    } else {
+      // Create a unique temporary directory under the root path
+      // See https://nodejs.org/api/fs.html#fs_fs_mkdtempsync_prefix_options
+      this._path = mkdtempSync(join(rootPath, `/${process.pid}`));
+    }
   }
 
   /**
@@ -94,15 +132,26 @@ export class TestSandbox {
    * @param src - Absolute path of file to be copied to the TestSandbox
    * @param dest - Optional. Destination filename of the copy operation
    * (relative to TestSandbox). Original filename used if not specified.
+   * @param transform - Optional. A function to transform the file content.
    */
-  async copyFile(src: string, dest?: string): Promise<void> {
+  async copyFile(
+    src: string,
+    dest?: string,
+    transform?: (content: string) => string,
+  ): Promise<void> {
     dest = dest
       ? resolve(this.path, dest)
       : resolve(this.path, parse(src).base);
 
-    await copy(src, dest);
+    if (transform == null) {
+      await copy(src, dest);
+    } else {
+      let content = await readFile(src, 'utf-8');
+      content = transform(content);
+      await outputFile(dest, content, {encoding: 'utf-8'});
+    }
 
-    if (parse(src).ext === '.js' && pathExists(src + '.map')) {
+    if (parse(src).ext === '.js' && (await pathExists(src + '.map'))) {
       const srcMap = src + '.map';
       await appendFile(dest, `\n//# sourceMappingURL=${srcMap}`);
     }
@@ -116,9 +165,7 @@ export class TestSandbox {
    */
   async writeJsonFile(dest: string, data: unknown): Promise<void> {
     dest = resolve(this.path, dest);
-    const destDir = parse(dest).dir;
-    await ensureDir(destDir);
-    return writeJson(dest, data, {spaces: 2});
+    return outputJson(dest, data, {spaces: 2});
   }
 
   /**
@@ -129,8 +176,6 @@ export class TestSandbox {
    */
   async writeTextFile(dest: string, data: string): Promise<void> {
     dest = resolve(this.path, dest);
-    const destDir = parse(dest).dir;
-    await ensureDir(destDir);
-    return writeFile(dest, data, {encoding: 'utf-8'});
+    return outputFile(dest, data, 'utf-8');
   }
 }

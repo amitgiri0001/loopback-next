@@ -1,13 +1,15 @@
-// Copyright IBM Corp. 2019. All Rights Reserved.
+// Copyright IBM Corp. 2019,2020. All Rights Reserved.
 // Node module: @loopback/repository
 // This file is licensed under the MIT License.
 // License text available at https://opensource.org/licenses/MIT
 
 import {expect} from '@loopback/testlab';
 import {
+  BelongsToDefinition,
   Entity,
   HasManyDefinition,
   ModelDefinition,
+  rejectNavigationalPropertiesInData,
   RelationType,
   STRING,
 } from '../../../';
@@ -21,6 +23,7 @@ describe('model', () => {
     .addProperty('lastName', STRING)
     .addProperty('address', 'object')
     .addProperty('phones', 'array')
+    .addProperty('createdAt', Date)
     .addSetting('id', 'id');
 
   const realmCustomerDef = new ModelDefinition('RealmCustomer');
@@ -43,6 +46,8 @@ describe('model', () => {
   const flexibleDef = new ModelDefinition('Flexible');
   flexibleDef
     .addProperty('id', {type: 'string', id: true})
+    .addProperty('createdAt', Date)
+    .addSetting('hiddenProperties', ['createdAt'])
     .addSetting('strict', false);
 
   const addressDef = new ModelDefinition('Address');
@@ -80,9 +85,10 @@ describe('model', () => {
   class Customer extends Entity {
     static definition = customerDef;
     id: string;
-    email: string;
+    email?: string;
     firstName: string;
     lastName: string;
+    createdAt?: Date;
     address?: Address;
     phones?: Phone[];
 
@@ -117,8 +123,8 @@ describe('model', () => {
 
   class Flexible extends Entity {
     static definition = flexibleDef;
-
     id: string;
+    createdAt?: Date;
 
     constructor(data?: Partial<Flexible>) {
       super(data);
@@ -136,6 +142,24 @@ describe('model', () => {
     const customer = new Customer();
     customer.id = '123';
     customer.email = 'xyz@example.com';
+    customer.address = new Address({
+      street: '123 A St',
+      city: 'San Jose',
+      state: 'CA',
+      zipCode: '95131',
+    });
+    customer.phones = [
+      new Phone({label: 'home', number: '111-222-3333'}),
+      new Phone({label: 'work', number: '111-222-5555'}),
+    ];
+    return customer;
+  }
+
+  function createCustomerWithContactAndDate(date: Date) {
+    const customer = new Customer();
+    customer.id = '123';
+    customer.email = 'xyz@example.com';
+    customer.createdAt = date;
     customer.address = new Address({
       street: '123 A St',
       city: 'San Jose',
@@ -191,6 +215,12 @@ describe('model', () => {
     Object.assign(customer, {extra: 'additional data'});
     expect(customer.toJSON()).to.eql({id: '123', email: 'xyz@example.com'});
     // notice that "extra" property was discarded from the output
+  });
+
+  it('skips properties with undefined values', () => {
+    const customer = createCustomer();
+    delete customer.email;
+    expect(customer.toJSON()).to.eql({id: '123'});
   });
 
   it('converts to json recursively', () => {
@@ -326,12 +356,14 @@ describe('model', () => {
   });
 
   it('converts to plain object recursively', () => {
-    const customer = createCustomerWithContact();
+    const aDate = new Date();
+    const customer = createCustomerWithContactAndDate(aDate);
     Object.assign(customer, {unknown: 'abc'});
     Object.assign(customer.address, {unknown: 'xyz'});
     expect(customer.toObject()).to.eql({
       id: '123',
       email: 'xyz@example.com',
+      createdAt: aDate,
       address: {
         street: '123 A St',
         city: 'San Jose',
@@ -346,6 +378,7 @@ describe('model', () => {
     expect(customer.toObject({ignoreUnknownProperties: false})).to.eql({
       id: '123',
       email: 'xyz@example.com',
+      createdAt: aDate,
       unknown: 'abc',
       address: {
         street: '123 A St',
@@ -358,6 +391,56 @@ describe('model', () => {
         {label: 'home', number: '111-222-3333'},
         {label: 'work', number: '111-222-5555'},
       ],
+    });
+  });
+
+  it('converts to plain object including relation properties', () => {
+    class Category extends Entity {
+      id: number;
+      products: Product[];
+
+      // allow additional (free-form) properties
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      [propName: string]: any;
+
+      constructor(data: Partial<Category>) {
+        super(data);
+      }
+    }
+
+    class Product extends Entity {
+      id: number;
+      categoryId: number;
+
+      constructor(data: Partial<Product>) {
+        super(data);
+      }
+    }
+
+    Category.definition = new ModelDefinition('Category')
+      .addSetting('strict', false)
+      .addProperty('id', {type: 'number', id: true, required: true})
+      .addRelation(<HasManyDefinition>{
+        name: 'products',
+        type: RelationType.hasMany,
+        targetsMany: true,
+
+        source: Category,
+        keyFrom: 'id',
+
+        target: () => Product,
+        keyTo: 'categoryId',
+      });
+
+    const category = new Category({
+      id: 1,
+      products: [new Product({id: 2, categoryId: 1})],
+    });
+
+    const data = category.toObject();
+    expect(data).to.deepEqual({
+      id: 1,
+      products: [{id: 2, categoryId: 1}],
     });
   });
 
@@ -426,6 +509,125 @@ describe('model', () => {
       id: '123',
       email: 'xyz@example.com',
       firstName: 'Test User',
+    });
+  });
+
+  it('excludes hidden properties from toJSON() output with strict false', () => {
+    const flexible = new Flexible({
+      id: '123a',
+      createdAt: new Date(),
+    });
+    expect(flexible.toJSON()).to.eql({
+      id: '123a',
+    });
+  });
+
+  it('gets id of an object through a static method', () => {
+    const userId = User.getIdOf({
+      id: '53',
+      email: 'loopback@localhost',
+      password: 'l00pback',
+      firstName: 'Loopback User',
+    });
+    expect(userId).to.eql('53');
+  });
+
+  describe('rejectNavigationalPropertiesInData', () => {
+    class Order extends Entity {
+      static definition = new ModelDefinition('Order')
+        .addProperty('id', {type: 'string', id: true})
+        .addRelation(<BelongsToDefinition>{
+          name: 'customer',
+          type: RelationType.belongsTo,
+          targetsMany: false,
+          source: Order,
+          target: () => User,
+          keyFrom: 'customerId',
+        });
+
+      id: string;
+      customerId: string;
+
+      customer?: User;
+    }
+
+    it('accepts data with no navigational properties', () => {
+      rejectNavigationalPropertiesInData(Order, {id: '1'});
+    });
+
+    it('rejects data with a navigational property', () => {
+      expect(() =>
+        rejectNavigationalPropertiesInData(Order, {
+          id: '1',
+          customer: {
+            id: '2',
+            email: 'test@example.com',
+            firstName: 'a customer',
+          },
+        }),
+      ).to.throw(/Navigational properties are not allowed in model data/);
+    });
+  });
+
+  describe('relation helpers', () => {
+    it('adds belongsTo relation', () => {
+      const definition = new ModelDefinition('Phone').belongsTo('customer', {
+        source: Phone,
+        keyFrom: 'customerId',
+
+        target: () => Customer,
+        keyTo: 'id',
+      });
+
+      expect(definition.relations.customer).to.eql({
+        name: 'customer',
+        source: Phone,
+        keyFrom: 'customerId',
+        target: () => Customer,
+        keyTo: 'id',
+        type: RelationType.belongsTo,
+        targetsMany: false,
+      });
+    });
+
+    it('adds hasOne relation', () => {
+      const definition = new ModelDefinition('Customer').hasOne('address', {
+        source: Customer,
+        keyFrom: 'id',
+
+        target: () => Address,
+        keyTo: 'customerId',
+      });
+
+      expect(definition.relations.address).to.eql({
+        name: 'address',
+        source: Customer,
+        keyFrom: 'id',
+        target: () => Address,
+        keyTo: 'customerId',
+        type: RelationType.hasOne,
+        targetsMany: false,
+      });
+    });
+
+    it('adds hasMany relation', () => {
+      const definition = new ModelDefinition('Customer').hasMany('phones', {
+        source: Customer,
+        keyFrom: 'id',
+
+        target: () => Phone,
+        keyTo: 'customerId',
+      });
+
+      expect(definition.relations.phones).to.eql({
+        name: 'phones',
+        source: Customer,
+        keyFrom: 'id',
+        target: () => Phone,
+        keyTo: 'customerId',
+        type: RelationType.hasMany,
+        targetsMany: true,
+      });
     });
   });
 });

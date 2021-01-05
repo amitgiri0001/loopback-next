@@ -1,7 +1,7 @@
 ---
 lang: en
 title: 'Application'
-keywords: LoopBack 4.0, LoopBack 4
+keywords: LoopBack 4.0, LoopBack 4, Node.js, TypeScript, OpenAPI, Concepts
 sidebar: lb4_sidebar
 permalink: /doc/en/lb4/Application.html
 ---
@@ -132,7 +132,7 @@ The `component` function allows binding of component constructors within your
 `Application` instance's context.
 
 For more information on how to make use of components, see
-[Using Components](Using-components.md).
+[Using Components](Component.md#using-components).
 
 #### Controllers
 
@@ -142,7 +142,7 @@ app.controller(BarController);
 ```
 
 Much like the component function, the `controller` function allows binding of
-[Controllers](Controllers.md) to the `Application` context.
+[Controllers](Controller.md) to the `Application` context.
 
 #### Servers
 
@@ -251,13 +251,14 @@ app.bind('fooCorp.widgetServer.config').to(widgetServerConfig);
 ### Avoid use of `getSync`
 
 We provide the
-[`getSync`](https://loopback.io/doc/en/lb4/apidocs.context.getsync.html)
+[`getSync`](https://loopback.io/doc/en/lb4/apidocs.context.context.getsync_1.html)
 function for scenarios where you cannot asynchronously retrieve your bindings,
 such as in constructor bodies.
 
 However, the number of scenarios in which you must do this are limited, and you
 should avoid potential race conditions and retrieve your bindings asynchronously
-using the [`get`](https://loopback.io/doc/en/lb4/apidocs.context.get.html)
+using the
+[`get`](https://loopback.io/doc/en/lb4/apidocs.context.context.get_1.html)
 function whenever possible.
 
 ### Use caution with singleton binding scopes

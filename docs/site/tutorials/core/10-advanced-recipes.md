@@ -1,7 +1,7 @@
 ---
 lang: en
 title: 'Advanced Recipes'
-keywords: LoopBack 4.0, LoopBack 4
+keywords: LoopBack 4.0, LoopBack 4, Node.js, TypeScript, OpenAPI
 sidebar: lb4_sidebar
 permalink: /doc/en/lb4/core-tutorial-part10.html
 ---
@@ -9,24 +9,24 @@ permalink: /doc/en/lb4/core-tutorial-part10.html
 There are a few advanced usages of the LoopBack core modules that are not
 covered by the Greeter Extension and Greeter Application example.
 
-# Create your own decorator
+## Create your own decorator
 
 You can create your own
 [decorator](https://loopback.io/doc/en/lb4/Decorators.html):
 
 1. Create a new decorator from scratch by using `DecoratorFactory` from
-   `@loopback/metadata`. See an example in
+   `@loopback/core`. See an example in
    [custom-inject-decorator.ts](https://github.com/strongloop/loopback-next/blob/master/examples/context/src/custom-inject-decorator.ts)
 
 2. Create a sugar decorator for an existing decorator.
 
    ```ts
    export function globalInterceptor(group?: string) {
-     bind({tags: [ContextTags.GLOBAL_INTERCEPTOR]});
+     injectable({tags: [ContextTags.GLOBAL_INTERCEPTOR]});
    }
    ```
 
-# Create your own injector
+## Create your own injector
 
 You can also create your own injector. See the
 [dependency injection docs page](https://loopback.io/doc/en/lb4/Dependency-injection.html)
@@ -41,7 +41,7 @@ export function env(name: string) {
 For a complete example, see
 https://github.com/strongloop/loopback-next/blob/master/examples/context/src/custom-inject-decorator.ts.
 
-# Class factory to allow parameterized decorations
+## Class factory to allow parameterized decorations
 
 Since decorations applied on a top-level class cannot have references to
 variables, you might want to create a class factory that allows parameterized
@@ -59,7 +59,7 @@ function createControllerClass(version: string, basePath: string) {
 For a complete example, see
 [parameterized-decoration.ts](https://github.com/strongloop/loopback-next/blob/master/examples/context/src/parameterized-decoration.ts).
 
-# Trigger dependency injection with an explicit context
+## Trigger dependency injection with an explicit context
 
 ```ts
 class InjectionHelper {
@@ -72,7 +72,7 @@ const interceptor: Interceptor = (invocationCtx, next) => {
 });
 ```
 
-# Magic ValueOrPromise
+## Magic ValueOrPromise
 
 For the dependency injection framework, there are two flavors: synchronous and
 asynchronous.
@@ -93,7 +93,7 @@ configuration object to be injected as instructed by `@config`.
 /**
  * A greeter implementation for Chinese.
  */
-@bind(asGreeter)
+@injectable(asGreeter)
 export class ChineseGreeter implements Greeter {
   language = 'zh';
   constructor(
@@ -136,10 +136,10 @@ dependencies is asynchronous. Please note `app.getSync()` will throw an
 exception to indicate that the ChineseGreeter binding cannot be resolved
 synchronously.
 
-# More examples
+## More examples
 
-For more examples, refer to
-https://github.com/strongloop/loopback-next/tree/master/examples/context.
+For more examples, refer the
+[Context example](https://github.com/strongloop/loopback-next/tree/master/examples/context).
 
 ---
 

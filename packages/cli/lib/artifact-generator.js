@@ -1,4 +1,4 @@
-// Copyright IBM Corp. 2017,2018. All Rights Reserved.
+// Copyright IBM Corp. 2017,2020. All Rights Reserved.
 // Node module: @loopback/cli
 // This file is licensed under the MIT License.
 // License text available at https://opensource.org/licenses/MIT
@@ -9,7 +9,9 @@ const debug = require('./debug')('artifact-generator');
 const utils = require('./utils');
 const path = require('path');
 const chalk = require('chalk');
+const g = require('./globalize');
 
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
 module.exports = class ArtifactGenerator extends BaseGenerator {
   // Note: arguments and options should be defined in the constructor.
   constructor(args, opts) {
@@ -19,12 +21,11 @@ module.exports = class ArtifactGenerator extends BaseGenerator {
   }
 
   _setupGenerator() {
-    debug('Setting up generator');
     super._setupGenerator();
     this.argument('name', {
       type: String,
       required: false,
-      description: 'Name for the ' + this.artifactInfo.type,
+      description: g.f('Name for the %s', this.artifactInfo.type),
     });
   }
 
@@ -51,7 +52,10 @@ module.exports = class ArtifactGenerator extends BaseGenerator {
         type: 'input',
         name: 'name',
         // capitalization
-        message: utils.toClassName(this.artifactInfo.type) + ' class name:',
+        message: g.f(
+          '%s class name:',
+          utils.toClassName(this.artifactInfo.type),
+        ),
         when: this.artifactInfo.name === undefined,
         default: this.artifactInfo.defaultName,
         validate: utils.validateClassName,
@@ -78,7 +82,17 @@ module.exports = class ArtifactGenerator extends BaseGenerator {
    * >> Model MyModel will be created in src/models/my-model.model.ts
    **/
   promptClassFileName(type, typePlural, name) {
-    utils.logClassCreation(type, typePlural, name, this.log.bind(this));
+    this.log(
+      g.f(
+        '%s %s will be created in src/%s/%s.%s.ts',
+        utils.toClassName(type),
+        chalk.yellow(name),
+        typePlural,
+        chalk.yellow(utils.toFileName(name)),
+        type,
+      ),
+    );
+    this.log();
   }
 
   scaffold() {
@@ -113,11 +127,14 @@ module.exports = class ArtifactGenerator extends BaseGenerator {
       // User Output
       this.log();
       this.log(
-        utils.toClassName(this.artifactInfo.type),
-        chalk.yellow(classesOutput),
-        classes.length > 1 ? 'were created in' : 'was created in',
-        `${this.artifactInfo.relPath}/`,
+        g.f(
+          '%s %s was/were created in %s',
+          utils.toClassName(this.artifactInfo.type),
+          chalk.yellow(classesOutput),
+          this.artifactInfo.relPath,
+        ),
       );
+
       this.log();
     }
 

@@ -1,23 +1,22 @@
-// Copyright IBM Corp. 2019. All Rights Reserved.
+// Copyright IBM Corp. 2019,2020. All Rights Reserved.
 // Node module: @loopback/repository
 // This file is licensed under the MIT License.
 // License text available at https://opensource.org/licenses/MIT
 
-import {Application, bind, BindingScope, Component} from '@loopback/core';
+import {Application, BindingScope, Component, injectable} from '@loopback/core';
 import {expect, sinon} from '@loopback/testlab';
-import {Callback, PromiseOrVoid} from 'loopback-datasource-juggler';
 import {
   Class,
   DataSource,
   DefaultCrudRepository,
   Entity,
   juggler,
+  Model,
   ModelDefinition,
   Repository,
   RepositoryMixin,
 } from '../../..';
-
-/* eslint-disable @typescript-eslint/no-explicit-any */
+import {model, property} from '../../../decorators';
 
 describe('RepositoryMixin', () => {
   it('mixed class has .repository()', () => {
@@ -34,7 +33,7 @@ describe('RepositoryMixin', () => {
   });
 
   it('binds singleton repository from app.repository()', () => {
-    @bind({scope: BindingScope.SINGLETON})
+    @injectable({scope: BindingScope.SINGLETON})
     class SingletonNoteRepo extends NoteRepo {}
 
     const myApp = new AppWithRepoMixin();
@@ -50,10 +49,7 @@ describe('RepositoryMixin', () => {
 
   it('gets repository instance from app.getRepository()', async () => {
     const myApp = new AppWithRepoMixin();
-    myApp
-      .bind('repositories.NoteRepo')
-      .toClass(NoteRepo)
-      .tag('repository');
+    myApp.bind('repositories.NoteRepo').toClass(NoteRepo).tag('repository');
 
     const repoInstance = await myApp.getRepository(NoteRepo);
 
@@ -80,6 +76,23 @@ describe('RepositoryMixin', () => {
 
     expectComponentToBeBound(myApp, TestComponent);
     expectNoteRepoToBeBound(myApp);
+  });
+
+  it('binds user defined component with models', () => {
+    @model()
+    class MyModel extends Model {}
+
+    class MyModelComponent {
+      models = [MyModel];
+    }
+
+    const myApp = new AppWithRepoMixin();
+    myApp.component(MyModelComponent);
+
+    const boundModels = myApp.find('models.*').map(b => b.key);
+    expect(boundModels).to.containEql('models.MyModel');
+    const modelCtor = myApp.getSync<typeof MyModel>('models.MyModel');
+    expect(modelCtor).to.be.equal(MyModel);
   });
 
   context('migrateSchema', () => {
@@ -135,7 +148,8 @@ describe('RepositoryMixin', () => {
 
       const ds = new juggler.DataSource({name: 'db', connector: 'memory'});
       // FIXME(bajtos) typings for connectors are missing autoupdate/autoupgrade
-      (ds.connector as any).automigrate = function(
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      (ds.connector as any).automigrate = function (
         models: string[],
         cb: Function,
       ) {
@@ -178,18 +192,12 @@ describe('RepositoryMixin', () => {
       updateStub = sinon.stub().resolves();
 
       DataSourceStub = class extends juggler.DataSource {
-        automigrate(
-          models: string | string[],
-          callback?: Callback,
-        ): PromiseOrVoid {
-          return migrateStub(models, callback);
+        automigrate(models: string | string[]): Promise<void> {
+          return migrateStub(models);
         }
 
-        autoupdate(
-          models: string | string[],
-          callback?: Callback,
-        ): PromiseOrVoid {
-          return updateStub(models, callback);
+        autoupdate(models: string | string[]): Promise<void> {
+          return updateStub(models);
         }
       };
     }
@@ -223,6 +231,7 @@ describe('RepositoryMixin', () => {
     expect(boundRepositories).to.containEql('repositories.NoteRepo');
     const binding = myApp.getBinding('repositories.NoteRepo');
     expect(binding.scope).to.equal(BindingScope.TRANSIENT);
+    expect(binding.tagMap).to.have.property('repository');
     const repoInstance = myApp.getSync('repositories.NoteRepo');
     expect(repoInstance).to.be.instanceOf(NoteRepo);
   }
@@ -258,7 +267,8 @@ describe('RepositoryMixin dataSource', () => {
   it('binds dataSource class using the dataSourceName property', () => {
     const myApp = new AppWithRepoMixin();
 
-    myApp.dataSource(FooDataSource);
+    const binding = myApp.dataSource(FooDataSource);
+    expect(binding.tagMap).to.have.property('datasource');
     expectDataSourceToBeBound(myApp, FooDataSource, 'foo');
   });
 
@@ -266,6 +276,15 @@ describe('RepositoryMixin dataSource', () => {
     const myApp = new AppWithRepoMixin();
     myApp.dataSource(FooDataSource, 'bar');
     expectDataSourceToBeBound(myApp, FooDataSource, 'bar');
+  });
+
+  it('binds dataSource class using options', () => {
+    const myApp = new AppWithRepoMixin();
+    const binding = myApp.dataSource(FooDataSource, {
+      name: 'bar',
+      namespace: 'my-datasources',
+    });
+    expect(binding.key).to.eql('my-datasources.bar');
   });
 
   it('binds dataSource class using Class name', () => {
@@ -294,6 +313,9 @@ describe('RepositoryMixin dataSource', () => {
     expect(app.find('datasources.*').map(d => d.key)).to.containEql(
       `datasources.${name}`,
     );
+    expect(app.findByTag('datasource').map(d => d.key)).to.containEql(
+      `datasources.${name}`,
+    );
     expect(app.getSync(`datasources.${name}`)).to.be.instanceOf(ds);
   };
 
@@ -317,4 +339,27 @@ describe('RepositoryMixin dataSource', () => {
       });
     }
   }
+});
+
+describe('RepositoryMixin model', () => {
+  it('mixes into the target class', () => {
+    const myApp = new AppWithRepoMixin();
+    expect(typeof myApp.model).to.be.eql('function');
+  });
+
+  it('binds a model class', () => {
+    const myApp = new AppWithRepoMixin();
+    const binding = myApp.model(MyModel);
+    expect(binding.key).to.eql('models.MyModel');
+    expect(binding.tagMap).to.have.property('model');
+    expect(myApp.getSync('models.MyModel')).to.eql(MyModel);
+  });
+
+  @model()
+  class MyModel {
+    @property()
+    name: string;
+  }
+
+  class AppWithRepoMixin extends RepositoryMixin(Application) {}
 });

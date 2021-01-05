@@ -1,4 +1,4 @@
-// Copyright IBM Corp. 2018,2019. All Rights Reserved.
+// Copyright IBM Corp. 2018,2020. All Rights Reserved.
 // Node module: @loopback/rest
 // This file is licensed under the MIT License.
 // License text available at https://opensource.org/licenses/MIT
@@ -7,17 +7,21 @@ import {
   BindingScope,
   Constructor,
   Context,
+  CoreBindings,
   instantiateClass,
   invokeMethod,
   ValueOrPromise,
-} from '@loopback/context';
-import {CoreBindings} from '@loopback/core';
-import {OperationObject} from '@loopback/openapi-v3';
-import * as HttpErrors from 'http-errors';
+} from '@loopback/core';
+import {ControllerSpec, OperationObject} from '@loopback/openapi-v3';
+import assert from 'assert';
+import debugFactory from 'debug';
+import HttpErrors from 'http-errors';
+import {inspect} from 'util';
 import {RestBindings} from '../keys';
 import {OperationArgs, OperationRetval} from '../types';
-import {BaseRoute} from './base-route';
+import {BaseRoute, RouteSource} from './base-route';
 
+const debug = debugFactory('loopback:rest:controller-route');
 /*
  * A controller instance with open properties/methods
  */
@@ -64,7 +68,7 @@ export class ControllerRoute<T> extends BaseRoute {
     methodName?: string,
   ) {
     const controllerName = spec['x-controller-name'] || controllerCtor.name;
-    methodName = methodName || spec['x-operation-name'];
+    methodName = methodName ?? spec['x-operation-name'];
 
     if (!methodName) {
       throw new Error(
@@ -90,14 +94,14 @@ export class ControllerRoute<T> extends BaseRoute {
     );
 
     this._controllerFactory =
-      controllerFactory || createControllerFactoryForClass(controllerCtor);
+      controllerFactory ?? createControllerFactoryForClass(controllerCtor);
     this._controllerCtor = controllerCtor;
     this._controllerName = controllerName || controllerCtor.name;
     this._methodName = methodName;
   }
 
   describe(): string {
-    return `${this._controllerName}.${this._methodName}`;
+    return `${super.describe()} => ${this._controllerName}.${this._methodName}`;
   }
 
   updateBindings(requestContext: Context) {
@@ -138,7 +142,9 @@ export class ControllerRoute<T> extends BaseRoute {
       );
     }
     // Invoke the method with dependency injection
-    return invokeMethod(controller, this._methodName, requestContext, args);
+    return invokeMethod(controller, this._methodName, requestContext, args, {
+      source: new RouteSource(this),
+    });
   }
 }
 
@@ -180,4 +186,56 @@ export function createControllerFactoryForInstance<T>(
   controllerInst: T,
 ): ControllerFactory<T> {
   return ctx => controllerInst;
+}
+
+/**
+ * Create routes for a controller with the given spec
+ * @param spec - Controller spec
+ * @param controllerCtor - Controller class
+ * @param controllerFactory - Controller factory
+ */
+export function createRoutesForController<T>(
+  spec: ControllerSpec,
+  controllerCtor: ControllerClass<T>,
+  controllerFactory?: ControllerFactory<T>,
+) {
+  const routes: ControllerRoute<T>[] = [];
+  assert(
+    typeof spec === 'object' && !!spec,
+    'API specification must be a non-null object',
+  );
+  if (!spec.paths || !Object.keys(spec.paths).length) {
+    return routes;
+  }
+
+  debug(
+    'Creating route for controller with API %s',
+    inspect(spec, {depth: null}),
+  );
+
+  const basePath = spec.basePath ?? '/';
+  for (const p in spec.paths) {
+    for (const verb in spec.paths[p]) {
+      const opSpec: OperationObject = spec.paths[p][verb];
+      const fullPath = joinPath(basePath, p);
+      const route = new ControllerRoute(
+        verb,
+        fullPath,
+        opSpec,
+        controllerCtor,
+        controllerFactory,
+      );
+      routes.push(route);
+    }
+  }
+  return routes;
+}
+
+export function joinPath(basePath: string, path: string) {
+  const fullPath = [basePath, path]
+    .join('/') // Join by /
+    .replace(/(\/){2,}/g, '/') // Remove extra /
+    .replace(/\/$/, '') // Remove trailing /
+    .replace(/^(\/)?/, '/'); // Add leading /
+  return fullPath;
 }

@@ -1,11 +1,21 @@
+// Copyright IBM Corp. 2019,2020. All Rights Reserved.
+// Node module: @loopback/cli
+// This file is licensed under the MIT License.
+// License text available at https://opensource.org/licenses/MIT
+
 const path = require('path');
 const ArtifactGenerator = require('../../lib/artifact-generator');
 const modelMaker = require('../../lib/model-discoverer');
 const debug = require('../../lib/debug')('discover-generator');
+const chalk = require('chalk');
 const utils = require('../../lib/utils');
 const modelDiscoverer = require('../../lib/model-discoverer');
+const {importDiscoveredModel} = require('./import-discovered-model');
+const g = require('../../lib/globalize');
+
 const rootDir = 'src';
 
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
 module.exports = class DiscoveryGenerator extends ArtifactGenerator {
   constructor(args, opts) {
     super(args, opts);
@@ -13,31 +23,32 @@ module.exports = class DiscoveryGenerator extends ArtifactGenerator {
     this.option('dataSource', {
       type: String,
       alias: 'ds',
-      description: 'The name of the datasource to discover',
+      description: g.f('The name of the datasource to discover'),
     });
 
     this.option('views', {
       type: Boolean,
-      description: 'Boolean to discover views',
+      description: g.f('Boolean to discover views'),
       default: true,
     });
 
     this.option('schema', {
       type: String,
-      description: 'Schema to discover',
+      description: g.f('Schema to discover'),
       default: '',
     });
 
     this.option('all', {
       type: Boolean,
-      description: 'Discover all models without prompting users to select',
+      description: g.f('Discover all models without prompting users to select'),
       default: false,
     });
 
     this.option('outDir', {
       type: String,
-      description:
+      description: g.f(
         'Specify the directory into which the `model.model.ts` files will be placed',
+      ),
       default: undefined,
     });
   }
@@ -57,6 +68,7 @@ module.exports = class DiscoveryGenerator extends ArtifactGenerator {
    * @returns {*}
    */
   setOptions() {
+    /* istanbul ignore next */
     if (this.options.dataSource) {
       debug(`Data source specified: ${this.options.dataSource}`);
       this.artifactInfo.dataSource = modelMaker.loadDataSourceByName(
@@ -71,6 +83,7 @@ module.exports = class DiscoveryGenerator extends ArtifactGenerator {
    * Ensure CLI is being run in a LoopBack 4 project.
    */
   checkLoopBackProject() {
+    /* istanbul ignore next */
     if (this.shouldExit()) return;
     return super.checkLoopBackProject();
   }
@@ -80,6 +93,7 @@ module.exports = class DiscoveryGenerator extends ArtifactGenerator {
    */
   async loadAllDatasources() {
     // If we have a dataSourcePath then it is already loaded for us, we don't need load any
+    /* istanbul ignore next */
     if (this.artifactInfo.dataSource) {
       return;
     }
@@ -103,11 +117,12 @@ module.exports = class DiscoveryGenerator extends ArtifactGenerator {
    * Ask the user to select the data source from which to discover
    */
   promptDataSource() {
+    /* istanbul ignore next */
     if (this.shouldExit()) return;
     const prompts = [
       {
         name: 'dataSource',
-        message: `Select the connector to discover`,
+        message: g.f('Select the connector to discover'),
         type: 'list',
         choices: this.dataSourceChoices,
         when:
@@ -117,6 +132,7 @@ module.exports = class DiscoveryGenerator extends ArtifactGenerator {
     ];
 
     return this.prompt(prompts).then(answer => {
+      /* istanbul ignore next */
       if (!answer.dataSource) return;
       debug(`Datasource answer: ${JSON.stringify(answer)}`);
 
@@ -130,12 +146,16 @@ module.exports = class DiscoveryGenerator extends ArtifactGenerator {
    * Puts all discoverable models in this.modelChoices
    */
   async discoverModelInfos() {
+    /* istanbul ignore if */
     if (this.artifactInfo.modelDefinitions) return;
     debug(`Getting all models from ${this.artifactInfo.dataSource.name}`);
 
     this.modelChoices = await modelMaker.discoverModelNames(
       this.artifactInfo.dataSource,
-      {views: this.options.views, schema: this.options.schema},
+      {
+        views: this.options.views,
+        schema: this.options.schema,
+      },
     );
     debug(
       `Got ${this.modelChoices.length} models from ${this.artifactInfo.dataSource.name}`,
@@ -148,6 +168,7 @@ module.exports = class DiscoveryGenerator extends ArtifactGenerator {
    */
   promptModelChoices() {
     // If we are discovering all we don't need to prompt
+    /* istanbul ignore next */
     if (this.options.all) {
       this.discoveringModels = this.modelChoices;
     }
@@ -155,7 +176,7 @@ module.exports = class DiscoveryGenerator extends ArtifactGenerator {
     const prompts = [
       {
         name: 'discoveringModels',
-        message: `Select the models which to discover`,
+        message: g.f('Select the models which to discover'),
         type: 'checkbox',
         choices: this.modelChoices,
         when:
@@ -169,12 +190,58 @@ module.exports = class DiscoveryGenerator extends ArtifactGenerator {
     ];
 
     return this.prompt(prompts).then(answers => {
+      /* istanbul ignore next */
       if (!answers.discoveringModels) return;
       debug(`Models chosen: ${JSON.stringify(answers)}`);
       this.discoveringModels = [];
       answers.discoveringModels.forEach(m => {
         this.discoveringModels.push(this.modelChoices.find(c => c.name === m));
       });
+    });
+  }
+
+  /**
+   * Prompts what naming convention they would like to have for column names.
+   */
+  promptColNamingConvention() {
+    this.namingConvention = [
+      {
+        name: g.f('Camel case (exampleColumn) (Recommended)'),
+        value: 'camelCase',
+      },
+      {
+        name: g.f('No conversion (EXAMPLE_COLUMN)'),
+        value: 'noCase',
+      },
+    ];
+    return this.prompt([
+      {
+        name: 'disableCamelCase',
+        message: g.f(
+          'Select a convention to convert db column names(EXAMPLE_COLUMN) to model property names:',
+        ),
+        type: 'list',
+        choices: this.namingConvention,
+        default: false,
+      },
+    ]).then(props => {
+      /* istanbul ignore next */
+      if (!props.disableCamelCase) return;
+      props.disableCamelCase = props.disableCamelCase !== 'camelCase';
+
+      Object.assign(this.artifactInfo, props);
+      /* istanbul ignore next */
+      if (props.disableCamelCase) {
+        this.log(
+          chalk.red(
+            g.f(
+              'By disabling Camel case, you might need to specify these customized names in relation definition.',
+            ),
+          ),
+        );
+      }
+      debug(`props after naming convention prompt: ${props.disableCamelCase}`);
+      return props;
     });
   }
 
@@ -187,6 +254,11 @@ module.exports = class DiscoveryGenerator extends ArtifactGenerator {
    * @returns {Promise<void>}
    */
   async getAllModelDefs() {
+    /* istanbul ignore next */
+    if (this.shouldExit()) {
+      await this.artifactInfo.dataSource.disconnect();
+      return false;
+    }
     this.artifactInfo.modelDefinitions = [];
     // eslint-disable-next-line @typescript-eslint/prefer-for-of
     for (let i = 0; i < this.discoveringModels.length; i++) {
@@ -196,7 +268,10 @@ module.exports = class DiscoveryGenerator extends ArtifactGenerator {
         await modelMaker.discoverSingleModel(
           this.artifactInfo.dataSource,
           modelInfo.name,
-          {schema: modelInfo.owner},
+          {
+            schema: modelInfo.owner,
+            disableCamelCase: this.artifactInfo.disableCamelCase,
+          },
         ),
       );
       debug(`Discovered: ${modelInfo.name}`);
@@ -207,28 +282,25 @@ module.exports = class DiscoveryGenerator extends ArtifactGenerator {
    * Iterate through all the models we have discovered and scaffold
    */
   async scaffold() {
+    // Exit if needed
+    /* istanbul ignore next */
+    if (this.shouldExit()) {
+      await this.artifactInfo.dataSource.disconnect();
+      return;
+    }
     this.artifactInfo.indexesToBeUpdated =
       this.artifactInfo.indexesToBeUpdated || [];
-
-    // Exit if needed
-    if (this.shouldExit()) return false;
 
     // eslint-disable-next-line @typescript-eslint/prefer-for-of
     for (let i = 0; i < this.artifactInfo.modelDefinitions.length; i++) {
       const modelDefinition = this.artifactInfo.modelDefinitions[i];
-      Object.entries(modelDefinition.properties).forEach(([k, v]) =>
-        modelDiscoverer.sanitizeProperty(v),
+      const templateData = importDiscoveredModel(modelDefinition);
+
+      debug(
+        'Generating model %s from template data',
+        modelDefinition.name,
+        templateData,
       );
-      modelDefinition.isModelBaseBuiltin = true;
-      modelDefinition.modelBaseClass = 'Entity';
-      modelDefinition.className = utils.pascalCase(modelDefinition.name);
-      // These last two are so that the template doesn't error out if they aren't there
-      modelDefinition.allowAdditionalProperties = true;
-      // modelDefinition.modelSettings = modelDefinition.settings || {};
-      modelDefinition.modelSettings = utils.stringifyModelSettings(
-        modelDefinition.settings || {},
-      );
-      debug(`Generating: ${modelDefinition.name}`);
 
       const fullPath = path.resolve(
         this.options.outDir || this.artifactInfo.outDir,
@@ -239,7 +311,7 @@ module.exports = class DiscoveryGenerator extends ArtifactGenerator {
       this.copyTemplatedFiles(
         modelDiscoverer.MODEL_TEMPLATE_PATH,
         fullPath,
-        modelDefinition,
+        templateData,
       );
 
       this.artifactInfo.indexesToBeUpdated.push({

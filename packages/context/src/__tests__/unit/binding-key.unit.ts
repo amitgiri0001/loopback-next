@@ -1,10 +1,11 @@
-// Copyright IBM Corp. 2019. All Rights Reserved.
+// Copyright IBM Corp. 2019,2020. All Rights Reserved.
 // Node module: @loopback/context
 // This file is licensed under the MIT License.
 // License text available at https://opensource.org/licenses/MIT
 
 import {expect} from '@loopback/testlab';
 import {BindingKey} from '../..';
+import {UNIQUE_ID_PATTERN} from '../../unique-id';
 
 describe('BindingKey', () => {
   describe('create', () => {
@@ -56,6 +57,24 @@ describe('BindingKey', () => {
         key: 'foo',
         propertyPath: 'bar',
       });
+    });
+  });
+
+  describe('generate', () => {
+    it('generates binding key without namespace', () => {
+      const key1 = BindingKey.generate().key;
+      expect(key1).to.match(new RegExp(`^${UNIQUE_ID_PATTERN.source}$`));
+      const key2 = BindingKey.generate().key;
+      expect(key1).to.not.eql(key2);
+    });
+
+    it('generates binding key with namespace', () => {
+      const key1 = BindingKey.generate('services').key;
+      expect(key1).to.match(
+        new RegExp(`^services\\.${UNIQUE_ID_PATTERN.source}$`, 'i'),
+      );
+      const key2 = BindingKey.generate('services').key;
+      expect(key1).to.not.eql(key2);
     });
   });
 });

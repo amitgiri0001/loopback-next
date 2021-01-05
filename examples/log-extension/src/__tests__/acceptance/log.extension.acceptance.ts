@@ -3,11 +3,12 @@
 // This file is licensed under the MIT License.
 // License text available at https://opensource.org/licenses/MIT
 
-import {inject} from '@loopback/context';
-import {get, param} from '@loopback/openapi-v3';
+import {inject} from '@loopback/core';
 import {
+  get,
   FindRoute,
   InvokeMethod,
+  param,
   ParseParams,
   Reject,
   RequestContext,
@@ -17,7 +18,7 @@ import {
   SequenceHandler,
 } from '@loopback/rest';
 import {Client, createClientForHandler, expect, sinon} from '@loopback/testlab';
-import * as chalk from 'chalk';
+import chalk from 'chalk';
 import {
   EXAMPLE_LOG_BINDINGS,
   HighResTime,

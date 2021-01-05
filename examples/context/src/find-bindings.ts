@@ -1,15 +1,15 @@
-// Copyright IBM Corp. 2019. All Rights Reserved.
+// Copyright IBM Corp. 2019,2020. All Rights Reserved.
 // Node module: @loopback/example-context
 // This file is licensed under the MIT License.
 // License text available at https://opensource.org/licenses/MIT
 
 import {
-  bind,
   BindingFilter,
   BindingTemplate,
   Context,
   createBindingFromClass,
   filterByTag,
+  injectable,
 } from '@loopback/context';
 
 interface Greeter {
@@ -31,7 +31,7 @@ class ChineseGreeter implements Greeter {
   }
 }
 
-@bind(asGreeter)
+@injectable(asGreeter)
 class EnglishGreeter implements Greeter {
   language = 'en';
   greet(name: string) {
@@ -46,10 +46,7 @@ export async function main() {
   ctx.add(createBindingFromClass(EnglishGreeter, {namespace: 'greeters'}));
 
   // Add ChineseGreeter
-  ctx
-    .bind('greeters.ChineseGreeter')
-    .toClass(ChineseGreeter)
-    .tag('greeter');
+  ctx.bind('greeters.ChineseGreeter').toClass(ChineseGreeter).tag('greeter');
 
   const enlishGreeterBinding = ctx.getBinding('greeters.EnglishGreeter');
   console.log(enlishGreeterBinding.key);

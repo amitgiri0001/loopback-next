@@ -1,43 +1,43 @@
-// Copyright IBM Corp. 2019. All Rights Reserved.
+// Copyright IBM Corp. 2019,2020. All Rights Reserved.
 // Node module: @loopback/rest
 // This file is licensed under the MIT License.
 // License text available at https://opensource.org/licenses/MIT
 
-import {ParameterLocation} from '@loopback/openapi-v3';
+import {ParameterObject} from '@loopback/openapi-v3';
 import {RestHttpErrors} from '../../../';
 import {test} from './utils';
 
-const INT32_PARAM = {
-  in: <ParameterLocation>'path',
+const INT32_PARAM: ParameterObject = {
+  in: 'path',
   name: 'aparameter',
   schema: {type: 'integer', format: 'int32'},
 };
 
-const INT64_PARAM = {
-  in: <ParameterLocation>'path',
+const INT64_PARAM: ParameterObject = {
+  in: 'path',
   name: 'aparameter',
   schema: {type: 'integer', format: 'int64'},
 };
 
-const REQUIRED_INTEGER_PARAM = {
-  in: <ParameterLocation>'path',
+const REQUIRED_INTEGER_PARAM: ParameterObject = {
+  in: 'path',
   name: 'aparameter',
   schema: {type: 'integer'},
   required: true,
 };
 
-const INTEGER_PARAM = {
-  in: <ParameterLocation>'path',
+const INTEGER_PARAM: ParameterObject = {
+  in: 'path',
   name: 'aparameter',
   schema: {type: 'integer'},
 };
 
 describe('coerce param from string to integer', () => {
   test(INT32_PARAM, '100', 100);
-  test(INT64_PARAM, '9223372036854775807', 9223372036854775807);
+  test(INT64_PARAM, '9007199254740991', 9007199254740991);
 });
 
-describe('coerce param from string to integer - required', function() {
+describe('coerce param from string to integer - required', function () {
   context('valid values', () => {
     test(REQUIRED_INTEGER_PARAM, '0', 0);
     test(REQUIRED_INTEGER_PARAM, '1', 1);
@@ -54,7 +54,7 @@ describe('coerce param from string to integer - required', function() {
   });
 });
 
-describe('coerce param from string to integer - optional', function() {
+describe('coerce param from string to integer - optional', function () {
   context('valid values', () => {
     test(INTEGER_PARAM, '0', 0);
     test(INTEGER_PARAM, '1', 1);

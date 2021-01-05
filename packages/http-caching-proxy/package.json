@@ -1,13 +1,15 @@
 {
   "name": "@loopback/http-caching-proxy",
-  "version": "1.2.1",
+  "version": "2.1.19",
   "description": "A caching HTTP proxy for integration tests. NOT SUITABLE FOR PRODUCTION USE!",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
   "engines": {
-    "node": ">=8.9"
+    "node": "^10.16 || 12 || 14"
   },
   "scripts": {
     "build": "lb-tsc",
-    "clean": "lb-clean loopback-caching-proxy*.tgz dist tsconfig.build.tsbuildinfo package",
+    "clean": "lb-clean loopback-caching-proxy*.tgz dist *.tsbuildinfo package",
     "pretest": "npm run build",
     "test": "lb-mocha \"dist/__tests__/**/*.js\"",
     "verify": "npm pack && tar xf loopback-caching-proxy*.tgz && tree package && npm run clean"
@@ -15,23 +17,26 @@
   "author": "IBM Corp.",
   "copyright.owner": "IBM Corp.",
   "license": "MIT",
+  "publishConfig": {
+    "access": "public"
+  },
   "dependencies": {
-    "cacache": "^13.0.1",
-    "debug": "^4.1.1",
-    "p-event": "^4.1.0",
-    "request": "^2.88.0",
-    "request-promise-native": "^1.0.8",
-    "rimraf": "^3.0.0"
+    "axios": "^0.21.0",
+    "cacache": "^15.0.5",
+    "debug": "^4.3.1",
+    "rimraf": "^3.0.2",
+    "tslib": "^2.0.3"
   },
   "devDependencies": {
-    "@loopback/build": "^2.0.16",
-    "@loopback/eslint-config": "^4.1.4",
-    "@loopback/testlab": "^1.9.4",
+    "@loopback/build": "^6.2.8",
+    "@loopback/eslint-config": "^10.0.4",
+    "@loopback/testlab": "^3.2.10",
     "@types/debug": "^4.1.5",
-    "@types/node": "^10.17.5",
-    "@types/request-promise-native": "^1.0.17",
-    "@types/rimraf": "^2.0.3",
-    "delay": "^4.3.0"
+    "@types/node": "^10.17.35",
+    "@types/rimraf": "^3.0.0",
+    "@types/tunnel": "0.0.1",
+    "delay": "^4.4.0",
+    "tunnel": "0.0.6"
   },
   "keywords": [
     "LoopBack",
@@ -42,15 +47,10 @@
   ],
   "files": [
     "README.md",
-    "index.js",
-    "index.d.ts",
     "dist",
     "src",
     "!*/__tests__"
   ],
-  "publishConfig": {
-    "access": "public"
-  },
   "repository": {
     "type": "git",
     "url": "https://github.com/strongloop/loopback-next.git",

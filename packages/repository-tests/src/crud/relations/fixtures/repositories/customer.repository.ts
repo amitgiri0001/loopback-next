@@ -1,26 +1,36 @@
-// Copyright IBM Corp. 2019. All Rights Reserved.
+// Copyright IBM Corp. 2019,2020. All Rights Reserved.
 // Node module: @loopback/repository-tests
 // This file is licensed under the MIT License.
 // License text available at https://opensource.org/licenses/MIT
 
-import {Getter} from '@loopback/context';
+import {Getter} from '@loopback/core';
 import {
   BelongsToAccessor,
+  BelongsToDefinition,
+  createBelongsToAccessor,
+  createHasManyRepositoryFactory,
+  createHasManyThroughRepositoryFactory,
+  createHasOneRepositoryFactory,
+  HasManyDefinition,
   HasManyRepositoryFactory,
+  HasManyThroughRepositoryFactory,
+  HasOneDefinition,
   HasOneRepositoryFactory,
   juggler,
-  createHasManyRepositoryFactory,
-  HasManyDefinition,
-  HasOneDefinition,
-  createBelongsToAccessor,
-  BelongsToDefinition,
-  createHasOneRepositoryFactory,
 } from '@loopback/repository';
-import {Address, Customer, CustomerRelations, Order} from '../models';
 import {CrudRepositoryCtor} from '../../../../types.repository-tests';
+import {
+  Address,
+  CartItem,
+  Customer,
+  CustomerCartItemLink,
+  CustomerRelations,
+  Order,
+} from '../models';
 
 // create the CustomerRepo by calling this func so that it can be extended from CrudRepositoryCtor
 export function createCustomerRepo(repoClass: CrudRepositoryCtor) {
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   return class CustomerRepository extends repoClass<
     Customer,
     typeof Customer.prototype.id,
@@ -42,11 +52,19 @@ export function createCustomerRepo(repoClass: CrudRepositoryCtor) {
       Customer,
       typeof Customer.prototype.id
     >;
+    public readonly cartItems: HasManyThroughRepositoryFactory<
+      CartItem,
+      typeof CartItem.prototype.id,
+      CustomerCartItemLink,
+      typeof CustomerCartItemLink.prototype.id
+    >;
 
     constructor(
       db: juggler.DataSource,
       orderRepositoryGetter: Getter<typeof repoClass.prototype>,
       addressRepositoryGetter: Getter<typeof repoClass.prototype>,
+      cartItemRepositoryGetter: Getter<typeof repoClass.prototype>,
+      customerCartItemLinkRepositoryGetter: Getter<typeof repoClass.prototype>,
     ) {
       super(Customer, db);
       const ordersMeta = this.entityClass.definition.relations['orders'];
@@ -71,6 +89,12 @@ export function createCustomerRepo(repoClass: CrudRepositoryCtor) {
         parentMeta as BelongsToDefinition,
         Getter.fromValue(this),
         this,
+      );
+      const cartItemsMeta = this.entityClass.definition.relations['cartItems'];
+      this.cartItems = createHasManyThroughRepositoryFactory(
+        cartItemsMeta as HasManyDefinition,
+        cartItemRepositoryGetter,
+        customerCartItemLinkRepositoryGetter,
       );
     }
   };

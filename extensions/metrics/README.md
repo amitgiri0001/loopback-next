@@ -1,9 +1,9 @@
-# @loopback/extension-metrics
+# @loopback/metrics
 
 This module contains a component that reports metrics of Node.js, LoopBack
 framework, and your application to [Prometheus](https://prometheus.io/).
 
-## Stability: :warning:Experimental:warning:
+## Stability: ⚠️Experimental⚠️
 
 > Experimental packages provide early access to advanced or experimental
 > functionality to get community feedback. Such modules are published to npm
@@ -13,7 +13,7 @@ framework, and your application to [Prometheus](https://prometheus.io/).
 ## Installation
 
 ```sh
-npm install --save @loopback/extension-metrics
+npm install --save @loopback/metrics
 ```
 
 ## Basic use
@@ -24,7 +24,7 @@ class.
 Start by importing the component class:
 
 ```ts
-import {MetricsComponent} from '@loopback/extension-metrics';
+import {MetricsComponent} from '@loopback/metrics';
 ```
 
 In the constructor, add the component to your application:
@@ -44,6 +44,16 @@ this.configure(MetricsBindings.COMPONENT).to({
   defaultMetrics: {
     timeout: 5000,
   },
+});
+```
+
+It also has to be noted, that by default the OpenAPI spec is disabled and
+therefore the metrics endpoint will not be visible in the API explorer. The spec
+can be enabled by setting `openApiSpec` to `true`.
+
+```ts
+this.configure(MetricsBindings.COMPONENT).to({
+  openApiSpec: true,
 });
 ```
 
@@ -85,7 +95,7 @@ http://localhost:3000/metrics returns metrics in plain text format. It includes
 information for the Node.js process as well as LoopBack method invocations.
 
 <details>
-<summary>Example of plain text data</summary>
+<summary markdown="span">Example of plain text data</summary>
 <pre>
 # HELP process_cpu_user_seconds_total Total user CPU time spent in seconds.
 # TYPE process_cpu_user_seconds_total counter

@@ -1,4 +1,4 @@
-// Copyright IBM Corp. 2019. All Rights Reserved.
+// Copyright IBM Corp. 2019,2020. All Rights Reserved.
 // Node module: @loopback/rest
 // This file is licensed under the MIT License.
 // License text available at https://opensource.org/licenses/MIT
@@ -14,7 +14,7 @@ import {aBodySpec} from '../helpers';
 
 const INVALID_MSG = RestHttpErrors.INVALID_REQUEST_BODY_MESSAGE;
 
-const TODO_SCHEMA = {
+const TODO_SCHEMA: SchemaObject = {
   title: 'Todo',
   properties: {
     title: {type: 'string'},
@@ -25,7 +25,7 @@ const TODO_SCHEMA = {
 };
 
 // a schema that contains a property with referenced schema
-const ACCOUNT_SCHEMA = {
+const ACCOUNT_SCHEMA: SchemaObject = {
   title: 'Account',
   properties: {
     title: {type: 'string'},
@@ -33,7 +33,7 @@ const ACCOUNT_SCHEMA = {
   },
 };
 
-const ADDRESS_SCHEMA = {
+const ADDRESS_SCHEMA: SchemaObject = {
   title: 'Address',
   properties: {
     city: {type: 'string'},
@@ -42,7 +42,7 @@ const ADDRESS_SCHEMA = {
   },
 };
 
-const INVALID_ACCOUNT_SCHEMA = {
+const INVALID_ACCOUNT_SCHEMA: SchemaObject = {
   title: 'Account',
   properties: {
     title: {type: 'string'},
@@ -51,17 +51,17 @@ const INVALID_ACCOUNT_SCHEMA = {
 };
 
 describe('validateRequestBody', () => {
-  it('accepts valid data omitting optional properties', () => {
-    validateRequestBody(
+  it('accepts valid data omitting optional properties', async () => {
+    await validateRequestBody(
       {value: {title: 'work'}, schema: TODO_SCHEMA},
       aBodySpec(TODO_SCHEMA),
     );
   });
 
   // Test for https://github.com/strongloop/loopback-next/issues/3234
-  it('honors options for AJV validator caching', () => {
+  it('honors options for AJV validator caching', async () => {
     // 1. Trigger a validation with `{coerceTypes: false}`
-    validateRequestBody(
+    await validateRequestBody(
       {
         value: {city: 'San Jose', unit: 123, isOwner: true},
         schema: ADDRESS_SCHEMA,
@@ -72,7 +72,7 @@ describe('validateRequestBody', () => {
     );
 
     // 2. Trigger a validation with `{coerceTypes: true}`
-    validateRequestBody(
+    await validateRequestBody(
       {
         value: {city: 'San Jose', unit: '123', isOwner: 'true'},
         schema: ADDRESS_SCHEMA,
@@ -83,7 +83,7 @@ describe('validateRequestBody', () => {
     );
 
     // 3. Trigger a validation with `{coerceTypes: false}` with invalid data
-    expect(() =>
+    await expect(
       validateRequestBody(
         {
           value: {city: 'San Jose', unit: '123', isOwner: true},
@@ -93,10 +93,10 @@ describe('validateRequestBody', () => {
         {},
         {coerceTypes: false},
       ),
-    ).to.throw(/The request body is invalid/);
+    ).to.be.rejectedWith(/The request body is invalid/);
   });
 
-  it('rejects data missing a required property', () => {
+  it('rejects data missing a required property', async () => {
     const details: RestHttpErrors.ValidationErrorDetails[] = [
       {
         path: '',
@@ -105,7 +105,7 @@ describe('validateRequestBody', () => {
         info: {missingProperty: 'title'},
       },
     ];
-    verifyValidationRejectsInputWithError(
+    await verifyValidationRejectsInputWithError(
       INVALID_MSG,
       'VALIDATION_FAILED',
       details,
@@ -116,16 +116,16 @@ describe('validateRequestBody', () => {
     );
   });
 
-  it('rejects data containing values of a wrong type', () => {
+  it('rejects data containing values of a wrong type', async () => {
     const details: RestHttpErrors.ValidationErrorDetails[] = [
       {
-        path: '.isComplete',
+        path: '/isComplete',
         code: 'type',
         message: 'should be boolean',
         info: {type: 'boolean'},
       },
     ];
-    verifyValidationRejectsInputWithError(
+    await verifyValidationRejectsInputWithError(
       INVALID_MSG,
       'VALIDATION_FAILED',
       details,
@@ -137,7 +137,7 @@ describe('validateRequestBody', () => {
     );
   });
 
-  it('reports all validation errors', () => {
+  it('reports all validation errors', async () => {
     const details: RestHttpErrors.ValidationErrorDetails[] = [
       {
         path: '',
@@ -146,13 +146,13 @@ describe('validateRequestBody', () => {
         info: {missingProperty: 'title'},
       },
       {
-        path: '.isComplete',
+        path: '/isComplete',
         code: 'type',
         message: 'should be boolean',
         info: {type: 'boolean'},
       },
     ];
-    verifyValidationRejectsInputWithError(
+    await verifyValidationRejectsInputWithError(
       INVALID_MSG,
       'VALIDATION_FAILED',
       details,
@@ -164,15 +164,18 @@ describe('validateRequestBody', () => {
     );
   });
 
-  it('reports schema generation errors', () => {
-    expect(() =>
-      validateRequestBody({value: {}, schema: INVALID_ACCOUNT_SCHEMA}),
-    ).to.throw(
+  it('reports schema generation errors', async () => {
+    await expect(
+      validateRequestBody({
+        value: {},
+        schema: INVALID_ACCOUNT_SCHEMA,
+      }),
+    ).to.be.rejectedWith(
       "can't resolve reference #/components/schemas/Invalid from id #",
     );
   });
 
-  it('resolves schema references', () => {
+  it('resolves schema references', async () => {
     const details: RestHttpErrors.ValidationErrorDetails[] = [
       {
         path: '',
@@ -181,7 +184,7 @@ describe('validateRequestBody', () => {
         info: {missingProperty: 'title'},
       },
     ];
-    verifyValidationRejectsInputWithError(
+    await verifyValidationRejectsInputWithError(
       INVALID_MSG,
       'VALIDATION_FAILED',
       details,
@@ -191,8 +194,8 @@ describe('validateRequestBody', () => {
     );
   });
 
-  it('rejects empty values when body is required', () => {
-    verifyValidationRejectsInputWithError(
+  it('rejects empty values when body is required', async () => {
+    await verifyValidationRejectsInputWithError(
       'Request body is required',
       'MISSING_REQUIRED_PARAMETER',
       undefined,
@@ -203,17 +206,17 @@ describe('validateRequestBody', () => {
     );
   });
 
-  it('allows empty values when body is optional', () => {
-    validateRequestBody(
+  it('allows empty values when body is optional', async () => {
+    await validateRequestBody(
       {value: null, schema: TODO_SCHEMA},
       aBodySpec(TODO_SCHEMA, {required: false}),
     );
   });
 
-  it('rejects invalid values for number properties', () => {
+  it('rejects invalid values for number properties', async () => {
     const details: RestHttpErrors.ValidationErrorDetails[] = [
       {
-        path: '.count',
+        path: '/count',
         code: 'type',
         message: 'should be number',
         info: {type: 'number'},
@@ -224,7 +227,7 @@ describe('validateRequestBody', () => {
         count: {type: 'number'},
       },
     };
-    verifyValidationRejectsInputWithError(
+    await verifyValidationRejectsInputWithError(
       INVALID_MSG,
       'VALIDATION_FAILED',
       details,
@@ -234,10 +237,10 @@ describe('validateRequestBody', () => {
   });
 
   context('rejects array of data with wrong type - ', () => {
-    it('primitive types', () => {
+    it('primitive types', async () => {
       const details: RestHttpErrors.ValidationErrorDetails[] = [
         {
-          path: '.orders[1]',
+          path: '/orders/1',
           code: 'type',
           message: 'should be string',
           info: {type: 'string'},
@@ -254,7 +257,7 @@ describe('validateRequestBody', () => {
           },
         },
       };
-      verifyValidationRejectsInputWithError(
+      await verifyValidationRejectsInputWithError(
         INVALID_MSG,
         'VALIDATION_FAILED',
         details,
@@ -263,10 +266,10 @@ describe('validateRequestBody', () => {
       );
     });
 
-    it('first level $ref', () => {
+    it('first level $ref', async () => {
       const details: RestHttpErrors.ValidationErrorDetails[] = [
         {
-          path: '[1]',
+          path: '/1',
           code: 'required',
           message: "should have required property 'title'",
           info: {missingProperty: 'title'},
@@ -278,7 +281,7 @@ describe('validateRequestBody', () => {
           $ref: '#/components/schemas/Todo',
         },
       };
-      verifyValidationRejectsInputWithError(
+      await verifyValidationRejectsInputWithError(
         INVALID_MSG,
         'VALIDATION_FAILED',
         details,
@@ -288,16 +291,16 @@ describe('validateRequestBody', () => {
       );
     });
 
-    it('nested $ref in schema', () => {
+    it('nested $ref in schema', async () => {
       const details: RestHttpErrors.ValidationErrorDetails[] = [
         {
-          path: '.todos[1]',
+          path: '/todos/1',
           code: 'required',
           message: "should have required property 'title'",
           info: {missingProperty: 'title'},
         },
         {
-          path: '.todos[2].title',
+          path: '/todos/2/title',
           code: 'type',
           message: 'should be string',
           info: {type: 'string'},
@@ -314,7 +317,7 @@ describe('validateRequestBody', () => {
           },
         },
       };
-      verifyValidationRejectsInputWithError(
+      await verifyValidationRejectsInputWithError(
         INVALID_MSG,
         'VALIDATION_FAILED',
         details,
@@ -330,10 +333,10 @@ describe('validateRequestBody', () => {
       );
     });
 
-    it('nested $ref in reference', () => {
+    it('nested $ref in reference', async () => {
       const details: RestHttpErrors.ValidationErrorDetails[] = [
         {
-          path: '.accounts[0].address.city',
+          path: '/accounts/0/address/city',
           code: 'type',
           message: 'should be string',
           info: {type: 'string'},
@@ -350,7 +353,7 @@ describe('validateRequestBody', () => {
           },
         },
       };
-      verifyValidationRejectsInputWithError(
+      await verifyValidationRejectsInputWithError(
         INVALID_MSG,
         'VALIDATION_FAILED',
         details,
@@ -368,7 +371,7 @@ describe('validateRequestBody', () => {
 
 // ----- HELPERS ----- /
 
-function verifyValidationRejectsInputWithError(
+async function verifyValidationRejectsInputWithError(
   expectedMessage: string,
   expectedCode: string,
   expectedDetails: RestHttpErrors.ValidationErrorDetails[] | undefined,
@@ -378,7 +381,7 @@ function verifyValidationRejectsInputWithError(
   required?: boolean,
 ) {
   try {
-    validateRequestBody(
+    await validateRequestBody(
       {value: body, schema},
       aBodySpec(schema, {required}),
       schemas,

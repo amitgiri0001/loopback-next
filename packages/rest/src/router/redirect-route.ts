@@ -1,4 +1,4 @@
-// Copyright IBM Corp. 2019. All Rights Reserved.
+// Copyright IBM Corp. 2019,2020. All Rights Reserved.
 // Node module: @loopback/rest
 // This file is licensed under the MIT License.
 // License text available at https://opensource.org/licenses/MIT
@@ -23,9 +23,9 @@ export class RedirectRoute implements RouteEntry, ResolvedRoute {
   };
 
   constructor(
-    private readonly sourcePath: string,
-    private readonly targetLocation: string,
-    private readonly statusCode: number = 303,
+    public readonly sourcePath: string,
+    public readonly targetLocation: string,
+    public readonly statusCode: number = 303,
   ) {
     this.path = sourcePath;
   }
@@ -42,6 +42,22 @@ export class RedirectRoute implements RouteEntry, ResolvedRoute {
   }
 
   describe(): string {
-    return `RedirectRoute from "${this.sourcePath}" to "${this.targetLocation}"`;
+    return `Redirect: "${this.sourcePath}" => "${this.targetLocation}"`;
+  }
+
+  /**
+   * type guard type checker for this class
+   * @param obj
+   */
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  static isRedirectRoute(obj: any): obj is RedirectRoute {
+    const redirectOptions = obj as RedirectRoute;
+    if (
+      redirectOptions?.targetLocation &&
+      redirectOptions.spec?.description === 'LoopBack Redirect route'
+    ) {
+      return true;
+    }
+    return false;
   }
 }

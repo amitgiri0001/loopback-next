@@ -1,13 +1,13 @@
-// Copyright IBM Corp. 2018. All Rights Reserved.
+// Copyright IBM Corp. 2018,2020. All Rights Reserved.
 // Node module: @loopback/rest
 // This file is licensed under the MIT License.
 // License text available at https://opensource.org/licenses/MIT
 
-import {Context, invokeMethodWithInterceptors} from '@loopback/context';
+import {Context, invokeMethodWithInterceptors} from '@loopback/core';
 import {OperationObject} from '@loopback/openapi-v3';
 import {RestBindings} from '../keys';
 import {OperationArgs, OperationRetval} from '../types';
-import {BaseRoute} from './base-route';
+import {BaseRoute, RouteSource} from './base-route';
 
 export class Route extends BaseRoute {
   constructor(
@@ -20,7 +20,9 @@ export class Route extends BaseRoute {
   }
 
   describe(): string {
-    return this._handler.name || super.describe();
+    return `${super.describe()} => ${
+      this._handler.name || this._handler.toString()
+    }`;
   }
 
   updateBindings(requestContext: Context) {
@@ -33,6 +35,12 @@ export class Route extends BaseRoute {
   ): Promise<OperationRetval> {
     // Use `invokeMethodWithInterceptors` to invoke the handler function so
     // that global interceptors are applied
-    return invokeMethodWithInterceptors(requestContext, this, '_handler', args);
+    return invokeMethodWithInterceptors(
+      requestContext,
+      this,
+      '_handler',
+      args,
+      {source: new RouteSource(this)},
+    );
   }
 }

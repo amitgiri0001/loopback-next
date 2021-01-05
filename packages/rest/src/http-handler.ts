@@ -1,10 +1,17 @@
-// Copyright IBM Corp. 2017,2019. All Rights Reserved.
+// Copyright IBM Corp. 2017,2020. All Rights Reserved.
 // Node module: @loopback/rest
 // This file is licensed under the MIT License.
 // License text available at https://opensource.org/licenses/MIT
 
-import {Context} from '@loopback/context';
-import {ControllerSpec, PathObject, SchemasObject} from '@loopback/openapi-v3';
+import {Context} from '@loopback/core';
+import {
+  ComponentsObject,
+  ControllerSpec,
+  PathObject,
+  ReferenceObject,
+  SchemaObject,
+  SchemasObject,
+} from '@loopback/openapi-v3';
 import {RestBindings} from './keys';
 import {RequestContext} from './request-context';
 import {RestServerResolvedConfig} from './rest.server';
@@ -19,7 +26,10 @@ import {SequenceHandler} from './sequence';
 import {Request, Response} from './types';
 
 export class HttpHandler {
-  protected _apiDefinitions: SchemasObject;
+  /**
+   * Shared OpenAPI spec objects as `components`
+   */
+  protected _openApiComponents: ComponentsObject;
 
   public handleRequest: (request: Request, response: Response) => Promise<void>;
 
@@ -43,12 +53,39 @@ export class HttpHandler {
     this._routes.registerRoute(route);
   }
 
+  /**
+   * @deprecated Use `registerApiComponents`
+   * @param defs Schemas
+   */
   registerApiDefinitions(defs: SchemasObject) {
-    this._apiDefinitions = Object.assign({}, this._apiDefinitions, defs);
+    this.registerApiComponents({schemas: defs});
   }
 
-  getApiDefinitions() {
-    return this._apiDefinitions;
+  /**
+   * Merge components into the OpenApi spec
+   * @param defs - Components
+   */
+  registerApiComponents(defs: ComponentsObject) {
+    this._openApiComponents = this._openApiComponents ?? {};
+    for (const p in defs) {
+      // Merge each child, such as `schemas`, `parameters`, and `headers`
+      this._openApiComponents[p] = {...this._openApiComponents[p], ...defs[p]};
+    }
+  }
+
+  getApiComponents() {
+    return this._openApiComponents;
+  }
+
+  /**
+   * @deprecated Use `getApiComponents`
+   */
+  getApiDefinitions():
+    | {
+        [schema: string]: SchemaObject | ReferenceObject;
+      }
+    | undefined {
+    return this._openApiComponents?.schemas;
   }
 
   describeApiPaths(): PathObject {

@@ -1,7 +1,7 @@
 ---
 lang: en
 title: 'App scaffolding'
-keywords: LoopBack 4.0, LoopBack 4
+keywords: LoopBack 4.0, LoopBack 4, Node.js, TypeScript, OpenAPI, SOAP
 sidebar: lb4_sidebar
 permalink: /doc/en/lb4/soap-calculator-tutorial-scaffolding.html
 ---
@@ -39,7 +39,7 @@ the application.
 
 {% include note.html content="
 Enable all options besides `docker`, unless you know what you are doing, see
-[The Getting Started guide](Getting-started.md) for more information.
+[The Getting Started guide](../../Getting-started.md) for more information.
 " %}
 
 ```sh

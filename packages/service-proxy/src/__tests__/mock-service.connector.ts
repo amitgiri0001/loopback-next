@@ -1,10 +1,10 @@
-// Copyright IBM Corp. 2019. All Rights Reserved.
+// Copyright IBM Corp. 2019,2020. All Rights Reserved.
 // Node module: @loopback/service-proxy
 // This file is licensed under the MIT License.
 // License text available at https://opensource.org/licenses/MIT
 
+import legacy from 'loopback-datasource-juggler';
 import {juggler} from '..';
-import * as legacy from 'loopback-datasource-juggler';
 
 /**
  * A mockup service connector
@@ -50,6 +50,7 @@ export class MockConnector {
     });
   }
 
+  // eslint-disable-next-line @typescript-eslint/naming-convention
   get DataAccessObject() {
     if (!this.connected) {
       // this simulates call to the connector.DataAccessObject when the
@@ -59,7 +60,7 @@ export class MockConnector {
     }
 
     return {
-      geocode: async function(street: string, city: string, zipcode: string) {
+      geocode: async function (street: string, city: string, zipcode: string) {
         return {
           lat: 37.5669986,
           lng: -122.3237495,

@@ -1,17 +1,17 @@
-// Copyright IBM Corp. 2019. All Rights Reserved.
-// Node module: @loopback/extension-metrics
+// Copyright IBM Corp. 2019,2020. All Rights Reserved.
+// Node module: @loopback/metrics
 // This file is licensed under the MIT License.
 // License text available at https://opensource.org/licenses/MIT
 
 import {
   asGlobalInterceptor,
-  bind,
   BindingScope,
+  injectable,
   Interceptor,
   InvocationContext,
   Provider,
   ValueOrPromise,
-} from '@loopback/context';
+} from '@loopback/core';
 import {Counter, Gauge, Histogram, register, Summary} from 'prom-client';
 
 /**
@@ -20,15 +20,15 @@ import {Counter, Gauge, Histogram, register, Summary} from 'prom-client';
  * a method is invoked. Please collect metrics at other places
  * if you want to cover more than just method invocations.
  */
-@bind(asGlobalInterceptor('metrics'), {scope: BindingScope.SINGLETON})
+@injectable(asGlobalInterceptor('metrics'), {scope: BindingScope.SINGLETON})
 export class MetricsInterceptor implements Provider<Interceptor> {
-  private static gauge: Gauge;
+  private static gauge: Gauge<'targetName'>;
 
-  private static histogram: Histogram;
+  private static histogram: Histogram<'targetName'>;
 
-  private static counter: Counter;
+  private static counter: Counter<'targetName'>;
 
-  private static summary: Summary;
+  private static summary: Summary<'targetName'>;
 
   private static setup() {
     // Check if the gauge is registered

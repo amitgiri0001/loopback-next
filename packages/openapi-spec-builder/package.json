@@ -1,13 +1,15 @@
 {
   "name": "@loopback/openapi-spec-builder",
-  "version": "1.2.18",
+  "version": "3.0.3",
   "description": "Make it easy to create OpenAPI (Swagger) specification documents in your tests using the builder pattern.",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
   "engines": {
-    "node": ">=8.9"
+    "node": "^10.16 || 12 || 14"
   },
   "scripts": {
     "build": "lb-tsc",
-    "clean": "lb-clean loopback-openapi-spec-builder*.tgz dist tsconfig.build.tsbuildinfo package",
+    "clean": "lb-clean loopback-openapi-spec-builder*.tgz dist *.tsbuildinfo package",
     "pretest": "npm run build",
     "test": "lb-mocha \"dist/__tests__/**/*.js\"",
     "verify": "npm pack && tar xf loopback-openapi-spec-builder*.tgz && tree package && npm run clean"
@@ -15,6 +17,19 @@
   "author": "IBM Corp.",
   "copyright.owner": "IBM Corp.",
   "license": "MIT",
+  "publishConfig": {
+    "access": "public"
+  },
+  "dependencies": {
+    "openapi3-ts": "^2.0.0",
+    "tslib": "^2.0.3"
+  },
+  "devDependencies": {
+    "@loopback/build": "^6.2.8",
+    "@loopback/eslint-config": "^10.0.4",
+    "@loopback/testlab": "^3.2.10",
+    "@types/node": "^10.17.35"
+  },
   "keywords": [
     "Swagger",
     "OpenAPI Spec",
@@ -22,19 +37,8 @@
     "Builder",
     "Testing"
   ],
-  "dependencies": {
-    "openapi3-ts": "^1.3.0"
-  },
-  "devDependencies": {
-    "@loopback/build": "^2.0.16",
-    "@loopback/eslint-config": "^4.1.4",
-    "@loopback/testlab": "^1.9.4",
-    "@types/node": "^10.17.5"
-  },
   "files": [
     "README.md",
-    "index.js",
-    "index.d.ts",
     "dist",
     "src",
     "!*/__tests__"

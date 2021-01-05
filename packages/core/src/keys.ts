@@ -1,4 +1,4 @@
-// Copyright IBM Corp. 2017,2018. All Rights Reserved.
+// Copyright IBM Corp. 2017,2020. All Rights Reserved.
 // Node module: @loopback/core
 // This file is licensed under the MIT License.
 // License text available at https://opensource.org/licenses/MIT
@@ -30,7 +30,7 @@ export namespace CoreBindings {
   /**
    * Binding key for application configuration
    */
-  export const APPLICATION_CONFIG = BindingKey.create<ApplicationConfig>(
+  export const APPLICATION_CONFIG: BindingKey<ApplicationConfig> = BindingKey.create<ApplicationConfig>(
     'application.config',
   );
 
@@ -60,7 +60,7 @@ export namespace CoreBindings {
    * Binding key for the controller class resolved in the current request
    * context
    */
-  export const CONTROLLER_CLASS = BindingKey.create<ControllerClass>(
+  export const CONTROLLER_CLASS: BindingKey<ControllerClass> = BindingKey.create<ControllerClass>(
     'controller.current.ctor',
   );
 
@@ -88,16 +88,16 @@ export namespace CoreBindings {
   /**
    * Binding key for life cycle observer options
    */
-  export const LIFE_CYCLE_OBSERVER_REGISTRY = BindingKey.create<
-    LifeCycleObserverRegistry
-  >('lifeCycleObserver.registry');
+  export const LIFE_CYCLE_OBSERVER_REGISTRY = BindingKey.create<LifeCycleObserverRegistry>(
+    'lifeCycleObserver.registry',
+  );
 
   /**
    * Binding key for life cycle observer options
    */
-  export const LIFE_CYCLE_OBSERVER_OPTIONS = BindingKey.create<
-    LifeCycleObserverOptions
-  >('lifeCycleObserver.options');
+  export const LIFE_CYCLE_OBSERVER_OPTIONS = BindingKey.create<LifeCycleObserverOptions>(
+    'lifeCycleObserver.options',
+  );
 }
 
 export namespace CoreTags {

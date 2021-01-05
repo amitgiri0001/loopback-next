@@ -1,5 +1,5 @@
-// Copyright IBM Corp. 2017,2018. All Rights Reserved.
-// Node module: @loopback/rest
+// Copyright IBM Corp. 2018,2020. All Rights Reserved.
+// Node module: @loopback/benchmark
 // This file is licensed under the MIT License.
 // License text available at https://opensource.org/licenses/MIT
 
@@ -71,7 +71,7 @@ function givenRouter(router: RestRouter, spec: OpenApiSpec, count: number) {
   class TestController {}
 
   return (log?: (...args: unknown[]) => void) => {
-    log = log || (() => {});
+    log = log ?? (() => {});
     log('Creating %s, %d', name, count);
     let start = process.hrtime();
 

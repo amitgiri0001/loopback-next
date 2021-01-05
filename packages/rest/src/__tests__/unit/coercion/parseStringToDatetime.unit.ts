@@ -1,26 +1,26 @@
-// Copyright IBM Corp. 2019. All Rights Reserved.
+// Copyright IBM Corp. 2019,2020. All Rights Reserved.
 // Node module: @loopback/rest
 // This file is licensed under the MIT License.
 // License text available at https://opensource.org/licenses/MIT
 
-import {ParameterLocation} from '@loopback/openapi-v3';
+import {ParameterObject} from '@loopback/openapi-v3';
 import {RestHttpErrors} from '../../../';
 import {test} from './utils';
 
-const DATETIME_PARAM = {
-  in: <ParameterLocation>'path',
+const DATETIME_PARAM: ParameterObject = {
+  in: 'path',
   name: 'aparameter',
   schema: {type: 'string', format: 'date-time'},
 };
 
-const REQUIRED_DATETIME_PARAM = {
-  in: <ParameterLocation>'path',
+const REQUIRED_DATETIME_PARAM: ParameterObject = {
+  in: 'path',
   name: 'aparameter',
   schema: {type: 'string', format: 'date-time'},
   required: true,
 };
 
-describe('coerce param from string to date - required', function() {
+describe('coerce param from string to date - required', function () {
   context('valid values', () => {
     test(
       REQUIRED_DATETIME_PARAM,
@@ -39,7 +39,7 @@ describe('coerce param from string to date - required', function() {
   });
 });
 
-describe('coerce param from string to date - optional', function() {
+describe('coerce param from string to date - optional', function () {
   context('valid values', () => {
     test(
       DATETIME_PARAM,

@@ -1,32 +1,39 @@
-// Copyright IBM Corp. 2018. All Rights Reserved.
+// Copyright IBM Corp. 2018,2020. All Rights Reserved.
 // Node module: @loopback/core
 // This file is licensed under the MIT License.
 // License text available at https://opensource.org/licenses/MIT
 
 import {
-  bind,
   Binding,
   BindingSpec,
+  BindingTagFilter,
   Constructor,
+  filterByTag,
+  injectable,
   ValueOrPromise,
 } from '@loopback/context';
 import {CoreTags} from './keys';
 
 /**
- * Observers to handle life cycle start/stop events
+ * Observers to handle life cycle init/start/stop events
  */
 export interface LifeCycleObserver {
   /**
+   * The method to be invoked during `init`. It will only be called at most once
+   * for a given application instance.
+   */
+  init?(...injectedArgs: unknown[]): ValueOrPromise<void>;
+  /**
    * The method to be invoked during `start`
    */
-  start?(): ValueOrPromise<void>;
+  start?(...injectedArgs: unknown[]): ValueOrPromise<void>;
   /**
    * The method to be invoked during `stop`
    */
-  stop?(): ValueOrPromise<void>;
+  stop?(...injectedArgs: unknown[]): ValueOrPromise<void>;
 }
 
-const lifeCycleMethods: (keyof LifeCycleObserver)[] = ['start', 'stop'];
+const lifeCycleMethods: (keyof LifeCycleObserver)[] = ['init', 'start', 'stop'];
 
 /**
  * Test if an object implements LifeCycleObserver
@@ -61,9 +68,9 @@ export function asLifeCycleObserver<T = unknown>(binding: Binding<T>) {
  * Find all life cycle observer bindings. By default, a binding tagged with
  * `CoreTags.LIFE_CYCLE_OBSERVER`. It's used as `BindingFilter`.
  */
-export function lifeCycleObserverFilter(binding: Readonly<Binding>): boolean {
-  return binding.tagMap[CoreTags.LIFE_CYCLE_OBSERVER] != null;
-}
+export const lifeCycleObserverFilter: BindingTagFilter = filterByTag(
+  CoreTags.LIFE_CYCLE_OBSERVER,
+);
 
 /**
  * Sugar decorator to mark a class as life cycle observer
@@ -71,7 +78,7 @@ export function lifeCycleObserverFilter(binding: Readonly<Binding>): boolean {
  * @param specs - Optional bindings specs
  */
 export function lifeCycleObserver(group = '', ...specs: BindingSpec[]) {
-  return bind(
+  return injectable(
     asLifeCycleObserver,
     {
       tags: {

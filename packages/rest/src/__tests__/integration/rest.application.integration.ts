@@ -1,14 +1,13 @@
-// Copyright IBM Corp. 2018,2019. All Rights Reserved.
+// Copyright IBM Corp. 2019,2020. All Rights Reserved.
 // Node module: @loopback/rest
 // This file is licensed under the MIT License.
 // License text available at https://opensource.org/licenses/MIT
 
 import {anOperationSpec} from '@loopback/openapi-spec-builder';
 import {Client, createRestAppClient, expect} from '@loopback/testlab';
-import * as express from 'express';
-import {Request, Response} from 'express';
-import * as fs from 'fs';
-import * as path from 'path';
+import express, {Request, Response} from 'express';
+import fs from 'fs';
+import path from 'path';
 import {
   get,
   RestApplication,
@@ -37,10 +36,7 @@ describe('RestApplication (integration)', () => {
       .readFileSync(path.join(ASSETS, '', 'index.html'))
       .toString('utf-8');
     client = createRestAppClient(restApp);
-    await client
-      .get('/index.html')
-      .expect(200)
-      .expect(content);
+    await client.get('/index.html').expect(200).expect(content);
   });
 
   it('serves static assets from non-root path', async () => {
@@ -51,10 +47,7 @@ describe('RestApplication (integration)', () => {
       .readFileSync(path.join(ASSETS, 'index.html'))
       .toString('utf-8');
     client = createRestAppClient(restApp);
-    await client
-      .get('/public/index.html')
-      .expect(200)
-      .expect(content);
+    await client.get('/public/index.html').expect(200).expect(content);
   });
 
   it('returns 404 if asset is not found', async () => {
@@ -73,10 +66,7 @@ describe('RestApplication (integration)', () => {
       .readFileSync(path.join(ASSETS, 'index.html'))
       .toString('utf-8');
     client = createRestAppClient(restApp);
-    await client
-      .get('/index.html')
-      .expect(200)
-      .expect(content);
+    await client.get('/index.html').expect(200).expect(content);
   });
 
   it('adds new route', async () => {
@@ -94,10 +84,7 @@ describe('RestApplication (integration)', () => {
     });
     await restApp.start();
     client = createRestAppClient(restApp);
-    await client
-      .get('/greet')
-      .expect(200)
-      .expect('Hello');
+    await client.get('/greet').expect(200).expect('Hello');
   });
 
   it('honors basePath for static assets', async () => {
@@ -140,7 +127,7 @@ describe('RestApplication (integration)', () => {
       'x-foo': 'bar',
     });
 
-    const spec = restApp.restServer.getApiSpec();
+    const spec = await restApp.restServer.getApiSpec();
     expect(spec).to.deepEqual({
       openapi: '3.0.0',
       info: {
@@ -180,7 +167,7 @@ describe('RestApplication (integration)', () => {
 
     it('gives precedence to an external route over a static route', async () => {
       const router = express.Router();
-      router.get('/', function(_req: Request, res: Response) {
+      router.get('/', function (_req: Request, res: Response) {
         res.send('External dog');
       });
 
@@ -192,10 +179,10 @@ describe('RestApplication (integration)', () => {
 
     it('mounts an express Router without spec', async () => {
       const router = express.Router();
-      router.get('/poodle/', function(_req: Request, res: Response) {
+      router.get('/poodle/', function (_req: Request, res: Response) {
         res.send('Poodle!');
       });
-      router.get('/pug', function(_req: Request, res: Response) {
+      router.get('/pug', function (_req: Request, res: Response) {
         res.send('Pug!');
       });
       restApp.mountExpressRouter('/dogs', router);
@@ -232,7 +219,7 @@ describe('RestApplication (integration)', () => {
       restApp.mountExpressRouter('/dogs', router, spec);
       await client.get('/dogs/hello').expect(200, 'Hello dogs!');
 
-      const openApiSpec = restApp.restServer.getApiSpec();
+      const openApiSpec = await restApp.restServer.getApiSpec();
       expect(openApiSpec.paths).to.deepEqual({
         '/dogs/hello': {
           get: {
@@ -249,7 +236,7 @@ describe('RestApplication (integration)', () => {
 
     it('mounts more than one express Router', async () => {
       const router = express.Router();
-      router.get('/poodle', function(_req: Request, res: Response) {
+      router.get('/poodle', function (_req: Request, res: Response) {
         res.send('Poodle!');
       });
 
@@ -257,7 +244,7 @@ describe('RestApplication (integration)', () => {
 
       const secondRouter = express.Router();
 
-      secondRouter.get('/persian', function(_req: Request, res: Response) {
+      secondRouter.get('/persian', function (_req: Request, res: Response) {
         res.send('Persian cat.');
       });
 
@@ -272,7 +259,7 @@ describe('RestApplication (integration)', () => {
     givenApplication();
 
     const router = express.Router();
-    router.get('/poodle', function(_req: Request, res: Response) {
+    router.get('/poodle', function (_req: Request, res: Response) {
       res.send('Poodle!');
     });
     restApp.mountExpressRouter('/dogs', router);
@@ -285,7 +272,7 @@ describe('RestApplication (integration)', () => {
   });
 
   function givenApplication(options?: {rest: RestServerConfig}) {
-    options = options || {rest: {port: 0, host: '127.0.0.1'}};
+    options = options ?? {rest: {port: 0, host: '127.0.0.1'}};
     restApp = new RestApplication(options);
   }
 });

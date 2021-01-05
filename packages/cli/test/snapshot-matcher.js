@@ -1,4 +1,4 @@
-// Copyright IBM Corp. 2019. All Rights Reserved.
+// Copyright IBM Corp. 2019,2020. All Rights Reserved.
 // Node module: @loopback/cli
 // This file is licensed under the MIT License.
 // License text available at https://opensource.org/licenses/MIT
@@ -17,10 +17,87 @@ move this file to a standalone package so that all Mocha users can use it.
 const chalk = require('chalk');
 const assert = require('assert');
 const path = require('path');
+const debug = require('debug')('loopback:cli:test:snapshot-matcher');
+
+const root = process.cwd();
+const shouldUpdateSnapshots = process.env.UPDATE_SNAPSHOTS;
+
+// Register root hooks for mocha
+const mochaHooks = {
+  // This global hook is called once, before the test suite starts.
+  // When running tests in parallel, it is invoked once for each test file.
+  beforeAll: resetGlobalState,
+
+  // This global hook is called per test
+  beforeEach: injectCurrentTest,
+
+  // This global hook is called once, after mocha is finished
+  // When running tests in parallel, it is invoked once for each test file.
+  afterAll: updateSnapshotFiles,
+};
 
 module.exports = {
   initializeSnapshots,
+  mochaHooks,
 };
+
+// A lookup table for snapshot-matcher instance data (state)
+// key: snapshot directory (snapshotDir)
+// value: matcher state {snapshotDir, snapshots, snapshotErrors}
+const snapshotMatchers = new Map();
+
+// The currently running test (an instance of `Mocha.Test`)
+let currentTest;
+
+/** @this {Mocha.Context} */
+function injectCurrentTest() {
+  currentTest = this.currentTest;
+  debug(
+    '[%d] Injecting current test %s',
+    process.pid,
+    getFullTestName(currentTest),
+  );
+  currentTest.__snapshotCounter = 1;
+}
+
+async function updateSnapshotFiles() {
+  if (!shouldUpdateSnapshots) return;
+  debug('[%d] Updating snapshots (writing to files)', process.pid);
+  for (const state of snapshotMatchers.values()) {
+    const tasks = Object.entries(state.snapshots).map(([f, data]) => {
+      const snapshotFile = buildSnapshotFilePath(state.snapshotDir, f);
+      return writeSnapshotData(snapshotFile, data);
+    });
+    await Promise.all(tasks);
+  }
+}
+
+function resetGlobalState() {
+  debug(
+    '[%d] Resetting snapshot matchers',
+    process.pid,
+    Array.from(snapshotMatchers.keys()),
+  );
+  currentTest = undefined;
+  for (const matcher of snapshotMatchers.values()) {
+    resetMatcherState(matcher);
+  }
+}
+
+function resetMatcherState(matcher) {
+  matcher.snapshotErrors = false;
+  matcher.snapshots = Object.create(null);
+  return matcher;
+}
+
+function getOrCreateMatcherForDir(snapshotDir) {
+  let matcher = snapshotMatchers.get(snapshotDir);
+  if (matcher == null) {
+    matcher = resetMatcherState({snapshotDir});
+    snapshotMatchers.set(snapshotDir, matcher);
+  }
+  return matcher;
+}
 
 /**
  * Create a function to match the given value against a pre-recorder snapshot.
@@ -43,18 +120,28 @@ module.exports = {
  * ```
  */
 function initializeSnapshots(snapshotDir) {
-  let currentTest;
-  let snapshotErrors = false;
+  if (debug.enabled) {
+    const stack = new Error().stack
+      .split(/\n/g)
+      // Remove the error message and the top stack frame pointing to ourselves
+      // and pick three frames (max), that should be enough to identify
+      // which test file called us.
+      .slice(2, 5)
+      .map(f => `\n${f}`)
+      .join();
+    debug(
+      '[%d] Initializing snapshot matcher, storing snapshots in %s%s',
+      process.pid,
+      snapshotDir,
+      stack,
+    );
+  }
 
-  beforeEach(function setupSnapshots() {
-    // eslint-disable-next-line no-invalid-this
-    currentTest = this.currentTest;
-    currentTest.__snapshotCounter = 1;
-  });
+  const matcher = getOrCreateMatcherForDir(snapshotDir);
 
-  if (!process.env.UPDATE_SNAPSHOTS) {
+  if (!shouldUpdateSnapshots) {
     process.on('exit', function printSnapshotHelp() {
-      if (!snapshotErrors) return;
+      if (!matcher.snapshotErrors) return;
       console.log(
         chalk.red(`
 Some of the snapshot-based tests have failed. Please carefully inspect
@@ -66,51 +153,56 @@ variable to update snapshots.
     });
     return function expectToMatchSnapshot(actual) {
       try {
-        matchSnapshot(snapshotDir, currentTest, actual);
+        matchSnapshot(matcher, actual);
       } catch (err) {
-        snapshotErrors = true;
+        matcher.snapshotErrors = true;
         throw err;
       }
     };
   }
 
-  const snapshots = Object.create(null);
-  after(async function updateSnapshots() {
-    const tasks = Object.entries(snapshots).map(([f, data]) => {
-      const snapshotFile = buildSnapshotFilePath(snapshotDir, f);
-      return writeSnapshotData(snapshotFile, data);
-    });
-    await Promise.all(tasks);
-  });
-
   return function expectToRecordSnapshot(actual) {
-    recordSnapshot(snapshots, currentTest, actual);
+    recordSnapshot(matcher, actual);
   };
 }
 
-function matchSnapshot(snapshotDir, currentTest, actualValue) {
+function matchSnapshot(matcher, actualValue) {
   assert(
     typeof actualValue === 'string',
     'Snapshot matcher supports string values only, but was called with ' +
       typeof actualValue,
   );
 
-  const snapshotFile = buildSnapshotFilePath(snapshotDir, currentTest.file);
+  const snapshotFile = buildSnapshotFilePath(
+    matcher.snapshotDir,
+    currentTest.file,
+  );
   const snapshotData = loadSnapshotData(snapshotFile);
   const key = buildSnapshotKey(currentTest);
 
   if (!(key in snapshotData)) {
+    const shortFile = path.relative(root, snapshotFile);
     throw new Error(
-      `No snapshot found for ${JSON.stringify(key)}.\n` +
+      `No snapshot found in ${JSON.stringify(shortFile)} ` +
+        `for ${JSON.stringify(key)}.\n` +
         'Run the tests with `UPDATE_SNAPSHOTS=1` environment variable ' +
         'to create and update snapshot files.',
     );
   }
 
-  assert.deepStrictEqual(actualValue, snapshotData[key]);
+  // When running on Windows, `actualValue` may be using `\r\n` as EOL.
+  // We are normalizing snapshot data to use `\n` as EOL, but depending on
+  // git settings, the content can be converted during git checkout to
+  // use `\r\n` instead.
+  // For maximum safety, we normalize line endings in both actual and expected
+  // values.
+  assert.deepStrictEqual(
+    normalizeNewlines(actualValue),
+    normalizeNewlines(snapshotData[key]),
+  );
 }
 
-function recordSnapshot(snapshots, currentTest, actualValue) {
+function recordSnapshot(matcher, actualValue) {
   assert(
     typeof actualValue === 'string',
     'Snapshot matcher supports string values only, but was called with ' +
@@ -119,23 +211,33 @@ function recordSnapshot(snapshots, currentTest, actualValue) {
 
   const key = buildSnapshotKey(currentTest);
   const testFile = currentTest.file;
-  if (!snapshots[testFile]) snapshots[testFile] = Object.create(null);
-  snapshots[testFile][key] = actualValue;
+  if (debug.enabled) {
+    debug(
+      'Recording snapshot %j for test file %j',
+      key,
+      path.relative(root, testFile),
+    );
+  }
+
+  if (!matcher.snapshots[testFile]) {
+    matcher.snapshots[testFile] = Object.create(null);
+  }
+  matcher.snapshots[testFile][key] = actualValue;
 }
 
-function buildSnapshotKey(currentTest) {
-  const counter = currentTest.__snapshotCounter || 1;
-  currentTest.__snapshotCounter = counter + 1;
-  return `${getFullTestName(currentTest)} ${counter}`;
+function buildSnapshotKey(test) {
+  const counter = test.__snapshotCounter || 1;
+  test.__snapshotCounter = counter + 1;
+  return `${getFullTestName(test)} ${counter}`;
 }
 
-function getFullTestName(currentTest) {
-  let result = currentTest.title;
+function getFullTestName(test) {
+  let result = test.title;
   for (;;) {
-    if (!currentTest.parent) break;
-    currentTest = currentTest.parent;
-    if (currentTest.title) {
-      result = currentTest.title + ' ' + result;
+    if (!test.parent) break;
+    test = test.parent;
+    if (test.title) {
+      result = test.title + ' ' + result;
     }
   }
   return result;
@@ -201,6 +303,7 @@ function writeSnapshotData(snapshotFile, snapshots) {
 
   const content = header + entries.join('\n');
   mkdirp.sync(path.dirname(snapshotFile));
+  debug('Updating snapshot file %j', path.relative(root, snapshotFile));
   return writeFileAtomic(snapshotFile, content, {encoding: 'utf-8'});
 }
 

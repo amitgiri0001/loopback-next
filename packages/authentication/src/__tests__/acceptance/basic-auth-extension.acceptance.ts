@@ -1,21 +1,24 @@
-// Copyright IBM Corp. 2019. All Rights Reserved.
+// Copyright IBM Corp. 2019,2020. All Rights Reserved.
 // Node module: @loopback/authentication
 // This file is licensed under the MIT License.
 // License text available at https://opensource.org/licenses/MIT
 
-import {inject} from '@loopback/context';
-import {Application} from '@loopback/core';
+import {Application, inject} from '@loopback/core';
 import {anOpenApiSpec} from '@loopback/openapi-spec-builder';
-import {api, get} from '@loopback/openapi-v3';
-import {Request, RestServer} from '@loopback/rest';
+import {api, get, Request, RestServer} from '@loopback/rest';
 import {SecurityBindings, securityId, UserProfile} from '@loopback/security';
-import {Client, createClientForHandler} from '@loopback/testlab';
-import {authenticate, registerAuthenticationStrategy} from '../..';
+import {Client, createClientForHandler, expect} from '@loopback/testlab';
+import {
+  authenticate,
+  AuthenticationBindings,
+  registerAuthenticationStrategy,
+} from '../..';
 import {AuthenticationStrategy} from '../../types';
 import {
   createBasicAuthorizationHeaderValue,
   getApp,
   getUserRepository,
+  myUserProfileFactory,
 } from '../fixtures/helper';
 import {BasicAuthenticationStrategyBindings, USER_REPO} from '../fixtures/keys';
 import {MyAuthenticationSequence} from '../fixtures/sequences/authentication.sequence';
@@ -159,6 +162,7 @@ describe('Basic Authentication', () => {
         },
       });
   });
+
   it('returns error when undefined user profile returned from authentication strategy', async () => {
     class BadBasicStrategy implements AuthenticationStrategy {
       name = 'badbasic';
@@ -188,6 +192,22 @@ describe('Basic Authentication', () => {
         },
       });
   });
+
+  it('adds security scheme component to apiSpec', async () => {
+    const EXPECTED_SPEC = {
+      components: {
+        securitySchemes: {
+          basic: {
+            type: 'http',
+            scheme: 'basic',
+          },
+        },
+      },
+    };
+    const spec = await server.getApiSpec();
+    expect(spec).to.containDeep(EXPECTED_SPEC);
+  });
+
   async function givenAServer() {
     app = getApp();
     server = await app.getServer(RestServer);
@@ -239,6 +259,10 @@ describe('Basic Authentication', () => {
     users = getUserRepository();
     joeUser = users.list['joe888'];
     server.bind(USER_REPO).to(users);
+
+    server
+      .bind(AuthenticationBindings.USER_PROFILE_FACTORY)
+      .to(myUserProfileFactory);
   }
 
   function whenIMakeRequestTo(restServer: RestServer): Client {

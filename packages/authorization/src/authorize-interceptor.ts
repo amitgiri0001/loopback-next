@@ -1,24 +1,22 @@
-// Copyright IBM Corp. 2019. All Rights Reserved.
+// Copyright IBM Corp. 2018,2020. All Rights Reserved.
 // Node module: @loopback/authorization
 // This file is licensed under the MIT License.
 // License text available at https://opensource.org/licenses/MIT
 
 import {
   asGlobalInterceptor,
-  bind,
   BindingAddress,
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   config,
   Context,
-  filterByTag,
-  inject,
+  injectable,
   Interceptor,
   InvocationContext,
   Next,
+  NonVoid,
   Provider,
-} from '@loopback/context';
+} from '@loopback/core';
 import {SecurityBindings, UserProfile} from '@loopback/security';
-import * as debugFactory from 'debug';
+import debugFactory from 'debug';
 import {getAuthorizationMetadata} from './decorators/authorize';
 import {AuthorizationBindings, AuthorizationTags} from './keys';
 import {
@@ -32,19 +30,18 @@ import {createPrincipalFromUserProfile} from './util';
 
 const debug = debugFactory('loopback:authorization:interceptor');
 
-@bind(asGlobalInterceptor('authorization'))
+@injectable(asGlobalInterceptor('authorization'))
 export class AuthorizationInterceptor implements Provider<Interceptor> {
   private options: AuthorizationOptions;
 
   constructor(
-    @inject(filterByTag(AuthorizationTags.AUTHORIZER))
-    private authorizers: Authorizer[],
     @config({fromBinding: AuthorizationBindings.COMPONENT})
     options: AuthorizationOptions = {},
   ) {
     this.options = {
       defaultDecision: AuthorizationDecision.DENY,
       precedence: AuthorizationDecision.DENY,
+      defaultStatusCodeForDeny: 403,
       ...options,
     };
     debug('Authorization options', this.options);
@@ -54,7 +51,10 @@ export class AuthorizationInterceptor implements Provider<Interceptor> {
     return this.intercept.bind(this);
   }
 
-  async intercept(invocationCtx: InvocationContext, next: Next) {
+  async intercept(
+    invocationCtx: InvocationContext,
+    next: Next,
+  ): Promise<NonVoid> {
     const description = debug.enabled ? invocationCtx.description : '';
     let metadata = getAuthorizationMetadata(
       invocationCtx.target,
@@ -63,8 +63,8 @@ export class AuthorizationInterceptor implements Provider<Interceptor> {
     if (!metadata) {
       debug('No authorization metadata is found for %s', description);
     }
-    metadata = metadata || this.options.defaultMetadata;
-    if (!metadata || (metadata && metadata.skip)) {
+    metadata = metadata ?? this.options.defaultMetadata;
+    if (!metadata || metadata?.skip) {
       debug('Authorization is skipped for %s', description);
       const result = await next();
       return result;
@@ -87,13 +87,12 @@ export class AuthorizationInterceptor implements Provider<Interceptor> {
     };
 
     debug('Security context for %s', description, authorizationCtx);
-    let authorizers = await loadAuthorizers(
+    const authorizers = await loadAuthorizers(
       invocationCtx,
-      metadata.voters || [],
+      metadata.voters ?? [],
     );
 
     let finalDecision = this.options.defaultDecision;
-    authorizers = authorizers.concat(this.authorizers);
     for (const fn of authorizers) {
       const decision = await fn(authorizationCtx, metadata);
       debug('Decision', decision);
@@ -108,7 +107,7 @@ export class AuthorizationInterceptor implements Provider<Interceptor> {
       ) {
         debug('Access denied');
         const error = new AuthorizationError('Access denied');
-        error.statusCode = 401;
+        error.statusCode = this.options.defaultStatusCodeForDeny;
         throw error;
       }
       if (
@@ -123,7 +122,7 @@ export class AuthorizationInterceptor implements Provider<Interceptor> {
     // Handle the final decision
     if (finalDecision === AuthorizationDecision.DENY) {
       const error = new AuthorizationError('Access denied');
-      error.statusCode = 401;
+      error.statusCode = this.options.defaultStatusCodeForDeny;
       throw error;
     }
     return next();

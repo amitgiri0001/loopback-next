@@ -1,25 +1,26 @@
-// Copyright IBM Corp. 2017,2019. All Rights Reserved.
+// Copyright IBM Corp. 2017,2020. All Rights Reserved.
 // Node module: @loopback/rest
 // This file is licensed under the MIT License.
 // License text available at https://opensource.org/licenses/MIT
 
-import {BindingKey, Context} from '@loopback/context';
-import {CoreBindings} from '@loopback/core';
+import {BindingKey, Context, CoreBindings} from '@loopback/core';
+import {DEFAULT_MIDDLEWARE_CHAIN, InvokeMiddleware} from '@loopback/express';
 import {HttpProtocol} from '@loopback/http-server';
 import {OpenApiSpec, OperationObject} from '@loopback/openapi-v3';
-import * as https from 'https';
+import https from 'https';
 import {ErrorWriterOptions} from 'strong-error-handler';
 import {BodyParser, RequestBodyParser} from './body-parsers';
 import {HttpHandler} from './http-handler';
-import {RestServer} from './rest.server';
-import {RestRouter, RestRouterOptions} from './router';
+import {RestServer, RestServerConfig} from './rest.server';
+import {ResolvedRoute, RestRouter, RestRouterOptions} from './router';
 import {SequenceHandler} from './sequence';
 import {
-  BindElement,
+  AjvFactory,
   FindRoute,
-  GetFromContext,
   InvokeMethod,
   LogError,
+  OperationArgs,
+  OperationRetval,
   ParseParams,
   Reject,
   Request,
@@ -35,7 +36,9 @@ export namespace RestBindings {
   /**
    * Binding key for setting and injecting RestComponentConfig
    */
-  export const CONFIG = CoreBindings.APPLICATION_CONFIG.deepProperty('rest');
+  export const CONFIG: BindingKey<RestServerConfig> = CoreBindings.APPLICATION_CONFIG.deepProperty(
+    'rest',
+  );
   /**
    * Binding key for setting and injecting the host name of RestServer
    */
@@ -102,9 +105,9 @@ export namespace RestBindings {
   /**
    * Binding key for request body parser options
    */
-  export const REQUEST_BODY_PARSER_OPTIONS = BindingKey.create<
-    RequestBodyParserOptions
-  >('rest.requestBodyParserOptions');
+  export const REQUEST_BODY_PARSER_OPTIONS = BindingKey.create<RequestBodyParserOptions>(
+    'rest.requestBodyParserOptions',
+  );
 
   /**
    * Binding key for request body parser
@@ -153,9 +156,18 @@ export namespace RestBindings {
   );
 
   /**
+   * Binding key for AJV
+   */
+  export const AJV_FACTORY = BindingKey.create<AjvFactory>(
+    bodyParserBindingKey('rest.ajvFactory'),
+  );
+
+  /**
    * Binding key for setting and injecting an OpenAPI spec
    */
-  export const API_SPEC = BindingKey.create<OpenApiSpec>('rest.apiSpec');
+  export const API_SPEC: BindingKey<OpenApiSpec> = BindingKey.create<OpenApiSpec>(
+    'rest.apiSpec',
+  );
 
   /**
    * Binding key for setting and injecting an OpenAPI operation spec
@@ -170,9 +182,23 @@ export namespace RestBindings {
   export const SEQUENCE = BindingKey.create<SequenceHandler>('rest.sequence');
 
   /**
+   * Binding key for setting and injecting a `invokeMiddleware` function for
+   * middleware based sequence
+   */
+  export const INVOKE_MIDDLEWARE_SERVICE = BindingKey.create<InvokeMiddleware>(
+    'rest.invokeMiddleware',
+  );
+
+  /**
    * Bindings for potential actions that could be used in a sequence
    */
   export namespace SequenceActions {
+    /**
+     * Binding key for setting and injecting `invokeMiddleware` function
+     */
+    export const INVOKE_MIDDLEWARE = BindingKey.create<InvokeMiddleware>(
+      'rest.sequence.actions.invokeMiddleware',
+    );
     /**
      * Binding key for setting and injecting a route finding function
      */
@@ -209,18 +235,19 @@ export namespace RestBindings {
     );
   }
 
-  /**
-   * Binding key for setting and injecting a wrapper function for retrieving
-   * values from a given context
-   */
-  export const GET_FROM_CONTEXT = BindingKey.create<GetFromContext>(
-    'getFromContext',
-  );
-  /**
-   * Binding key for setting and injecting a wrapper function for setting values
-   * on a given context
-   */
-  export const BIND_ELEMENT = BindingKey.create<BindElement>('bindElement');
+  export namespace Operation {
+    export const ROUTE = BindingKey.create<ResolvedRoute>(
+      'rest.operation.route',
+    );
+
+    export const PARAMS = BindingKey.create<OperationArgs>(
+      'rest.operation.params',
+    );
+
+    export const RETURN_VALUE = BindingKey.create<OperationRetval>(
+      'rest.operation.returnValue',
+    );
+  }
 
   /**
    * Request-specific bindings
@@ -229,7 +256,9 @@ export namespace RestBindings {
     /**
      * Binding key for setting and injecting the http request
      */
-    export const REQUEST = BindingKey.create<Request>('rest.http.request');
+    export const REQUEST: BindingKey<Request> = BindingKey.create<Request>(
+      'rest.http.request',
+    );
     /**
      * Binding key for setting and injecting the http response
      */
@@ -241,4 +270,50 @@ export namespace RestBindings {
       'rest.http.request.context',
     );
   }
+
+  /**
+   * Namespace for REST routes
+   */
+  export const ROUTES = 'routes';
+}
+
+/**
+ * Binding tags for RestServer
+ */
+export namespace RestTags {
+  /**
+   * Binding tag to identify REST routes
+   */
+  export const REST_ROUTE = 'restRoute';
+
+  /**
+   * Binding tag for the REST route verb
+   */
+  export const ROUTE_VERB = 'restRouteVerb';
+
+  /**
+   * Binding tag for the REST route path
+   */
+  export const ROUTE_PATH = 'restRoutePath';
+
+  /**
+   * Binding tag to identify controller based REST routes
+   */
+  export const CONTROLLER_ROUTE = 'controllerRoute';
+
+  /**
+   * Binding tag for controller route bindings to represent the controller
+   * binding key
+   */
+  export const CONTROLLER_BINDING = 'controllerBinding';
+
+  export const AJV_KEYWORD = 'ajvKeyword';
+  export const AJV_FORMAT = 'ajvFormat';
+
+  export const REST_MIDDLEWARE_CHAIN = DEFAULT_MIDDLEWARE_CHAIN;
+
+  /**
+   * Legacy middleware chain for action-based REST sequence
+   */
+  export const ACTION_MIDDLEWARE_CHAIN = 'middlewareChain.rest.actions';
 }
